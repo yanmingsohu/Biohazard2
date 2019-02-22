@@ -13,43 +13,54 @@ class Mem {
 
   byte() {
     let d = this._buf.getUint8(this._pc);
+    debug(">", h(this._pc), d);
     this._pc += 1;
     return d;
   }
 
   ushort() {
     let d = this._buf.getUint16(this._pc, true);
+    debug(">", h(this._pc), d);
     this._pc += 2;
     return d;
   }
 
   short() {
     let d = this._buf.getInt16(this._pc, true);
+    debug(">", h(this._pc), d);
     this._pc += 2;
     return d;
   }
 
   // 跳过 n 个字节
   s(n) {
-    console.debug(">", this._pc.toString(16), "[", 
+    console.debug("^", h(this._pc), "[", 
         new Uint8Array(this._buf.buffer, this._pc, n), "]");
     this._pc += n;
   }
 
   // 将当前 pc + length 压入栈中
-  push(length) {
-    this._stack.push(this._pc + length);
+  // 必须在指令的第一个操作前压入
+  push(pc) {
+    debug("PUSH", h(this._pc), h(pc));
+    this._stack.push(pc);
   }
 
   // 弹出的栈值作为 pc 的值
   pop() {
     this._pc = this._stack.pop();
+    debug("POP", h(this._pc));
   }
 }
 
 
 function debug() {
   console.debug.apply(console, arguments);
+}
+
+
+function h(n) {
+  return '0x'+ n.toString(16);
 }
 
 
@@ -79,17 +90,24 @@ function compile(arrbuf) {
   //
   function run(game, sub_num = 0) {
     let mem = new Mem(arrbuf, fun_point[sub_num]);
+    let pc = 0;
     while (undefined === game.func_ret) {
-      _do(game, mem.byte(), mem);
+      pc = mem._pc;
+      _do(game, mem.byte(), mem, pc);
     }
     debug("EXIT:", game.func_ret);
   }
 
-
-  function _do(game, op, mem) {
+  //
+  // game 游戏对象
+  // op 操作码
+  // mem 内存模拟
+  // oppc 操作码所在的指针
+  //
+  function _do(game, op, mem, oppc) {
     switch(op) {
       default:
-        throw new Error("BAD OP 0x"+ op.toString(16));
+        throw new Error("BAD OP "+ h(op));
         break;
 
       case 0x00: 
@@ -130,19 +148,21 @@ function compile(arrbuf) {
       case 0x06:
         debug("IF {");
         mem.s(1);
-        let block_length = mem.ushort();
-        mem.push(block_length);
-        console.log("block len:", block_length);
+        mem.push(mem.ushort() + oppc);
         break;
 
       case 0x07:
         debug("Else {");
         mem.s(1);
-        mem.ushort();
+        mem.push(mem.ushort() + oppc);
+        if (mem.ck !== false) {
+          mem.pop();
+        }
         break;
 
       case 0x08:
         debug("IF }");
+        mem.pop();
         break;
 
       case 0x09:
@@ -230,7 +250,8 @@ function compile(arrbuf) {
 
       case 0x18:
         debug("CALL-SUB");
-        mem.byte();
+        var event = mem.byte();
+        console.log(event);
         break;
 
       case 0x19:
@@ -240,7 +261,8 @@ function compile(arrbuf) {
 
       case 0x1A:
         debug("Break");
-        mem.s(1);
+        // mem.s(1);
+        mem.pop();
         break;
 
       case 0x1B:
@@ -263,18 +285,29 @@ function compile(arrbuf) {
 
       case 0x21:
         debug("Bit test(Ck)");
-        var bitarr = mem.byte();
-        var number = mem.byte();
+        var arr = mem.byte();
+        var num = mem.byte();
         var val = mem.byte();
-        // game.arr[bitarr]
-        debug(bitarr, '0x'+number.toString(16), val);
+        
+        if (val != game.get_bitarr(arr, num)) {
+          mem.ck = false;
+          mem.pop();
+        } else {
+          mem.ck = true;
+        }
         break;
 
       case 0x22:
         debug("Bit chg");
-        mem.byte();
-        mem.byte();
-        mem.byte();
+        var arr = mem.byte();
+        var num = mem.byte();
+        var opchg = mem.byte();
+        switch (opchg) {
+          case 0x00: game.set_bitarr(arr, num, 0); break;
+          case 0x01: game.set_bitarr(arr, num, 1); break;
+          case 0x07: game.reverse(arr, num); break;
+        }
+        console.log(arr, num, opchg);
         break;
 
       case 0x23:
@@ -334,19 +367,21 @@ function compile(arrbuf) {
         break;
 
       case 0x2C:
-        debug("Aot_set");
-        var id = mem.byte();
-        var type = mem.byte();
+        debug("Aot_set 不可拾取的物体--障碍物，检查物体时的信息，死尸，火");
+        var npo = {};
+        npo.id = mem.byte();
+        npo.type = mem.byte();
         mem.s(1);
         mem.s(1);
         mem.s(1);
-        var x = mem.short();
-        var y = mem.short();
-        var w = mem.short();
-        var h = mem.short();
+        npo.x = mem.short();
+        npo.y = mem.short();
+        npo.w = mem.short();
+        npo.h = mem.short();
         mem.s(1);
         mem.s(1);
         mem.s(1);
+        debug("Non pickable:", JSON.stringify(npo));
         break;
 
       case 0x2D:
@@ -424,7 +459,7 @@ function compile(arrbuf) {
         break;
 
       case 0x3B:
-        debug("Door_aot_set");
+        debug("Door_aot_set 在地图上定义一个门");
         var door = {};
         door.id = mem.byte();
         mem.s(4);
@@ -494,22 +529,30 @@ function compile(arrbuf) {
         break;
 
       case 0x44:
-        debug("Sce_em_set");
+        debug("Sce_em_set 设置一个敌人");
         mem.s(1);
         var zb = {};
+        // entity index in internal array
         zb.id = mem.byte();
+        // 0x1f = peek a random zombi model
+				// else use this value for em0XX.emd filename
         zb.model = mem.byte();
         zb.state = mem.byte();
         mem.s(2);
         zb.sound_bank = mem.byte();
         zb.texture = mem.byte();
+        /* entity index in internal bit array */
+				/* seems to be unique for all entities of the game */
+				/* to know which ones have been killed, and must */
+				/* not be re-added to room when player come back */
         zb.killed_id = mem.byte();
+        /* position and direction of entity */
         zb.x = mem.short();
         zb.y = mem.short();
         zb.z = mem.short();
         zb.dir = mem.short();
         mem.s(4);
-        console.log(JSON.stringify(zb));
+        debug(JSON.stringify(zb));
         break;
 
       case 0x45:
@@ -683,18 +726,20 @@ function compile(arrbuf) {
         break;
 
       case 0x67:
-        debug("Aot_set_4p");
-        var id = mem.byte();
+        debug("Aot_set_4p, 用4个点定义一个范围, 玩家不能离开");
+        var wall = {};
+        wall.id = mem.byte();
         mem.s(4);
-        var x1 = mem.short();
-        var y1 = mem.short();
-        var x2 = mem.short();
-        var y2 = mem.short();
-        var x3 = mem.short();
-        var y3 = mem.short();
-        var x4 = mem.short();
-        var y4 = mem.short();
+        wall.x1 = mem.short();
+        wall.y1 = mem.short();
+        wall.x2 = mem.short();
+        wall.y2 = mem.short();
+        wall.x3 = mem.short();
+        wall.y3 = mem.short();
+        wall.x4 = mem.short();
+        wall.y4 = mem.short();
         mem.s(6);
+        debug("Wall", JSON.stringify(wall));
         break;
 
       case 0x68:

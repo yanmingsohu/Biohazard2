@@ -4,6 +4,7 @@
 const pwd = (global.game.bio2 || '.') + '/';
 import hex from '../boot/hex.js'
 import Script from './script.js'
+import Tim from './tim.js'
 
 export default {
   load,
@@ -21,13 +22,15 @@ function load(file) {
   let Head = new Uint8Array(filebuf, 0, 8);
   let camera_count = Head[1];
   let num_obj10 = Head[2];
-  console.log(Head, 'obj7', camera_count, 'obj10', num_obj10);
+  console.debug(Head, 'obj7', camera_count, 'obj10', num_obj10);
 
   let off = readOffset(filebuf);
   readCameraPos(filebuf, off, obj, camera_count);
   readCameraSwitch(filebuf, off, obj);
   readLight(filebuf, off, obj);
-  // readVAB(filebuf, off, obj);
+  readVAB(filebuf, off, obj);
+  readSpritesAnim(filebuf, off, obj);
+  readSpritesTim(filebuf, off, obj);
 
   if (num_obj10) {
     readTim(filebuf, off, obj);
@@ -43,7 +46,7 @@ function load(file) {
 
 
 function readScript(filebuf, off) {
-  // console.log("read script from", off);
+  // console.debug("read script from", off);
   let script_buf = new DataView(filebuf, off);
   // hex.printHex(new Uint8Array(filebuf, off, 0x20));
   return Script.compile(script_buf);
@@ -51,13 +54,91 @@ function readScript(filebuf, off) {
 
 
 function readVAB(filebuf, off, ret) {
-  // console.log("VAB", vab);
-  console.log("VAB", new Uint8Array(filebuf, off, 333));
+  // console.debug("VAB", vab);
+  let buf = new Uint8Array(filebuf, off, 333);
+  console.debug("VAB",);
+  hex.printHex(buf);
 }
 
 
 function readTim(filebuf, off, obj) {
-  console.log("TIM", new Uint8Array(filebuf, off, 333));
+  console.debug("TIM", new Uint8Array(filebuf, off, 333));
+}
+
+
+function readSpritesTim(buf, off, obj) {
+  const count = obj.sprites_anim.length;
+  const tim = obj.sprites_tim = [];
+  let file_offset = off.list_tim;
+
+  for (let i=0; i<count; ++i) {
+    console.debug("Read TIM on", file_offset);
+    const v = new DataView(buf, file_offset);
+    tim[i] = Tim.parseStream(v);
+    file_offset += tim[i].byteLength;
+  }
+}
+
+
+function readSpritesAnim(filebuf, off, obj) {
+  // console.debug("Sp Anim:");
+  // hex.printHex(new Uint8Array(filebuf, off.sprites_tim, 1500));
+
+  const v = new DataView(filebuf, off.sprites_tim);
+  let block = [];
+  for (let i=0; i<8; ++i) {
+    let c = v.getUint8(i);
+    if (c == 0xFF) break;
+    block.push(c);
+  }
+
+  //
+  // obj.sprites_anim: { frames, sprites, height, width, 
+  //                     num_frames, num_sprites }
+  //
+  let header = obj.sprites_anim = [];
+  let vi = 8;
+  for (let i=0; i<block.length; ++i) {
+    let h = {
+      num_frames  : v.getUint16(vi, true),
+      num_sprites : v.getUint16(vi +2, true),
+      height      : v.getUint8( vi +4),
+      width       : v.getUint8( vi +5),
+    };
+    vi += 8;
+    header.push(h);
+    console.debug("Anim Head:", i, J(h));
+
+    for (let f=0; f<h.num_frames; ++f) {
+      let frm = {
+        un0 : v.getUint8(vi+ 0),
+        un1 : v.getUint8(vi+ 1),
+        un2 : v.getUint8(vi+ 2),
+        un3 : v.getUint8(vi+ 3),
+        un4 : v.getUint8(vi+ 4),
+        un5 : v.getUint8(vi+ 5),
+        un6 : v.getUint8(vi+ 6),
+        un7 : v.getUint8(vi+ 7),
+      };
+      vi += 8;
+      h.frames = frm;
+      console.debug("   Frames:", J(frm));
+    }
+
+    for (let s=0; s<h.num_sprites; ++s) {
+      // x和y是TIM图像中精灵的左上角位置。偏移x，y是精灵中心的有符号值
+      // 用于在动画缓冲区中正确偏移图像部分。
+      let sp = {
+        x : v.getUint8(vi+ 0),
+        y : v.getUint8(vi+ 1),
+        offset_x : v.getInt8(vi+ 2),
+        offset_y : v.getInt8(vi+ 3),
+      };
+      vi += 4;
+      h.sprites = sp;
+      console.debug("  Sprites:", J(sp));
+    }
+  }
 }
 
 
@@ -77,11 +158,11 @@ function readCameraPos(filebuf, off, ret, count) {
       to_z   : v.getInt32(24, true),
     }
     let mask_off = v.getUint32(28, true);
+    console.debug("camera", JSON.stringify(c));
     if (mask_off != 0xffffffff) {
       c.mask = readMask(filebuf, mask_off);
     }
     cameras[i] = c;
-    console.log("camera", JSON.stringify(c));
   }
 }
 
@@ -90,40 +171,48 @@ function readMask(filebuf, off) {
   let v = new DataView(filebuf, off, 4);
   let c_offset = v.getUint16(0, true);
   let c_masks  = v.getUint16(2, true);
-  console.log("mask", new Uint8Array(filebuf, off, 4), c_offset, c_masks);
+  console.debug("Mask OFFset", new Uint8Array(filebuf, off, 4));
   off += 4;
   if (c_offset == 0xFFFF || c_masks == 0xFFFF) {
     return;
   }
-  let ret = [];
+  let offset_obj = [];
   
   for (let i = 0; i<c_offset; ++i) {
-    let mask = ret[i] = { chips: [] };
+    let mask = offset_obj[i] = {};
     v = new DataView(filebuf, off, 8);
     off += 8;
     let ct = mask.count = v.getUint16(0, true);
     mask.x = v.getUint16(4, true);
     mask.y = v.getUint16(6, true);
-    // console.log(off-8, ct, mask.x, mask.y);
+    // console.debug(off-8, ct, mask.x, mask.y);
     c_masks -= ct;
     if (c_masks < 0) {
       throw new Error("bad mask count");
     }
+    console.debug('Mask info', ct, JSON.stringify(mask));
   }
 
+  let ret = [];
   for (let i=0; i<c_offset; ++i) {
-    let mask = ret[i];
+    let mask = offset_obj[i];
 
     for (let j=0; j<mask.count; ++j) {
       let chip = {};
-      mask.chips.push(chip);
+      ret.push(chip);
 
       v = new DataView(filebuf, off, 12);
+      // 共同的源位置/ objspr / rsRXXP.adt图像文件
       chip.src_x = v.getUint8(0);
       chip.src_y = v.getUint8(1);
+      // 背景图像/屏幕上的目的地位置
       chip.dst_x = v.getUint8(2);
       chip.dst_y = v.getUint8(3);
+      // “深度”值是掩模与相机的Z距离（低值=近，高值=远）。
       chip.depth = v.getUint16(4, true);
+      // 要添加的背景图像/屏幕上的目的地位置
+      chip.x     = mask.x;
+      chip.y     = mask.y;
 
       let type = v.getUint16(6, true);
       if (type == 0) {
@@ -135,6 +224,7 @@ function readMask(filebuf, off) {
         chip.type = 'square';
         off += 8;
       }
+      console.debug("Mask chip", JSON.stringify(chip));
     }
   }
   return ret;
@@ -187,8 +277,8 @@ function readLight(filebuf, off, ret) {
     cameras.lightdef = lightdef;
     cameras.env_color = rcolor(13);
 
-    console.log("light", i, new Uint8Array(filebuf, off.lights + len*i, len));
-    console.log(JSON.stringify({light0, light1, lightdef}), cameras.env_color);
+    console.debug("light", i, new Uint8Array(filebuf, off.lights + len*i, len));
+    console.debug(JSON.stringify({light0, light1, lightdef}), cameras.env_color);
   }
 }
 
@@ -214,8 +304,8 @@ function readCameraSwitch(filebuf, off, ret) {
     }
     cameras.push(cam);
 
-    console.log("Camera Switch", ++c, new Uint8Array(filebuf, beg, len));
-    console.log(JSON.stringify(cam));
+    console.debug("Camera Switch", ++c, new Uint8Array(filebuf, beg, len));
+    console.debug(JSON.stringify(cam));
   }
 }
 
@@ -237,7 +327,12 @@ function readOffset(filebuf) {
   off.list_tim      = Offset.getUint32(20*4, true);
   off.another_tim   = Offset.getUint32(21*4, true);
 
-  console.log(new Uint8Array(filebuf, 8, len));
-  console.log(JSON.stringify(off, 0, 2));
+  console.debug(new Uint8Array(filebuf, 8, len));
+  console.debug(JSON.stringify(off, 0, 2));
   return off;
+}
+
+
+function J(o) {
+  return JSON.stringify(o);
 }
