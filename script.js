@@ -48,6 +48,8 @@ class Mem {
 
   // 弹出的栈值作为 pc 的值
   pop() {
+    if (this._stack.length <= 0) 
+        throw new Error("POP empty stack");
     this._pc = this._stack.pop();
     debug("POP", h(this._pc));
   }
@@ -79,7 +81,10 @@ function compile(arrbuf) {
   console.log("Func Point:", fun_point);
 
   return {
+    // 启动一个脚本
     run,
+    // 脚本数量
+    count : fun_point.length,
   };
 
 
@@ -91,7 +96,10 @@ function compile(arrbuf) {
   function run(game, sub_num = 0) {
     let mem = new Mem(arrbuf, fun_point[sub_num]);
     let pc = 0;
+    game.func_ret = undefined;
+
     while (undefined === game.func_ret) {
+      // 指向当前指令的地址
       pc = mem._pc;
       _do(game, mem.byte(), mem, pc);
     }
@@ -885,7 +893,7 @@ function compile(arrbuf) {
         break;
 
       case 0x81:
-        debug("!!!!!!!!");
+        debug("?x81!!!!!!!!");
         break;
 
       case 0x82:

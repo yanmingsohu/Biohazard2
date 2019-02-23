@@ -1,10 +1,10 @@
 //
 // https://github.com/pmandin/reevengi-tools/wiki/.RDT-%28Resident-Evil-2%29
 //
-const pwd = (global.game.bio2 || '.') + '/';
 import hex from '../boot/hex.js'
 import Script from './script.js'
 import Tim from './tim.js'
+import File from './file.js'
 
 export default {
   load,
@@ -12,17 +12,20 @@ export default {
 
 
 function load(file) {
-  const fsize = fs.fileSize(pwd + file);
-  const filebuf = new ArrayBuffer(fsize);
-  let fd = fs.open(pwd + file, 'rb');
-  fs.read(fd, filebuf, 0, fsize, 0);
-  fs.close(fd);
-  let obj = {};
+  debug("Load RDT, room dest file", file);
+  if (!file.toLowerCase().endsWith('.rdt'))
+    throw new Error("Not RDT file "+ file);
+
+  const filebuf = File.open(file).buf;
+  let obj = {
+    state : parseInt(file.substr(file.length-8, 1), 16),
+    room  : parseInt(file.substr(file.length-7, 2), 16),
+  };
 
   let Head = new Uint8Array(filebuf, 0, 8);
   let camera_count = Head[1];
   let num_obj10 = Head[2];
-  console.debug(Head, 'obj7', camera_count, 'obj10', num_obj10);
+  debug(Head, 'obj7', camera_count, 'obj10', num_obj10);
 
   let off = readOffset(filebuf);
   readCameraPos(filebuf, off, obj, camera_count);
@@ -46,7 +49,7 @@ function load(file) {
 
 
 function readScript(filebuf, off) {
-  // console.debug("read script from", off);
+  // debug("read script from", off);
   let script_buf = new DataView(filebuf, off);
   // hex.printHex(new Uint8Array(filebuf, off, 0x20));
   return Script.compile(script_buf);
@@ -54,15 +57,15 @@ function readScript(filebuf, off) {
 
 
 function readVAB(filebuf, off, ret) {
-  // console.debug("VAB", vab);
+  // debug("VAB", vab);
   let buf = new Uint8Array(filebuf, off, 333);
-  console.debug("VAB",);
+  debug("VAB",);
   hex.printHex(buf);
 }
 
 
 function readTim(filebuf, off, obj) {
-  console.debug("TIM", new Uint8Array(filebuf, off, 333));
+  debug("TIM", new Uint8Array(filebuf, off, 333));
 }
 
 
@@ -72,7 +75,7 @@ function readSpritesTim(buf, off, obj) {
   let file_offset = off.list_tim;
 
   for (let i=0; i<count; ++i) {
-    console.debug("Read TIM on", file_offset);
+    debug("Read TIM on", file_offset);
     const v = new DataView(buf, file_offset);
     tim[i] = Tim.parseStream(v);
     file_offset += tim[i].byteLength;
@@ -81,15 +84,16 @@ function readSpritesTim(buf, off, obj) {
 
 
 function readSpritesAnim(filebuf, off, obj) {
-  // console.debug("Sp Anim:");
+  // debug("Sp Anim:");
   // hex.printHex(new Uint8Array(filebuf, off.sprites_tim, 1500));
 
   const v = new DataView(filebuf, off.sprites_tim);
   let block = [];
   for (let i=0; i<8; ++i) {
     let c = v.getUint8(i);
-    if (c == 0xFF) break;
+    if (c == 0xFF || c == 0) break;
     block.push(c);
+    console.log("SAB", i, c);
   }
 
   //
@@ -99,15 +103,17 @@ function readSpritesAnim(filebuf, off, obj) {
   let header = obj.sprites_anim = [];
   let vi = 8;
   for (let i=0; i<block.length; ++i) {
+    const begin_at = vi;
     let h = {
       num_frames  : v.getUint16(vi, true),
       num_sprites : v.getUint16(vi +2, true),
       height      : v.getUint8( vi +4),
       width       : v.getUint8( vi +5),
+      unknow      : v.getUint16(vi +6, true),
     };
     vi += 8;
     header.push(h);
-    console.debug("Anim Head:", i, J(h));
+    debug("Anim Head:", i, J(h));
 
     for (let f=0; f<h.num_frames; ++f) {
       let frm = {
@@ -122,7 +128,7 @@ function readSpritesAnim(filebuf, off, obj) {
       };
       vi += 8;
       h.frames = frm;
-      console.debug("   Frames:", J(frm));
+      debug("   Frames:", J(frm));
     }
 
     for (let s=0; s<h.num_sprites; ++s) {
@@ -136,8 +142,37 @@ function readSpritesAnim(filebuf, off, obj) {
       };
       vi += 4;
       h.sprites = sp;
-      console.debug("  Sprites:", J(sp));
+      debug("  Sprites:", J(sp));
     }
+
+    let unknow_offsets = [];
+    let max_offset = 0;
+    for (let o=0; o<8; ++o) {
+      var _off = v.getUint16(vi+o*2, true);
+      unknow_offsets.push(_off);
+      max_offset = _off > max_offset ? _off : max_offset;
+    }
+    // vi += 16;
+    debug(" Unknow offset:", unknow_offsets, max_offset);
+    let blk_len = unknow_offsets[1] 
+                ? (unknow_offsets[1] - unknow_offsets[0]) * 4
+                : 0x38;
+
+    for (let un=0; un<unknow_offsets.length; ++un) {
+      if (unknow_offsets[un] == 0) break;
+      let x = vi + (unknow_offsets[un]) * 4;
+      let unknow_block = [];
+      for (let b = 0; b < blk_len; b+=1) {
+        unknow_block.push(v.getInt8(x + b, true));
+      }
+      console.log("  Unknow block:", unknow_block);
+    }
+    vi += (max_offset) * 4 + blk_len;
+
+    var total_long = v.getInt32(vi, true);
+    if (total_long + begin_at - vi) throw new Error("bad offset");
+    debug("  total:", total_long);
+    vi += 4;
   }
 }
 
@@ -156,9 +191,11 @@ function readCameraPos(filebuf, off, ret, count) {
       to_x   : v.getInt32(16, true),
       to_y   : v.getInt32(20, true),
       to_z   : v.getInt32(24, true),
-    }
+      unknow : v.getUint16(0, true),
+      const0 : v.getUint16(2, true),
+    };
     let mask_off = v.getUint32(28, true);
-    console.debug("camera", JSON.stringify(c));
+    debug("camera", J(c));
     if (mask_off != 0xffffffff) {
       c.mask = readMask(filebuf, mask_off);
     }
@@ -171,7 +208,7 @@ function readMask(filebuf, off) {
   let v = new DataView(filebuf, off, 4);
   let c_offset = v.getUint16(0, true);
   let c_masks  = v.getUint16(2, true);
-  console.debug("Mask OFFset", new Uint8Array(filebuf, off, 4));
+  debug("Mask OFFset", c_offset, c_masks);
   off += 4;
   if (c_offset == 0xFFFF || c_masks == 0xFFFF) {
     return;
@@ -183,14 +220,15 @@ function readMask(filebuf, off) {
     v = new DataView(filebuf, off, 8);
     off += 8;
     let ct = mask.count = v.getUint16(0, true);
+    mask.unknow = v.getUint16(2, true);
     mask.x = v.getUint16(4, true);
     mask.y = v.getUint16(6, true);
-    // console.debug(off-8, ct, mask.x, mask.y);
+    // debug(off-8, ct, mask.x, mask.y);
     c_masks -= ct;
     if (c_masks < 0) {
       throw new Error("bad mask count");
     }
-    console.debug('Mask info', ct, JSON.stringify(mask));
+    debug('Mask info', ct, J(mask));
   }
 
   let ret = [];
@@ -224,7 +262,7 @@ function readMask(filebuf, off) {
         chip.type = 'square';
         off += 8;
       }
-      console.debug("Mask chip", JSON.stringify(chip));
+      debug("Mask chip", J(chip));
     }
   }
   return ret;
@@ -277,8 +315,8 @@ function readLight(filebuf, off, ret) {
     cameras.lightdef = lightdef;
     cameras.env_color = rcolor(13);
 
-    console.debug("light", i, new Uint8Array(filebuf, off.lights + len*i, len));
-    console.debug(JSON.stringify({light0, light1, lightdef}), cameras.env_color);
+    debug("light", i, new Uint8Array(filebuf, off.lights + len*i, len));
+    debug(J({light0, light1, lightdef}), cameras.env_color);
   }
 }
 
@@ -304,35 +342,65 @@ function readCameraSwitch(filebuf, off, ret) {
     }
     cameras.push(cam);
 
-    console.debug("Camera Switch", ++c, new Uint8Array(filebuf, beg, len));
-    console.debug(JSON.stringify(cam));
+    debug("Camera Switch", ++c, new Uint8Array(filebuf, beg, len));
+    debug(J(cam));
   }
 }
 
 
 function readOffset(filebuf) {
-  const len = 4*22;
+  const len = 4*23;
   let Offset = new DataView(filebuf, 8, len);
   let off = {};
+  off.offset0       = Offset.getUint32(0*4, true);
   off.vab           = Offset.getUint32(1*4, true);
+  off.offset2       = Offset.getUint32(2*4, true);
+  off.offset3       = Offset.getUint32(3*4, true);
+  off.offset4       = Offset.getUint32(4*4, true);
+  off.offset5       = Offset.getUint32(5*4, true);
+  off.offset6       = Offset.getUint32(6*4, true);
   off.cam_pos       = Offset.getUint32(7*4, true);
   off.cam_sw        = Offset.getUint32(8*4, true);
   off.lights        = Offset.getUint32(9*4, true);
   off.tim           = Offset.getUint32(10*4, true);
+  off.offset11      = Offset.getUint32(11*4, true);
+  off.offset12      = Offset.getUint32(12*4, true);
   off.lang1         = Offset.getUint32(13*4, true);
   off.lang2         = Offset.getUint32(14*4, true);
+  off.offset15      = Offset.getUint32(15*4, true);
   off.init_script   = Offset.getUint32(16*4, true);
   off.room_script   = Offset.getUint32(17*4, true);
   off.sprites_tim   = Offset.getUint32(18*4, true);
+  off.offset19      = Offset.getUint32(19*4, true);
   off.list_tim      = Offset.getUint32(20*4, true);
   off.another_tim   = Offset.getUint32(21*4, true);
+  off.offset22      = Offset.getUint32(22*4, true);
 
-  console.debug(new Uint8Array(filebuf, 8, len));
-  console.debug(JSON.stringify(off, 0, 2));
+  debug(J(off, 0, 2));
+  // showOffsetBuf(filebuf, off);
   return off;
 }
 
 
-function J(o) {
-  return JSON.stringify(o);
+function J(o, x, n) {
+  return JSON.stringify(o, x, n);
+}
+
+
+function debug() {
+  console.debug.apply(console, arguments);
+}
+
+
+function showOffsetBuf(filebuf, off) {
+  for (var n in off) {
+    debug("================== BUFFER", 
+          n, '0x'+off[n].toString(16),
+          "==================");
+    try {
+      hex.printHex(new Uint8Array(filebuf, off[n], 500));
+    } catch(e) {
+      debug(e.message);
+    }
+  }
 }

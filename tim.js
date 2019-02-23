@@ -1,4 +1,3 @@
-const pwd = (global.game.bio2 || '.') + '/';
 import h from '../boot/hex.js'
 
 export default {
@@ -40,8 +39,8 @@ function parseStream(buf) {
   const wxh = width * height;
   const byteLength = wxh + vi + 12;
 
-  if (buf.getUint16(vi, true) - 12 != width * height) 
-    throw new Error("bad size");
+  // if (buf.getUint16(vi, true) - 12 != width * height) 
+  //   throw new Error("bad size");
   console.debug("Data Size:", wxh, '[', width, 'x', height, ']');
 
   const buffer_index_offset = buf.byteOffset + offset + 20;
@@ -86,9 +85,9 @@ function parseStream(buf) {
 
   function _width(w) {
     switch (type) {
-      case 0x02: return w / 2;
-      case 0x08: return w * 2;
-      case 0x09: return w;
+      case 0x02: return w; //? /2
+      case 0x08: return w * 2; //? 4 or 2 
+      case 0x09: return w * 2;
     }
   }
 
