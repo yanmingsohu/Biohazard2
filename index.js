@@ -10,6 +10,8 @@ import H      from '../boot/hex.js'
 import Adt    from './adt.js'
 import Room   from './room.js'
 import Dev    from './dev.js'
+import Mod2   from './model2.js'
+import Liv    from './living.js'
 
 const matrix = Node.load('boot/gl-matrix.js');
 const LEON = 0;
@@ -35,56 +37,67 @@ let runtime_data = {
   },
 };
 
-// ROOM1010.RDT  ROOM1000.RDT
-let map0 = Rdt.load('Pl0/Rdt/ROOM1000.RDT');
-// Dev.runAllScript(map0, runtime_data);
-
-let window = Draw.createWindow();
+const window = Draw.createWindow();
 window.setClearColor([0.2, 0.3, 0.3, 1]);
 window.center();
-// window.add(Draw.showRate());
 
-window.onKey(gl.GLFW_KEY_ESCAPE, gl.GLFW_PRESS, 0, function() {
-    window.shouldClose();
-});
+const sp = Draw.createProgram();
+sp.readVertexShader("bio2/map.vert");
+sp.readFragShader("bio2/map.frag");
+sp.link();
+sp.setProjection(45, 4/3, 0.01, 1000);
 
-// 房间渲染器
-Room.init(window);
-Dev.roomBrowse(Room, window);
+const camera = Game.createCamera(sp);
+window.add(camera);
+camera.lookAt(0, 0, 0);
 
 
-window.prepareDraw();
-while (window.nextFrame()) {
+// drawRoom();
+living();
+runGame();
+
+
+function living() {
+  let mod = Liv.loadEmd(LEON, '3A', sp);
+  window.add(mod);
+
+  var model = sp.getUniform('model');
+  var tmat = matrix.mat4.create(1);
+  model.setMatrix4fv(1, gl.GL_FALSE, tmat);
+
+  window.onKey(gl.GLFW_KEY_D, gl.GLFW_PRESS, 0, function() {
+    matrix.mat4.rotateY(tmat, tmat, 0.03);
+    model.setMatrix4fv(1, gl.GL_FALSE, tmat);
+  });
+
+  let z = 3;
+  window.onKey(gl.GLFW_KEY_S, gl.GLFW_PRESS, 0, function() {
+    z -= 0.01;
+    camera.setPos(0, 1, z);
+  });
 }
-window.destroy();
 
 
-// var m = matrix.mat4.create(1);
-// matrix.mat4.rotateX(m, m, -90*PI/180);
-// // matrix.mat4.translate(m, m, [0,0,0]);
+function drawRoom() {
+  // ROOM1010.RDT  ROOM1000.RDT
+  // let map0 = Rdt.load('Pl0/Rdt/ROOM1000.RDT');
+  // Dev.runAllScript(map0, runtime_data);
 
-// var sp = res_ctx.load('art/chr_rain.sprite.yaml');
-// sp.reset(m);
-
-// window.add(sp);
-
-// var camera = Game.createCamera(shaderProgram, { draw: surroundOP });
-// var cameraLookAt = Game.Vec3Transition(camera.lookWhere());
-// var camMoveTo = Game.Vec3Transition(camera.pos(), 4);
-// window.add(camera);
+  // 房间渲染器
+  Room.init(window);
+  Dev.roomBrowse(Room, window);
+}
 
 
-// // 镜头切换时间
-// var switchTime = 3;
-// function surroundOP(used, time, cm) {
-//   var time = gl.glfwGetTime();
-//   var modwhere = sp.where();
-//   // 线性移动摄像头
-//   modwhere[1] += 0.6;
-//   cameraLookAt.line(used, modwhere);
-//   camMoveTo.line(used, [modwhere[0]+0.5, 1, modwhere[2]+3]);
-// }
+function runGame() {
+  // window.add(Draw.showRate());
 
-// while (window.nextFrame()) {
-// }
-// // res_ctx.free();
+  window.onKey(gl.GLFW_KEY_ESCAPE, gl.GLFW_PRESS, 0, function() {
+      window.shouldClose();
+  });
+
+  window.prepareDraw();
+  while (window.nextFrame()) {
+  }
+  window.destroy();
+}

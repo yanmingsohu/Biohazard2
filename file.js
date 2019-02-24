@@ -1,4 +1,5 @@
 const pwd = (global.game.bio2 || '.') + '/';
+import H from '../boot/hex.js'
 
 //
 // 图像功能文件
@@ -80,6 +81,10 @@ const pic_map = {
   'cfont' : 'common/data/cfont.adt',
 };
 
+const LITTLE_ENDIAN = true;
+const BIG_ENDIAN  = false;
+let defaultEndian = LITTLE_ENDIAN;
+
 
 export default {
   open,
@@ -89,9 +94,15 @@ export default {
   open_pic,
   fileSize,
   pic_map,
+  dataViewExt,
+  LITTLE_ENDIAN,
+  BIG_ENDIAN,
 };
 
 
+//
+// 在功能图片字典中寻找对应的文件
+//
 function open_pic(name_from_pic_map) {
   return open(pic_map[name_from_pic_map]);
 }
@@ -126,6 +137,119 @@ function openArrayBuffer(file) {
 }
 
 
+//
+// 返回一个 DataView
+//
 function openDataView(file) {
   return new DataView(open(file).buf);
+}
+
+
+//
+// TODO: set方法
+// 扩展 DataView 增加方法
+//
+// 函数中的 i 为读取位置, 如果该参数未提供, 则使用内置指针
+// 内置指针在函数返回后增加相应的步幅.
+//
+function dataViewExt(v) {
+  let littleEndian = defaultEndian;
+  let pos = 0;
+
+  return Object.assign(v, {
+
+    // 返回内置指针的值, 内置指针总是指向即将读取的数值的位置
+    getpos() {
+      return pos;
+    },
+
+    // 设置内置指针
+    setpos(i) {
+      if (i >=0 ) pos = i;
+      else throw new Error("bad pos:"+ i);
+    },
+
+    // 设置小端字节序, 默认为 LittleEndian
+    setLittleEndian() {
+      littleEndian = true;
+    },
+
+    // 设置为大端字节序
+    setBigEndian() {
+      littleEndian = false;
+    },
+
+    isLittleEndian() {
+      return littleEndian;
+    },
+
+    // 返回一个字节的无符号整型
+    byte(i) {
+      return v.getUint8(P(i, 1), littleEndian);
+    },
+
+    // 返回一个字节的有符号整型
+    char(i) {
+      return v.getInt8(P(i, 1), littleEndian);
+    },
+
+    // 2个字节有符号整型
+    short(i) {
+      return v.getInt16(P(i, 2), littleEndian);
+    },
+
+    // 2个字节无符号整型
+    ushort(i) {
+      return v.getUint16(P(i, 2), littleEndian);
+    },
+
+    // 4字节有符号整型
+    long(i) {
+      return v.getInt32(P(i, 4), littleEndian);
+    },
+
+    // 4字节无符号整型
+    ulong(i) {
+      return v.getUint32(P(i, 4), littleEndian);
+    },
+
+    // 4字节浮点数
+    float(i) {
+      return v.getFloat32(P(i, 4), littleEndian);
+    },
+
+    // 8字节浮点数
+    float64(i) {
+      return v.getFloat64(P(i, 8), littleEndian);
+    },
+
+    // 16进制格式打印缓冲区内容, begin 未设置使用内置指针
+    // length 默认为 0x100 字节, 该方法不改变内置指针的位置
+    print(begin, length) {
+      let buf = this.build(Uint8Array, begin||pos, length||0x100);
+      H.printHex(buf);
+    },
+
+    // 用视图中的缓冲区构建 T 类型的 TypedArray
+    // 该方法不会引起内存复制, 任何修改都会反映在原始视图和创建的视图上.
+    build(T, begin, length) {
+      try {
+        // console.log("build buf:", v.byteOffset, v.byteOffset + begin, length);
+        return new T(v.buffer, v.byteOffset + begin, length);
+      } catch(e) {
+        throw new Error(e.message +' Offset:'+ begin 
+            + " Length:"+ length +" Total:"+ v.byteLength);
+      }
+    },
+  });
+
+  function P(i, o) {
+    if (isNaN(i)) {
+      i = pos;
+      pos += o;
+    } else {
+      pos = i + o;
+    }
+    return i;
+  }
 }

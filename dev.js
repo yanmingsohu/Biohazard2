@@ -17,7 +17,8 @@ function roomBrowse(Room, window) {
   console.log("Total room", Room.count);
   // Room.switchRoom(roomIdx++);
   Room.showPic('common/data/Tit_bg.adt');
-  // Room.showPic('pl0/emd0/EM015.tim');
+  // Room.showPic('pl0/emd0/EM03A.TIM');
+  // Room.showPic('pl0/emd0/EM03A.tim');
 
   window.onKey(gl.GLFW_KEY_J, gl.GLFW_PRESS, 0, function() {
     if (notrel) return;

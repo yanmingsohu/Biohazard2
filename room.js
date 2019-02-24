@@ -104,9 +104,10 @@ function switchWith(stage, room, carame) {
 // 在背景上显示图像, 方便调试
 //
 function showPic(file) {
-  if (file.indexOf(".adt") >= 0) {
+  let check = file.toLowerCase();
+  if (check.indexOf(".adt") >= 0) {
     Adt.load(file).bindTexTo(tex);
-  } else if (file.indexOf(".tim") >= 0) {
+  } else if (check.indexOf(".tim") >= 0) {
     let vi = File.openDataView(file);
     Tim.parseStream(vi).bindTexTo(tex);
   }
