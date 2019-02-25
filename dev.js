@@ -54,7 +54,7 @@ function roomBrowse(Room, window) {
 function enemyBrowse(Liv, window, Room) {
   let mods = [];
   // 34号: 完整模型无动画, 23号:透明
-  let mindex = 34;
+  let mindex = 23;
   _dir('Pl0/emd0');
   _dir('pl1/emd1');
 

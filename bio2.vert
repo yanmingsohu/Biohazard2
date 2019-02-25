@@ -35,26 +35,6 @@ void draw_background() {
 
 
 void main() {
-  // vec4 pos = vec4(aPos[0]*sizeCoefficient, 
-  //                 aPos[1]*sizeCoefficient,
-  //                 aPos[2]*sizeCoefficient, 1.0);
-
-  // if (skBind.x >= 0) {
-  //   vec4 sk = vec4(skeleton[ int(skBind.x) ], 0);
-    
-  //   if (skBind.y > 99 || skBind.y < 0) {
-  //     pos = sk + pos;
-  //   } else {
-  //     float w = skBind.y / 100.0;
-  //     pos = sk*w + pos;
-  //   }
-  // }
-
-  // gl_Position = projection * camera * model * pos;
-
-  // ourColor = vec3(aColor[0]*colorCoefficient, 
-  //                 aColor[1]*colorCoefficient, 
-  //                 aColor[2]*colorCoefficient);
   switch (draw_type) {
     case 1:
       draw_living();

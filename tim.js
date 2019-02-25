@@ -42,7 +42,7 @@ function parseStream(buf) {
 
   // if (buf.getUint16(vi, true) - 12 != width * height) 
   //   throw new Error("bad size");
-  console.debug("Data Size:", wxh, '[', width, 'x', height, ']');
+  console.debug("Tim pic Size:", wxh, '[', width, 'x', height, ']');
 
   const buffer_index_offset = buf.byteOffset + offset + 20;
   const imgbuf = new Uint16Array(wxh); // new Float32Array(wxh *4);
@@ -52,6 +52,8 @@ function parseStream(buf) {
   return {
     // 图像缓冲区
     buf : imgbuf,
+    // 调色板数量/图像分割数量
+    nb_palettes,
     // 像素高度
     height,
     // 像素宽度

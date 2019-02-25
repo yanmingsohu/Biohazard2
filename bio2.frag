@@ -6,12 +6,23 @@ uniform int draw_type;
 
 out vec4 FragColor;
 uniform sampler2D ourTexture;
+const float opacity = 1/255; 
 
 
 void draw_living()
 {
-    FragColor = texture(ourTexture, oTexCoord);
-    // FragColor = oColor;
+    // FragColor = texture(ourTexture, oTexCoord);
+    vec4 c = texture(ourTexture, oTexCoord);
+    float a;
+    float z;
+    if (c.r <= opacity && c.g <= opacity && c.b <= opacity) {
+      a = 0;
+      z = 1;
+    } else {
+      a = 1;
+      z = gl_FragCoord.z;
+    }
+    FragColor = vec4(vec3(c), a);
     // 所有过程都必须修改深度值
     gl_FragDepth = gl_FragCoord.z;
 }

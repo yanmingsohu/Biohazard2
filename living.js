@@ -93,7 +93,10 @@ function mergeVertexBuffer(tri, tex, drawArr, v_multiple, isuqa) {
   const tbuf = tri.tex.buf;
   const nbuf = tri.normal.buf;
   const vfunc = isuqa ? qua_v : tri_v;
-  let clutid, page;
+  const w = tex.width, h = tex.height;
+  const off_unit = tex.width / tex.nb_palettes;
+  
+  let offx = 0;
   
   for (let i=0; i<vCount; ++i) {
     vfunc(i);
@@ -107,14 +110,14 @@ function mergeVertexBuffer(tri, tex, drawArr, v_multiple, isuqa) {
   tex.bindTexTo(bdo.getTexture());
   drawArr.push(bdo);
   
-  H.printFloat(obuf, 100, 8);
+  // H.printFloat(obuf, 100, 8);
 
 
   function tri_v(i) {
     let ii = i * 6; // 三角形型索引, 6个元素为一组
     let ui = i * 12;
     let oi = i * stride * 3;
-    p(ui);
+    offx = off_unit * (tbuf[ui+6] & 3);
 
     v(oi, ibuf[ii+1], ibuf[ii  ], ui  ); oi+=stride // 0
     v(oi, ibuf[ii+3], ibuf[ii+2], ui+4); oi+=stride // 1
@@ -126,7 +129,7 @@ function mergeVertexBuffer(tri, tex, drawArr, v_multiple, isuqa) {
     let ii = i * 8;
     let ui = i * 16;
     let oi = i * stride * 6;
-    p(ui);
+    offx = off_unit * (tbuf[ui+6] & 3);
 
     v(oi, ibuf[ii+1], ibuf[ii  ], ui   ); oi+=stride // 0
     v(oi, ibuf[ii+3], ibuf[ii+2], ui+4 ); oi+=stride // 1
@@ -138,10 +141,13 @@ function mergeVertexBuffer(tri, tex, drawArr, v_multiple, isuqa) {
   }
 
 
+  // 作为参考, 无用
   function p(ui) {
-    clutid = (tbuf[ui+2] | (tbuf[ui+3] << 8)) & 0x1F;
-    page = ((tbuf[ui+6] | (tbuf[ui+7] << 8)) & 0x1F) << 8;
-    console.log(clutid, page, '==========----------');
+    // 透明通道似乎用到了 clutid
+    let clutid = (tbuf[ui+2] | (tbuf[ui+3] << 8));
+    page = (tbuf[ui+6] | (tbuf[ui+7] << 8));
+    console.log(clutid);
+    offx = off_unit * (tbuf[ui+6] & 3);
   }
 
 
@@ -157,7 +163,7 @@ function mergeVertexBuffer(tri, tex, drawArr, v_multiple, isuqa) {
     obuf[oi+4] = nbuf[ni+1];
     obuf[oi+5] = nbuf[ni+2];
     // UV coordinates
-    obuf[oi+6] = (tbuf[ui  ])/256;
-    obuf[oi+7] = (tbuf[ui+1])/256;
+    obuf[oi+6] = (tbuf[ui  ] + offx)/w;
+    obuf[oi+7] = (tbuf[ui+1])/h;
   }
 }

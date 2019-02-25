@@ -34,6 +34,9 @@ function init(window) {
   sp.readFragShader("bio2/bio2.frag");
   sp.link();
   sp.setProjection(45, 4/3, 0.01, 1000);
+
+  gl.glEnable(gl.GL_BLEND);
+  gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA);
   
   draw_type = sp.getUniform('draw_type');
   model = sp.getUniform('model');
