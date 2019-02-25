@@ -9,7 +9,7 @@ export default {
 // buf -- DataView
 //
 function parseStream(buf) {
-  h.printHex(new Uint8Array(buf.buffer, buf.byteOffset, 100));
+  // h.printHex(new Uint8Array(buf.buffer, buf.byteOffset, 100));
   const head = buf.getUint32(0, true);
   if (head != 0x10) {
     throw new Error("bad TIM stream");
@@ -26,12 +26,13 @@ function parseStream(buf) {
   console.debug('TIM palettes color', palette_colors, ',nb', nb_palettes, 
     ', pal-x', pal_x, ', pal-y', pal_y, ', offset', offset);
 
+  // 调色板被纵向平均应用到图像上
   const palettes = [];
   for (let p = 0; p<nb_palettes; ++p) {
     palettes[p] = new Uint16Array(buf.buffer, buf.byteOffset + vi, palette_colors);
     vi += palette_colors * 2;
-    console.debug("Palette", p);
-    h.printHex(palettes[p]);
+    // console.debug("Palette", p);
+    // h.printHex(palettes[p]);
   }
 
   const width = _width(buf.getUint16(vi + 8, true));
@@ -44,10 +45,9 @@ function parseStream(buf) {
   console.debug("Data Size:", wxh, '[', width, 'x', height, ']');
 
   const buffer_index_offset = buf.byteOffset + offset + 20;
-  // const imgbuf = new Float32Array(wxh *4);
-  const imgbuf = new Uint16Array(wxh);
-  const set_color = _set_short;
-  sw_palettes(0);
+  const imgbuf = new Uint16Array(wxh); // new Float32Array(wxh *4);
+  const set_color = _set_short; // _set_float
+  fill_image(0);
 
   return {
     // 图像缓冲区
@@ -56,8 +56,6 @@ function parseStream(buf) {
     height,
     // 像素宽度
     width,
-    // 切换调色板
-    sw_palettes,
     // TIM 数据块的总长度
     byteLength,
     // 作为贴图绑定到模型
@@ -85,17 +83,16 @@ function parseStream(buf) {
 
   function _width(w) {
     switch (type) {
-      case 0x02: return w; //? /2
-      case 0x08: return w * 2; //? 4 or 2 
-      case 0x09: return w * 2;
+      case 0x02: return w;      // 16bit 
+      case 0x08: return w << 2; //  4bit * 4
+      case 0x09: return w << 1; //  8bit * 2
     }
   }
 
   //
   // 切换调色板, 使用调色板颜色重新填充 imbuf 缓冲区.
   //
-  function sw_palettes(pi) {
-    const pal = palettes[pi];
+  function fill_image() {
     switch (type) {
       case 0x02:
         console.debug("16 bit color");
@@ -104,12 +101,12 @@ function parseStream(buf) {
 
       case 0x08:
         console.debug("4 bit color");
-        bit4color(pal);
+        bit4color();
         break;
 
       case 0x09:
         console.debug("8 bit color");
-        bit8color(pal);
+        bit8color();
         break;
 
       default:
@@ -126,9 +123,12 @@ function parseStream(buf) {
   }
 
 
-  function bit4color(pal) {
+  function bit4color() {
     const index = new Uint8Array(buf.buffer, buffer_index_offset, wxh/2);
+    const pl = parseInt(width / palettes.length);
+
     for (let i=0; i<wxh; i+=2) {
+      let pal = palettes[parseInt(i % width / pl)];
       let color = index[i/2];
       let c1 = pal[(color & 0xF0) >> 4];
       set_color(i, c1);
@@ -138,9 +138,12 @@ function parseStream(buf) {
   }
 
 
-  function bit8color(pal) {
+  function bit8color() {
     const index = new Uint8Array(buf.buffer, buffer_index_offset, wxh);
+    const pl = parseInt(width / palettes.length);
+
     for (let i=0; i<wxh; ++i) {
+      let pal = palettes[parseInt(i % width / pl)];
       set_color(i, pal[index[i]]);
     }
   }

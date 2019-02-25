@@ -95,9 +95,15 @@ export default {
   fileSize,
   pic_map,
   dataViewExt,
+  read_dir,
   LITTLE_ENDIAN,
   BIG_ENDIAN,
 };
+
+
+function read_dir(d) {
+  return fs.read_dir(pwd + d);
+}
 
 
 //
