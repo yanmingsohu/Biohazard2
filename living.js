@@ -12,7 +12,10 @@ import Tim    from './tim.js'
 import File   from './file.js'
 import H      from '../boot/hex.js'
 import Res    from '../boot/resource.js'
+import Game   from '../boot/game.js'
+import node   from '../boot/node.js'
 
+const matrix = node.load('boot/gl-matrix.js');
 let swap_buf = Res.localBuffer();
 
 
@@ -25,53 +28,78 @@ function loadEmd(playId, emdId) {
   const key = `pl${playId}/emd${playId}/EM${playId}${emdId}`;
   const emdfile = key +'.emd';
   const texfile = key +'.tim';
-  const mod = Mod2.emd(emdfile);
-  const tex = Tim.parseStream(File.openDataView(texfile));
-  const arr = [];
+  const components = [];
+  let comp_len = 0;
+  let currentSk;
 
-  console.debug("Load EMD", emdfile, '-', texfile);
-
-  const stride  = 3 + 3 + 2;
-  let max_vertex_len = 0;
-
-  for (let i=0; i<mod.mesh.length; ++i) {
-    let c1 = stride * 3 * mod.mesh[i].tri.index.count;
-    let c2 = stride * 6 * mod.mesh[i].qua.index.count;
-    max_vertex_len = Math.max(c1, c2, max_vertex_len);
-  }
-
-  for (let i=0; i<mod.mesh.length; ++i) {
-    mergeTriVertexBuffer(mod.mesh[i].tri, tex, arr);
-    mergeQuaVertexBuffer(mod.mesh[i].qua, tex, arr);
-  }
+  init();
 
   return {
     texfile,
-
-    draw() {
-      Shader.draw_living();
-      for (let i=0; i<arr.length; ++i) {
-        arr[i].draw();
-      }
-    },
-
-    free() {
-      for (let i=0; i<arr.length; ++i) {
-        arr[i].free();
-      }
-      arr.length = 0;
-    }
+    draw,
+    free,
   };
+
+
+  function draw() {
+    Shader.draw_living();
+    for (let i=0; i<comp_len; ++i) {
+      components[i].draw();
+    }
+  }
+
+
+  function free() {
+    for (let i=0; i<comp_len; ++i) {
+      components[i].free();
+    }
+    components.length = 0;
+  }
+
+
+  function _add(t, q, i) {
+    let sp = Game.createSprite(t, null, 'bone');
+    sp.add(q);
+    components[i] = sp;
+
+    if (!currentSk[i]) {
+      // console.log("!!!!!!!!!!!", emdfile, i);
+      sp.hide();
+      return;
+    }
+    sp.translate([
+      currentSk[i].x,
+      currentSk[i].y,
+      currentSk[i].z,
+    ]);
+  }
+
+
+  function init() {
+    const mod = Mod2.emd(emdfile);
+    const tex = Tim.parseStream(File.openDataView(texfile));
+    currentSk = mod.sk1;
+  
+    console.debug("Load EMD", emdfile, '-', texfile);
+  
+    for (let i=0; i<mod.mesh.length; ++i) {
+      let t = mergeTriVertexBuffer(mod.mesh[i].tri, tex);
+      let q = mergeQuaVertexBuffer(mod.mesh[i].qua, tex);
+      _add(t, q, comp_len);
+      ++comp_len;
+    }
+    console.debug("MODEL has", comp_len, "components");
+  }
 }
 
 
-function mergeTriVertexBuffer(tri, tex, drawArr) {
-  mergeVertexBuffer(tri, tex, drawArr, 3, false);
+function mergeTriVertexBuffer(tri, tex) {
+  return mergeVertexBuffer(tri, tex, 3, false);
 }
 
 
-function mergeQuaVertexBuffer(qua, tex, drawArr) {
-  mergeVertexBuffer(qua, tex, drawArr, 6, true);
+function mergeQuaVertexBuffer(qua, tex) {
+  return mergeVertexBuffer(qua, tex, 6, true);
 }
 
 
@@ -83,7 +111,7 @@ function mergeQuaVertexBuffer(qua, tex, drawArr) {
 // | x y z  | x y z  | u  v                |
 // | 3      | 3      | 2                   |
 //
-function mergeVertexBuffer(tri, tex, drawArr, v_multiple, isuqa) {
+function mergeVertexBuffer(tri, tex, v_multiple, isuqa) {
   const stride  = 3 + 3 + 2;
   const vCount  = tri.index.count;
   const obuf = swap_buf.float32(stride * vCount * v_multiple);
@@ -108,7 +136,7 @@ function mergeVertexBuffer(tri, tex, drawArr, v_multiple, isuqa) {
   bdo.setAttr({ index: 1, vsize: 3, type: gl.GL_FLOAT, stride: stride*4, offset: 3*4 });
   bdo.setAttr({ index: 2, vsize: 2, type: gl.GL_FLOAT, stride: stride*4, offset: 6*4 });
   tex.bindTexTo(bdo.getTexture());
-  drawArr.push(bdo);
+  return bdo;
   
   // H.printFloat(obuf, 100, 8);
 

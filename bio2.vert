@@ -9,6 +9,7 @@ layout (location = 2) in vec2 iTexCoord;
 // uniform vec3 skeleton[10];
 
 uniform mat4 model;
+uniform mat4 bone;
 uniform mat4 camera;
 uniform mat4 projection;
 uniform int draw_type;
@@ -19,9 +20,10 @@ out vec3 oNormal;
 
 
 void draw_living() {
-  float coe = 1000;
-  vec4 npos = vec4(pos.z/coe, pos.x/coe, pos.y/coe, 1);
-  gl_Position = projection * camera * model * npos;
+  // 来自游戏定义的数值空间 camera ?
+  vec4 npos = model * bone * vec4(pos.x, pos.y, pos.z, 1);
+  npos = projection * camera * vec4(npos.x, npos.y, npos.z, 1000);
+  gl_Position = npos;
   // oColor = vec4(pos.y/100, pos.x/100, pos.z/100, 1);
   oTexCoord = iTexCoord;
   oNormal = iNormal;

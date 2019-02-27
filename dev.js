@@ -54,7 +54,7 @@ function roomBrowse(Room, window) {
 function enemyBrowse(Liv, window, Room) {
   let mods = [];
   // 34号: 完整模型无动画, 23号:透明
-  let mindex = 23;
+  let mindex = 35;
   _dir('Pl0/emd0');
   _dir('pl1/emd1');
 
@@ -75,12 +75,12 @@ function enemyBrowse(Liv, window, Room) {
   });
 
   window.onKey(gl.GLFW_KEY_S, gl.GLFW_PRESS, 0, function() {
-    matrix.mat4.translate(tmat, tmat, [0,0,0.01]);
+    matrix.mat4.translate(tmat, tmat, [0,0, 10]);
     Shader.setModelTrans(tmat);
   });
 
   window.onKey(gl.GLFW_KEY_W, gl.GLFW_PRESS, 0, function() {
-    matrix.mat4.translate(tmat, tmat, [0,0,-0.01]);
+    matrix.mat4.translate(tmat, tmat, [0,0, -10]);
     Shader.setModelTrans(tmat);
   });
 
@@ -111,7 +111,7 @@ function enemyBrowse(Liv, window, Room) {
     mod = Liv.loadEmd(info.player, info.id);
     window.add(mod);
     // 切换模型的同时, 用模型纹理做背景
-    Room.showPic(mod.texfile);
+    // Room.showPic(mod.texfile);
     console.log("Mod index:", mindex);
   }
 

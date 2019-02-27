@@ -23,8 +23,8 @@ function parseStream(buf) {
   const nb_palettes = buf.getUint16(18, true);
   let vi = 20;
 
-  console.debug('TIM palettes color', palette_colors, ',nb', nb_palettes, 
-    ', pal-x', pal_x, ', pal-y', pal_y, ', offset', offset);
+  console.debug('TIM palettes color', palette_colors, 'nb', nb_palettes, 
+    'pal-x', pal_x, 'pal-y', pal_y, 'offset', offset);
 
   // 调色板被纵向平均应用到图像上
   const palettes = [];
@@ -64,10 +64,12 @@ function parseStream(buf) {
     bindTexTo,
   };
 
+
   function bindTexTo(draw) {
     draw.bindTexImage(imgbuf, width, height, 
         gl.GL_RGBA, gl.GL_UNSIGNED_SHORT_1_5_5_5_REV);
   }
+
 
   // 留作备用
   // A1B5G5R5 to Float{r,g,b,a}
@@ -79,9 +81,11 @@ function parseStream(buf) {
     /* A */ imgbuf[i+3] = (0x0F000 & color) >> 15;
   }
 
+
   function _set_short(pixel, color) {
     imgbuf[pixel] = color;
   }
+
 
   function _width(w) {
     switch (type) {
@@ -90,6 +94,7 @@ function parseStream(buf) {
       case 0x09: return w << 1; //  8bit * 2
     }
   }
+
 
   //
   // 切换调色板, 使用调色板颜色重新填充 imbuf 缓冲区.
