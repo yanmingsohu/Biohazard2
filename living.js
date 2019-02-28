@@ -29,22 +29,74 @@ function loadEmd(playId, emdId) {
   const emdfile = key +'.emd';
   const texfile = key +'.tim';
   const components = [];
+  const move = matrix.vec3.create();
+
   let comp_len = 0;
   let currentSk;
+  let currentAnim;
+  // 动画索引
+  let anim_idx = 2;
+  // 动画帧数
+  let anim_frame = 0;
+  let frame_data;
+  let anim_frame_length = 0;
+  let a = 0;
 
   init();
+  update_frame_data();
 
   return {
     texfile,
     draw,
     free,
+    runAnim,
   };
 
 
-  function draw() {
+  function runAnim(idx) {
+    if (idx >= 0 && idx < currentAnim.length) {
+      anim_idx = idx;
+      anim_frame = 0;
+      return true;
+    }
+    return false;
+  }
+
+
+  function update_frame_data() {
+    let anim_frms = currentAnim[anim_idx];
+    let anim = anim_frms[anim_frame];
+    let sk_idx = anim.sk_idx;
+    frame_data = currentSk.get_frame_data(sk_idx);
+    anim_frame_length = anim_frms.length;
+  }
+
+
+  function draw(u, t) {
     Shader.draw_living();
+    let sk, sp, angle;
+    
+    if ((a+=u) >= 0.1) {
+      a = 0;
+      if (++anim_frame >= anim_frame_length) {
+        anim_frame = 0;
+      }
+      update_frame_data();
+    }
+
     for (let i=0; i<comp_len; ++i) {
-      components[i].draw();
+      sk = currentSk[i];
+      if (!sk) continue;
+      sp = components[i];
+
+      const r = matrix.mat4.create();
+      const p = [0,0,0];
+      const c = [0,0,0];
+
+      sk.transform(frame_data.angle, r, p, c);
+      sp.reset(r);
+      Shader.boneOffset(p[0], p[1], p[2]);
+      sp.draw();
     }
   }
 
@@ -58,20 +110,9 @@ function loadEmd(playId, emdId) {
 
 
   function _add(t, q, i) {
-    let sp = Game.createSprite(t, null, 'bone');
+    let sp = Game.createSprite(t, null, 'bone_rotate');
     sp.add(q);
     components[i] = sp;
-
-    if (!currentSk[i]) {
-      // console.log("!!!!!!!!!!!", emdfile, i);
-      sp.hide();
-      return;
-    }
-    sp.translate([
-      currentSk[i].x,
-      currentSk[i].y,
-      currentSk[i].z,
-    ]);
   }
 
 
@@ -79,6 +120,7 @@ function loadEmd(playId, emdId) {
     const mod = Mod2.emd(emdfile);
     const tex = Tim.parseStream(File.openDataView(texfile));
     currentSk = mod.sk1;
+    currentAnim = mod.am1;
   
     console.debug("Load EMD", emdfile, '-', texfile);
   

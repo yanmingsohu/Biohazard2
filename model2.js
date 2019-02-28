@@ -1,5 +1,8 @@
 import File from './file.js'
-import H from '../boot/hex.js'
+import H    from '../boot/hex.js'
+import node from '../boot/node.js'
+
+const matrix = node.load('boot/gl-matrix.js');
 
 const IDX_MESH = 7;
 const IDX_SK_1 = 2;
@@ -59,8 +62,8 @@ function animation(buf, am_off) {
     for (let j=0; j<ec; ++j) {
       let t = buf.ulong();
       group[j] = {
-        f: (t & 0xFFFFF000) >> 11,
-        d: (t & 0xFFF),
+        flag: (t & 0xFFFFF000) >> 11,
+        sk_idx: (t & 0xFFF),
       };
       // console.log('  -', group[j].f, group[j].d);
     }
@@ -72,34 +75,41 @@ function animation(buf, am_off) {
 
 
 class SkeletonBone {
-  constructor(dat, parent) {
+  constructor(dat, i) {
     this.dat = dat;
-    this.parent = parent;
+    this.parent = null;
+    this.idx = i;
+    this.child = dat.child;
+    this._pos = [];
   }
 
   toString() {
     return JSON.stringify(this.dat);
   }
 
-  get x() {
-    if (this.parent) {
-      return this.parent.x + this.dat.x;
-    }
-    return this.dat.x;
-  }
+  transform(angle_arr, r, p, c) {
+    let angle = angle_arr[this.idx];
+    // 计算骨骼的旋转矩阵
+    matrix.mat4.rotateX(r, r, angle.x);
+    matrix.mat4.rotateY(r, r, angle.y);
+    matrix.mat4.rotateZ(r, r, angle.z);
 
-  get y() {
-    if (this.parent) {
-      return this.parent.y + this.dat.y;
-    }
-    return this.dat.y;
-  }
+    p[0] += this.dat.x;
+    p[1] += this.dat.y;
+    p[2] += this.dat.z;
 
-  get z() {
     if (this.parent) {
-      return this.parent.z + this.dat.z;
+      this.parent.transform(angle_arr, r, p, c);
     }
-    return this.dat.z;
+
+    c[0] += this.dat.x;
+    c[1] += this.dat.y;
+    c[2] += this.dat.z;
+
+    // 旋转偏移向量
+    matrix.vec3.rotateX(p, p, c, angle.x);
+    matrix.vec3.rotateY(p, p, c, angle.y);
+    matrix.vec3.rotateZ(p, p, c, angle.z);
   }
 };
 
@@ -128,7 +138,7 @@ function skeleton(buf, sk_offset) {
       let ch_offset = buf.ushort() + ref_offset;
       // console.log(ch_offset);
 
-      bone[i] = new SkeletonBone(sk);
+      bone[i] = new SkeletonBone(sk, i);
       for (let m=0; m<num_mesh; ++m) {
         let chref = buf.byte(ch_offset + m);
         sk.child.push(chref);
@@ -137,26 +147,105 @@ function skeleton(buf, sk_offset) {
     }
 
     for (let i=0; i<count; ++i) {
-      bone[i].parent = bind[i];
-      // console.log(bone[i]);
+      if (bind[i]) {
+        bone[i].parent = bind[i];
+        console.log(bone[i]);
+      }
     }
   }
 
+  //
+  // 生化危机用的是关节骨骼模型, 有一个整体的 xyz 偏移和每个关节的角度.
+  // 一个关节的转动会牵连子关节的运动
+  //
   if (size) {
-    let skdata = {};
-    buf.print(anim_offset, size);
-    skdata.x_offset = buf.short(anim_offset);
-    skdata.y_offset = buf.short();
-    skdata.z_offset = buf.short();
-    skdata.x_speed = buf.short();
-    skdata.y_speed = buf.short();
-    skdata.z_speed = buf.short();
-    console.log(JSON.stringify(skdata));
+    bone.get_frame_data = 
+      create_anim_frame_data(buf, anim_offset, size);
   } else {
     return null;
   }
   console.log("Bone count:", count, 'size:', size);
   return bone;
+}
+
+
+//
+// 每个骨骼状态, 保护一组坐标, 一组速度和一组旋转数组,
+// 旋转数组用 9 个字节保存2组旋转坐标.
+// <防止闭包引用过多变量>
+//
+function create_anim_frame_data(buf, anim_offset, data_size) {
+  const xy_size = 2*6;
+  const angle_size = data_size - xy_size;
+  const MAX_ANGLE = 0x0FFF;
+  const RLEN = parseInt(angle_size/9*2);
+  const skdata = { angle: [] };
+  const PI2 = 2 * Math.PI;
+  let curr_sk_idx = -1;
+
+  skdata.angle = new Array(RLEN);
+  for (let i=0; i<RLEN; ++i) {
+    skdata.angle[i] = {x:0, y:0, z:0};
+  }
+  
+  //
+  // sk_index - 骨骼状态索引
+  //
+  return function get_frame_data(sk_index) {
+    // 没有改变骨骼索引直接返回最后的数据
+    if (curr_sk_idx === sk_index) return skdata;
+    // 位置偏移量
+    let xy_off = anim_offset + data_size * sk_index;
+    skdata.x = buf.short(xy_off);
+    skdata.y = buf.short();
+    skdata.z = buf.short();
+    // 速度
+    skdata.spx = buf.short();
+    skdata.spy = buf.short();
+    skdata.spz = buf.short();
+
+    compute_angle();
+    // console.log(JSON.stringify(skdata), RLEN);
+    curr_sk_idx = sk_index;
+    return skdata;
+  }
+
+  function compute_angle() {
+    let i = -1;
+    while (++i < RLEN) {
+      let r = skdata.angle[i];
+      let a0 = buf.byte();
+      let a1 = buf.byte();
+      let a2 = buf.byte();
+      let a3 = buf.byte();
+      let a4 = buf.byte();
+      // console.log('joint', i, a0, a1, a2, a3, a4);
+      r.x = radian(a0 + ((a1 & 0xF) << 8));
+      r.y = radian((a1 >> 4) + (a2 << 4));
+      r.z = radian(a3 + ((a4 & 0xF) << 8));
+      // console.log(r.x, r.y, r.z);
+
+      if (++i < RLEN) {
+        r = skdata.angle[i];
+        a0 = a4;
+        a1 = buf.byte();
+        a2 = buf.byte();
+        a3 = buf.byte();
+        a4 = buf.byte();
+        // console.log('joint', i, a0, a1, a2, a3, a4);
+        r.x = radian((a0 >> 4) + (a1 << 4));
+        r.y = radian(a2 + ((a3 & 0xF) << 8));
+        r.z = radian((a3 >> 4) + (a4 << 4));
+        // console.log(r.x, r.y, r.z);
+      } else {
+        return;
+      }
+    }
+  }
+
+  function radian(n) {
+    return (n/MAX_ANGLE) * PI2;
+  }
 }
 
 

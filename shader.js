@@ -11,6 +11,10 @@ export default {
   createBasicDrawObject,
   // 设置模型变换矩阵
   setModelTrans,
+  // 设置骨骼偏移向量
+  boneOffset,
+  // 设置骨骼旋转矩阵
+  boneRotate,
 };
 
 import Draw from '../boot/draw.js'
@@ -23,6 +27,8 @@ import Draw from '../boot/draw.js'
 let program;
 let draw_type;
 let model;
+let bone_rotate;
+let bone_offset;
 
 
 function init(window) {
@@ -31,6 +37,7 @@ function init(window) {
 
   const sp = Draw.createProgram();
   sp.readVertexShader("bio2/bio2.vert");
+  // sp.readGeoShader("bio2/bio2.geo");
   sp.readFragShader("bio2/bio2.frag");
   sp.link();
   sp.setProjection(45, 4/3, 0.01, 1000);
@@ -38,8 +45,10 @@ function init(window) {
   gl.glEnable(gl.GL_BLEND);
   gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA);
   
-  draw_type = sp.getUniform('draw_type');
-  model = sp.getUniform('model');
+  draw_type   = sp.getUniform('draw_type');
+  model       = sp.getUniform('model');
+  bone_offset = sp.getUniform('bone_offset');
+  bone_rotate = sp.getUniform('bone_rotate');
 
   program = sp;
   return sp;
@@ -69,4 +78,14 @@ function check_init() {
 
 function setModelTrans(mat4) {
   model.setMatrix4fv(1, gl.GL_FALSE, mat4);
+}
+
+
+function boneOffset(x, y, z) {
+  bone_offset.setUniform3f(x, y, z);
+}
+
+
+function boneRotate(mat4) {
+  bone_rotate.setMatrix4fv(1, gl.GL_FALSE, mat4);
 }

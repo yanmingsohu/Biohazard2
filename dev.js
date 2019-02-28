@@ -59,28 +59,31 @@ function enemyBrowse(Liv, window, Room) {
   _dir('pl1/emd1');
 
   let mod;
+  let anim_idx = 0;
 
-  var tmat = matrix.mat4.create(1);
+  let tmat = matrix.mat4.create(1);
+  matrix.mat4.translate(tmat, tmat, [0, -1.5, 0]);
+  matrix.mat4.rotateZ(tmat, tmat, Math.PI);
   Shader.setModelTrans(tmat);
   switchMod(0);
 
   window.onKey(gl.GLFW_KEY_D, gl.GLFW_PRESS, 0, function() {
-    matrix.mat4.rotateY(tmat, tmat, -0.01);
-    Shader.setModelTrans(tmat);
-  });
-
-  window.onKey(gl.GLFW_KEY_A, gl.GLFW_PRESS, 0, function() {
     matrix.mat4.rotateY(tmat, tmat, 0.01);
     Shader.setModelTrans(tmat);
   });
 
+  window.onKey(gl.GLFW_KEY_A, gl.GLFW_PRESS, 0, function() {
+    matrix.mat4.rotateY(tmat, tmat, -0.01);
+    Shader.setModelTrans(tmat);
+  });
+
   window.onKey(gl.GLFW_KEY_S, gl.GLFW_PRESS, 0, function() {
-    matrix.mat4.translate(tmat, tmat, [0,0, 10]);
+    matrix.mat4.translate(tmat, tmat, [-0.01, 0, 0]);
     Shader.setModelTrans(tmat);
   });
 
   window.onKey(gl.GLFW_KEY_W, gl.GLFW_PRESS, 0, function() {
-    matrix.mat4.translate(tmat, tmat, [0,0, -10]);
+    matrix.mat4.translate(tmat, tmat, [0.01 ,0, 0]);
     Shader.setModelTrans(tmat);
   });
 
@@ -90,6 +93,15 @@ function enemyBrowse(Liv, window, Room) {
 
   window.input().pressOnce(gl.GLFW_KEY_I, function() {
     switchMod(-1);
+  });
+
+  window.input().pressOnce(gl.GLFW_KEY_Q, function() {
+    if (mod) {
+      if (!mod.runAnim(anim_idx++)) {
+        anim_idx = 0;
+        mod.runAnim(0);
+      }
+    }
   });
 
   console.log("Press U/I next model");

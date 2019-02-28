@@ -17,14 +17,14 @@ void draw_living()
     float z;
     if (c.r <= opacity && c.g <= opacity && c.b <= opacity) {
       a = 0;
-      z = 1;
+      z = 1; // 不显示
     } else {
       a = 1;
       z = gl_FragCoord.z;
     }
     FragColor = vec4(vec3(c), a);
     // 所有过程都必须修改深度值
-    gl_FragDepth = gl_FragCoord.z;
+    gl_FragDepth = z;
 }
 
 
