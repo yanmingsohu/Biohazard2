@@ -29,75 +29,66 @@ function loadEmd(playId, emdId) {
   const emdfile = key +'.emd';
   const texfile = key +'.tim';
   const components = [];
-  const move = matrix.vec3.create();
 
   let comp_len = 0;
   let currentSk;
   let currentAnim;
   // 动画索引
-  let anim_idx = 2;
+  let anim_idx = 0;
   // 动画帧数
   let anim_frame = 0;
-  let frame_data;
   let anim_frame_length = 0;
+  let frame_data;
   let a = 0;
+  let speed = 300 /1000;
 
   init();
-  update_frame_data();
+  setAnim(0, 0);
 
   return {
     texfile,
     draw,
     free,
-    runAnim,
+    setAnim,
   };
 
 
-  function runAnim(idx) {
-    if (idx >= 0 && idx < currentAnim.length) {
-      anim_idx = idx;
-      anim_frame = 0;
-      return true;
-    }
-    return false;
-  }
-
-
-  function update_frame_data() {
+  function setAnim(idx, frame) {
+    anim_idx = idx % currentAnim.length;
     let anim_frms = currentAnim[anim_idx];
-    let anim = anim_frms[anim_frame];
-    let sk_idx = anim.sk_idx;
-    frame_data = currentSk.get_frame_data(sk_idx);
     anim_frame_length = anim_frms.length;
+    anim_frame = frame % anim_frame_length;
+
+    let anim = anim_frms[anim_frame];
+    if (!anim) {
+      console.warn("No pose frame", anim_idx, '=>', anim_frame);
+      return false;
+    }
+    frame_data = currentSk.get_frame_data(anim.sk_idx);
+
+    console.line("Anim", anim_idx, "Frame", anim_frame, 
+      "Speed:", frame_data.spx, frame_data.spy, frame_data.spz, 
+      "Offset", frame_data.x, frame_data.y, frame_data.z, "\t");
+    return true;
   }
 
 
   function draw(u, t) {
     Shader.draw_living();
-    let sk, sp, angle;
     
-    if ((a+=u) >= 0.1) {
+    if ((a+=u) >= speed) {
       a = 0;
-      if (++anim_frame >= anim_frame_length) {
-        anim_frame = 0;
-      }
-      update_frame_data();
+      // if (frame_data.spx >= 0) {
+        setAnim(anim_idx, anim_frame+1);
+      // } else {
+      //   if (--anim_frame < 0) anim_frame = anim_frame_length-1;
+      //   setAnim(anim_idx, anim_frame);
+      // }
     }
 
-    for (let i=0; i<comp_len; ++i) {
-      sk = currentSk[i];
-      if (!sk) continue;
-      sp = components[i];
-
-      const r = matrix.mat4.create();
-      const p = [0,0,0];
-      const c = [0,0,0];
-
-      sk.transform(frame_data.angle, r, p, c);
-      sp.reset(r);
-      Shader.boneOffset(p[0], p[1], p[2]);
-      sp.draw();
-    }
+    let parent_data = [];
+    currentSk[0].transform2(
+      frame_data, frame_data.angle, components, parent_data);
   }
 
 
@@ -117,12 +108,11 @@ function loadEmd(playId, emdId) {
 
 
   function init() {
+    console.debug("Load EMD", emdfile, '-', texfile);
     const mod = Mod2.emd(emdfile);
     const tex = Tim.parseStream(File.openDataView(texfile));
     currentSk = mod.sk1;
     currentAnim = mod.am1;
-  
-    console.debug("Load EMD", emdfile, '-', texfile);
   
     for (let i=0; i<mod.mesh.length; ++i) {
       let t = mergeTriVertexBuffer(mod.mesh[i].tri, tex);

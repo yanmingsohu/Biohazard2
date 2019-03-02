@@ -53,16 +53,17 @@ function roomBrowse(Room, window) {
 
 function enemyBrowse(Liv, window, Room) {
   let mods = [];
-  // 34号: 完整模型无动画, 23号:透明
-  let mindex = 35;
+  // 39:艾达, 51:里昂
+  let mindex = 51;
   _dir('Pl0/emd0');
   _dir('pl1/emd1');
 
   let mod;
   let anim_idx = 0;
+  let anim_frame = 0;
 
   let tmat = matrix.mat4.create(1);
-  matrix.mat4.translate(tmat, tmat, [0, -1.5, 0]);
+  matrix.mat4.translate(tmat, tmat, [0, -4, 0]);
   matrix.mat4.rotateZ(tmat, tmat, Math.PI);
   Shader.setModelTrans(tmat);
   switchMod(0);
@@ -97,9 +98,9 @@ function enemyBrowse(Liv, window, Room) {
 
   window.input().pressOnce(gl.GLFW_KEY_Q, function() {
     if (mod) {
-      if (!mod.runAnim(anim_idx++)) {
+      if (!mod.setAnim(anim_idx++, 0)) {
+        mod.setAnim(0, 0);
         anim_idx = 0;
-        mod.runAnim(0);
       }
     }
   });
@@ -124,18 +125,26 @@ function enemyBrowse(Liv, window, Room) {
     window.add(mod);
     // 切换模型的同时, 用模型纹理做背景
     // Room.showPic(mod.texfile);
-    console.log("Mod index:", mindex);
+    console.log("Mod index:", mindex, info.player, info.id);
   }
 
 
   function _dir(d) {
     let dirfiles = File.read_dir(d);
-    let reg = /em(.)(..)\.emd/g;
+    let reg = /em(.)(..)\.emd/;
 
     dirfiles.forEach(function(f) {
-      if (! f.endsWith('.emd')) return;
-      let match = reg.exec(f);
-      if (!match) return;
+      let test = f.toLowerCase();
+      if (! test.endsWith('.emd')) {
+        return;
+      }
+
+      let match = reg.exec(test);
+      if (! match) {
+        console.log("Skip match", test);
+        return;
+      }
+
       mods.push({
         player : parseInt(match[1]),
         id : match[2],

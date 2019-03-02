@@ -151,7 +151,12 @@ function parseStream(buf) {
 
     for (let i=0; i<wxh; ++i) {
       let pal = palettes[parseInt(i % width / pl)];
-      set_color(i, pal[index[i]]);
+      if (pal) {
+        let _a = index[i];
+        set_color(i, pal[_a]);
+      } else {
+        console.error(i, width, pl, i % width / pl, pal, palettes.length);
+      }
     }
   }
 }
