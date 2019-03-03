@@ -11,10 +11,11 @@ export default {
   createBasicDrawObject,
   // 设置模型变换矩阵
   setModelTrans,
-  // 设置骨骼偏移向量
+  // 设置骨骼总偏移向量
   boneOffset,
-  // 设置骨骼旋转矩阵
-  boneRotate,
+  // // 设置骨骼旋转矩阵
+  // boneRotate,
+  bindBoneOffset,
 };
 
 import Draw from '../boot/draw.js'
@@ -27,7 +28,8 @@ import Draw from '../boot/draw.js'
 let program;
 let draw_type;
 let model;
-let bone_rotate;
+let bind_bones;
+let bind_len;
 let bone_offset;
 
 
@@ -47,8 +49,9 @@ function init(window) {
   
   draw_type   = sp.getUniform('draw_type');
   model       = sp.getUniform('model');
+  bind_bones  = sp.getUniform('bind_bones');
+  bind_len    = sp.getUniform('bind_len');
   bone_offset = sp.getUniform('bone_offset');
-  bone_rotate = sp.getUniform('bone_rotate');
 
   program = sp;
   return sp;
@@ -81,11 +84,12 @@ function setModelTrans(mat4) {
 }
 
 
-function boneOffset(x, y, z) {
-  bone_offset.setUniform3f(x, y, z);
+function bindBoneOffset(vec4arr, len) {
+  bind_bones.setUniform4fv(vec4arr);
+  bind_len.setUniform1i(len);
 }
 
 
-function boneRotate(mat4) {
-  bone_rotate.setMatrix4fv(1, gl.GL_FALSE, mat4);
+function boneOffset(x, y, z) {
+  bone_offset.setUniform3f(x, y, z);
 }

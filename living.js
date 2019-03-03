@@ -16,7 +16,98 @@ import Game   from '../boot/game.js'
 import node   from '../boot/node.js'
 
 const matrix = node.load('boot/gl-matrix.js');
+const {quat} = matrix;
 let swap_buf = Res.localBuffer();
+
+
+// 处理线性动画
+class AngleLinearFrame {
+  constructor() {
+    this.curr = [];
+    this.prev = [];
+    this.time = 1;
+    this.state = 0;
+    this.qa = quat.create();
+    this.qb = quat.create();
+  }
+
+  // percentage 从 0~1, 1表示完成
+  setPercentage(percentage) {
+    if (percentage < 0) percentage = 0;
+    else if (percentage > 1) percentage = 1;
+    this.time = percentage;
+  }
+
+  setCurrent(frame_data) {
+    this._copy(this.prev, this.curr);
+    this._copy(this.curr, frame_data.angle);
+    this.state++;
+  }
+
+  reset() {
+    this.state = 0;
+  }
+
+  // Copy Ele b TO a
+  _copy(a, b) {
+    for (let i=0, len=b.length; i<len; ++i) {
+      if (!a[i]) a[i] = {x:0, y:0, z:0};
+      a[i].x = b[i].x;
+      a[i].y = b[i].y;
+      a[i].z = b[i].z;
+    }
+  }
+
+  // 获取 x,y,z 之前先调用
+  index(boneIdx) {
+    if (this.state > 1) {
+      let a = this.qa;
+      let b = this.qb;
+      let p = this.prev[boneIdx];
+      let c = this.curr[boneIdx];
+      quat.fromEuler(a, p.x, p.y, p.z);
+      quat.fromEuler(b, c.x, c.y, c.z);
+      quat.slerp(a, a, b, this.time);
+      
+      this.x = a[0];
+      this.y = a[1];
+      this.z = a[2];
+      this.w = a[3];
+    } else {
+      let a = this.qa;
+      let p = this.curr[boneIdx];
+      quat.fromEuler(a, p.x, p.y, p.z);
+
+      this.x = a[0];
+      this.y = a[1];
+      this.z = a[2];
+      this.w = a[3];
+    }
+    // this.x = this.curr[boneIdx].x;
+    // this.y = this.curr[boneIdx].y;
+    // this.z = this.curr[boneIdx].z;
+  }
+};
+
+
+function Vec3Transition(xyz, speed) {
+  if (!speed) speed = 1;
+  return {
+    line,
+    speed : setSpeed,
+  };
+
+  function setSpeed(s) {
+    if (s) speed = s;
+  }
+
+  function line(used, end_vec3) {
+    var f = speed / used;
+    ctrl_vec3[0] = ctrl_vec3[0] + (end_vec3[0] - ctrl_vec3[0])/f;
+    ctrl_vec3[1] = ctrl_vec3[1] + (end_vec3[1] - ctrl_vec3[1])/f;
+    ctrl_vec3[2] = ctrl_vec3[2] + (end_vec3[2] - ctrl_vec3[2])/f;
+  }
+}
 
 
 //
@@ -29,6 +120,10 @@ function loadEmd(playId, emdId) {
   const emdfile = key +'.emd';
   const texfile = key +'.tim';
   const components = [];
+  const alf = new AngleLinearFrame();
+  const bind_bone = new Float32Array(20*8);
+  const liner_pos = {x:0, y:0, z:0};
+  const liner_pos_tr = Game.Pos3Transition(liner_pos, 0);
 
   let comp_len = 0;
   let currentSk;
@@ -38,9 +133,10 @@ function loadEmd(playId, emdId) {
   // 动画帧数
   let anim_frame = 0;
   let anim_frame_length = 0;
+  let anim_dir = 0;
   let frame_data;
   let a = 0;
-  let speed = 300 /1000;
+  let speed = 50 /1000;
 
   init();
   setAnim(0, 0);
@@ -50,14 +146,24 @@ function loadEmd(playId, emdId) {
     draw,
     free,
     setAnim,
+    setDir,
   };
+
+
+  function setDir(d) {
+    anim_dir = d;
+  }
 
 
   function setAnim(idx, frame) {
     anim_idx = idx % currentAnim.length;
     let anim_frms = currentAnim[anim_idx];
     anim_frame_length = anim_frms.length;
-    anim_frame = frame % anim_frame_length;
+    if (frame < 0) {
+      anim_frame = anim_frame_length-1;
+    } else {
+      anim_frame = frame % anim_frame_length;
+    }
 
     let anim = anim_frms[anim_frame];
     if (!anim) {
@@ -65,6 +171,10 @@ function loadEmd(playId, emdId) {
       return false;
     }
     frame_data = currentSk.get_frame_data(anim.sk_idx);
+    alf.setCurrent(frame_data);
+    liner_pos.x = frame_data.x;
+    liner_pos.y = frame_data.y;
+    liner_pos.z = frame_data.z;
 
     console.line("Anim", anim_idx, "Frame", anim_frame, 
       "Speed:", frame_data.spx, frame_data.spy, frame_data.spz, 
@@ -73,22 +183,24 @@ function loadEmd(playId, emdId) {
   }
 
 
+
   function draw(u, t) {
     Shader.draw_living();
+    a += u;
     
-    if ((a+=u) >= speed) {
-      a = 0;
-      // if (frame_data.spx >= 0) {
-        setAnim(anim_idx, anim_frame+1);
-      // } else {
-      //   if (--anim_frame < 0) anim_frame = anim_frame_length-1;
-      //   setAnim(anim_idx, anim_frame);
-      // }
-    }
+    // console.log(a/speed);
+    alf.setPercentage(a / speed);
 
-    let parent_data = [];
-    currentSk[0].transform2(
-      frame_data, frame_data.angle, components, parent_data);
+    liner_pos_tr.line(u, frame_data);
+    let p = liner_pos_tr.pos();
+    Shader.boneOffset(p.x, p.y, p.z);
+    currentSk[0].transform2(bind_bone, alf, components, 0);
+    
+    if (a >= speed) {
+      a = 0;
+      setAnim(anim_idx, anim_frame + anim_dir);
+      liner_pos_tr.speed(speed);
+    }
   }
 
 

@@ -53,7 +53,7 @@ function roomBrowse(Room, window) {
 
 function enemyBrowse(Liv, window, Room) {
   let mods = [];
-  // 39:艾达, 51:里昂
+  // 39:艾达, 51:里昂, 94:机械臂, 91:食人花, 71:鳄鱼
   let mindex = 51;
   _dir('Pl0/emd0');
   _dir('pl1/emd1');
@@ -61,6 +61,7 @@ function enemyBrowse(Liv, window, Room) {
   let mod;
   let anim_idx = 0;
   let anim_frame = 0;
+  let q = 0;
 
   let tmat = matrix.mat4.create(1);
   matrix.mat4.translate(tmat, tmat, [0, -4, 0]);
@@ -105,9 +106,29 @@ function enemyBrowse(Liv, window, Room) {
     }
   });
 
+  window.input().pressOnce(gl.GLFW_KEY_1, function() {
+    if (mod) {
+      mod.setDir(-1);
+    }
+  });
+
+  window.input().pressOnce(gl.GLFW_KEY_2, function() {
+    if (mod) {
+      mod.setDir(0);
+    }
+  });
+
+  window.input().pressOnce(gl.GLFW_KEY_3, function() {
+    if (mod) {
+      mod.setDir(1);
+    }
+  });
+
   console.log("Press U/I next model");
   console.log("Press A/D rotate");
   console.log("Press W/S far/near");
+  console.log("Press Q next pose");
+  console.log("Press 1/2/3 play anim");
 
 
   function switchMod(x) {

@@ -4,6 +4,7 @@ import node from '../boot/node.js'
 import Shader from './shader.js'
 
 const matrix = node.load('boot/gl-matrix.js');
+const {vec3, mat4} = matrix;
 
 const IDX_MESH = 7;
 const IDX_SK_1 = 2;
@@ -82,7 +83,6 @@ class SkeletonBone {
     this.idx = i;
     this.child = [];
     this._pos = [];
-    console.log(this.dat.x, this.dat.y, this.dat.z);
   }
 
 
@@ -91,47 +91,26 @@ class SkeletonBone {
   }
 
 
-  get x() { return this.parent ? this.parent.x + this.dat.x : this.dat.x; }
-  get y() { return this.parent ? this.parent.y + this.dat.y : this.dat.y; }
-  get z() { return this.parent ? this.parent.z + this.dat.z : this.dat.z; }
-
-
-  transform2(zero, angles, sprites, parent_data, sr) {
+  transform2(bind_bone, alf, sprites, count) {
     const idx = this.idx;
-    const sprite = sprites[idx];
-    const angle = angles[idx];
-    const p = [this.x, this.y, this.z];
-    // const p = [this.x +zero.x, this.y +zero.y, this.z +zero.z];
-    const org = matrix.vec3.clone(p);
-    const r = matrix.mat4.create();
+    alf.index(idx);
+    
+    let boffset = count * 8;
+    bind_bone[0 +boffset] = this.dat.x;
+    bind_bone[1 +boffset] = this.dat.y;
+    bind_bone[2 +boffset] = this.dat.z;
+    bind_bone[3 +boffset] = 1;
+    bind_bone[4 +boffset] = alf.x;
+    bind_bone[5 +boffset] = alf.y;
+    bind_bone[6 +boffset] = alf.z;
+    bind_bone[7 +boffset] = alf.w || 0;
+    count++;
 
-    matrix.mat4.rotateX(r, sr || r, angle.x);
-    matrix.mat4.rotateY(r, r, angle.y);
-    matrix.mat4.rotateZ(r, r, angle.z);
+    Shader.bindBoneOffset(bind_bone, count);
+    sprites[idx].draw();
 
-    for (let i=0; i<parent_data.length; ++i) {
-      // !! 旋转后, 原点已经改变
-      const center = parent_data[i].p;
-      const a = parent_data[i].angle;
-      // 把父节点的旋转应用于子节点的偏移
-      matrix.vec3.rotateX(p, p, center, a.x);
-      matrix.vec3.rotateY(p, p, center, a.y);
-      matrix.vec3.rotateZ(p, p, center, a.z);
-      // matrix.vec3.add(p, p, parent_data[i].off);
-      // matrix.mat4.subtract(org, org, p);
-    }
-
-    Shader.boneOffset(p[0]+zero.x, p[1]+zero.y, p[2]+zero.z);
-    // Shader.boneOffset(p[0], p[1], p[2]);
-    sprite.reset(r);
-    sprite.draw();
-
-    if (this.child.length > 0) {
-      parent_data.push({ p, angle, org });
-      this.child.forEach(function(c) {
-        c.transform2(zero, angles, sprites, parent_data, r);
-      });
-      parent_data.pop();
+    for (let i=0, len=this.child.length; i<len; ++i) {
+      this.child[i].transform2(bind_bone, alf, sprites, count);
     }
   }
 };
@@ -213,6 +192,7 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
   const RLEN = parseInt(angle_size/9*2);
   const skdata = { angle: [] };
   const PI2 = 2 * Math.PI;
+  const angle_fn = degrees; // radian & degrees
   let curr_sk_idx = -1;
 
   if (angle_size <= 0) {
@@ -257,9 +237,9 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
       let a3 = buf.byte();
       let a4 = buf.byte();
       // console.log('joint', i, a0, a1, a2, a3, a4);
-      r.x = radian(a0 + ((a1 & 0xF) << 8));
-      r.y = radian((a1 >> 4) + (a2 << 4));
-      r.z = radian(a3 + ((a4 & 0xF) << 8));
+      r.x = angle_fn(a0 + ((a1 & 0xF) << 8));
+      r.y = angle_fn((a1 >> 4) + (a2 << 4));
+      r.z = angle_fn(a3 + ((a4 & 0xF) << 8));
       // console.log(r.x, r.y, r.z);
 
       if (++i < RLEN) {
@@ -270,9 +250,9 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
         a3 = buf.byte();
         a4 = buf.byte();
         // console.log('joint', i, a0, a1, a2, a3, a4);
-        r.x = radian((a0 >> 4) + (a1 << 4));
-        r.y = radian(a2 + ((a3 & 0xF) << 8));
-        r.z = radian((a3 >> 4) + (a4 << 4));
+        r.x = angle_fn((a0 >> 4) + (a1 << 4));
+        r.y = angle_fn(a2 + ((a3 & 0xF) << 8));
+        r.z = angle_fn((a3 >> 4) + (a4 << 4));
         // console.log(r.x, r.y, r.z);
       } else {
         return;
@@ -280,8 +260,14 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     }
   }
 
+  // 返回弧度
   function radian(n) {
     return (n/MAX_ANGLE) * PI2;
+  }
+
+  // 返回角度
+  function degrees(n) {
+    return (n/MAX_ANGLE) * 360;
   }
 }
 
