@@ -8,9 +8,29 @@ import File from './file.js'
 
 export default {
   load,
+  from,
 };
 
 
+//
+// 按照编号读取
+//
+function from(stage, room, player) {
+  let r = room.toString(16);
+  if (room < 0x10) r = '0'+r;
+
+  let file = [
+    'Pl', player, '/Rdt/ROOM', 
+    stage.toString(16), r, player, '.RDT'
+  ].join('');
+
+  return load(file);
+}
+
+
+//
+// 直接从文件读取
+//
 function load(file) {
   debug("Load RDT, room dest file", file);
   if (!file.toLowerCase().endsWith('.rdt'))
@@ -73,6 +93,7 @@ function readSpritesTim(buf, off, obj) {
   const count = obj.sprites_anim.length;
   const tim = obj.sprites_tim = [];
   let file_offset = off.list_tim;
+  debug("Sprites Tim count", count);
 
   for (let i=0; i<count; ++i) {
     debug("Read TIM on", file_offset);
@@ -388,7 +409,7 @@ function J(o, x, n) {
 
 
 function debug() {
-  console.debug.apply(console, arguments);
+  // console.debug.apply(console, arguments);
 }
 
 

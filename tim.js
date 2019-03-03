@@ -12,7 +12,7 @@ function parseStream(buf) {
   // h.printHex(new Uint8Array(buf.buffer, buf.byteOffset, 100));
   const head = buf.getUint32(0, true);
   if (head != 0x10) {
-    throw new Error("bad TIM stream");
+    throw new Error("bad TIM stream "+ head);
   }
 
   const type = buf.getUint32(4, true);
@@ -38,11 +38,12 @@ function parseStream(buf) {
   const width = _width(buf.getUint16(vi + 8, true));
   const height = buf.getUint16(vi + 10, true);
   const wxh = width * height;
-  const byteLength = wxh + vi + 12;
+  const byteLength = _offset(width)*height + vi + 12;
 
   // if (buf.getUint16(vi, true) - 12 != width * height) 
   //   throw new Error("bad size");
-  console.debug("Tim pic Size:", wxh, '[', width, 'x', height, ']');
+  console.debug("Tim pic Size:", wxh, 
+      '[', width, 'x', height, '] byte:', byteLength);
 
   const buffer_index_offset = buf.byteOffset + offset + 20;
   const imgbuf = new Uint16Array(wxh); // new Float32Array(wxh *4);
@@ -90,8 +91,17 @@ function parseStream(buf) {
   function _width(w) {
     switch (type) {
       case 0x02: return w;      // 16bit 
-      case 0x08: return w << 2; //  4bit * 4
       case 0x09: return w << 1; //  8bit * 2
+      case 0x08: return w << 2; //  4bit * 4
+    }
+  }
+
+
+  function _offset(w) {
+    switch (type) {
+      case 0x02: return w << 1; // 16bit * 2
+      case 0x09: return w;      //  8bit 
+      case 0x08: return w >> 1; //  4bit / 2
     }
   }
 
