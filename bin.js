@@ -12,13 +12,27 @@ export default {
 // 按文件名解析不同的格式, 每种格式返回对象可能不同.
 //
 function load(file) {
-  if (file.indexOf('roomcut')) {
+  console.log("Load bin:", file);
+  if (file.indexOf('roomcut') > 0) {
     return _bin(file);
   }
-  if (file.indexOf('espdat')) {
+  if (file.indexOf('espdat') > 0) {
     return _bin(file);
+  }
+  if (file.indexOf('file') > 0) {
+    return _file(file);
   }
   throw new Error("cannot open BIN: "+ file);
+}
+
+
+function _file(file) {
+  const dv = File.dataViewExt(File.openDataView(file));
+  const offset = dv.ulong();
+  if (!offset) {
+    throw new Error("no adt in "+ file);
+  }
+  throw new Error("no implements read "+ file);
 }
 
 

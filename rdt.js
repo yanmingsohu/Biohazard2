@@ -80,7 +80,7 @@ function readVAB(filebuf, off, ret) {
   // debug("VAB", vab);
   let buf = new Uint8Array(filebuf, off, 333);
   debug("VAB",);
-  hex.printHex(buf);
+  // hex.printHex(buf);
 }
 
 
@@ -114,7 +114,7 @@ function readSpritesAnim(filebuf, off, obj) {
     let c = v.getUint8(i);
     if (c == 0xFF || c == 0) break;
     block.push(c);
-    console.log("SAB", i, c);
+    debug("SAB", i, c);
   }
 
   //
@@ -186,13 +186,13 @@ function readSpritesAnim(filebuf, off, obj) {
       for (let b = 0; b < blk_len; b+=1) {
         unknow_block.push(v.getInt8(x + b, true));
       }
-      console.log("  Unknow block:", unknow_block);
+      debug("  Unknow block:", unknow_block);
     }
     vi += (max_offset) * 4 + blk_len;
 
     var total_long = v.getInt32(vi, true);
+    debug("  total:", total_long, begin_at, vi);
     if (total_long + begin_at - vi) throw new Error("bad offset");
-    debug("  total:", total_long);
     vi += 4;
   }
 }
@@ -265,22 +265,27 @@ function readMask(filebuf, off) {
       chip.src_x = v.getUint8(0);
       chip.src_y = v.getUint8(1);
       // 背景图像/屏幕上的目的地位置
-      chip.dst_x = v.getUint8(2);
-      chip.dst_y = v.getUint8(3);
+      chip.dst_x = v.getUint8(2) + mask.x;
+      chip.dst_y = v.getUint8(3) + mask.y;
       // “深度”值是掩模与相机的Z距离（低值=近，高值=远）。
       chip.depth = v.getUint16(4, true);
+      let w = v.getUint16(6, true);
       // 要添加的背景图像/屏幕上的目的地位置
-      chip.x     = mask.x;
-      chip.y     = mask.y;
+      // chip.x     = mask.x;
+      // chip.y     = mask.y;
 
       let type = v.getUint16(6, true);
       if (type == 0) {
-        chip.type   = 'rect';
-        chip.width  = v.getUint16(8, true);
-        chip.height = v.getUint16(10, true);
+        // chip.rect   = true;
+        // chip.type   = 'rect';
+        chip.w = v.getUint16(8, true);
+        chip.h = v.getUint16(10, true);
         off += 12;
       } else {
-        chip.type = 'square';
+        // chip.rect  = false;
+        // chip.type  = 'square';
+        chip.w = w;
+        chip.h = w;
         off += 8;
       }
       debug("Mask chip", J(chip));
@@ -409,7 +414,7 @@ function J(o, x, n) {
 
 
 function debug() {
-  // console.debug.apply(console, arguments);
+  console.debug.apply(console, arguments);
 }
 
 

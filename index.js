@@ -15,14 +15,14 @@ window.center();
 const sp = Shader.init(window);
 const camera = Game.createCamera(sp);
 window.add(camera);
-camera.lookAt(0, 0, 0);
+camera.lookAt(0, 0, -1);
 
 
 Room.init(window);
-Scenes.init(window, camera);
-Scenes.start_game(window, camera);
-// Dev.roomBrowse(Room, window);
-// Dev.enemyBrowse(Liv, window, Room);
+Scenes.init(window, camera, sp);
+Scenes.start_game();
+// Dev.roomBrowse(Room, window, camera);
+// Dev.enemyBrowse(Liv, window, Room, camera);
 gameLoop();
 
 

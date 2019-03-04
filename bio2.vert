@@ -53,31 +53,34 @@ vec4 rotateZ(vec4 p, float c) {
 
 
 vec4 rotate_vertex_position(vec4 position, vec4 quat) {
+  // quat 不是四元数而是欧拉角
+  // mpos = rotateX(mpos, rot.x);
+  // mpos = rotateY(mpos, rot.y);
+  // mpos = rotateZ(mpos, rot.z);
   vec4 q = quat;
   vec3 v = position.xyz;
   vec3 r = v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
-  return vec4(r, 1);
+  return vec4(r, 0);
 }
 
 
 void draw_living() {
-  // 来自游戏定义的数值空间 camera ?
   vec4 mpos = bone_rotate * vec4(pos, 1);
   int i;
+
   for (i=(bind_len-1)*2; i>=0; i-=2) {
     vec4 off = bind_bones[i];
     vec4 rot = bind_bones[i+1];
     mpos = rotate_vertex_position(mpos, rot);
-    // mpos = rotateX(mpos, rot.x);
-    // mpos = rotateY(mpos, rot.y);
-    // mpos = rotateZ(mpos, rot.z);
     mpos += off;
   }
 
-  mpos += vec4(bone_offset, 0);
-  // vec4 modelRot = bone_rotate * vec4(pos, 1);
-  vec4 modelPos = model * vec4(vec3(mpos), 1000);
-  gl_Position = projection * camera * modelPos;
+  // bone_offset 的范围未知?
+  // bone_offset.y = bone_offset.y + 2000;
+  mpos = mpos + vec4(bone_offset.x, bone_offset.y+2030, bone_offset.z, 0);
+  vec4 modelPos = camera * model * vec4(mpos.xyz, 1);
+  gl_Position = projection * vec4(modelPos.xyz, 1000);
+  
   oTexCoord = iTexCoord;
   oNormal = iNormal;
 }

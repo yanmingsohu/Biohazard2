@@ -32,7 +32,7 @@ void draw_background() {
   FragColor = texture(ourTexture, oTexCoord);
   // 越接近0越近, 越接近1越远, 但是 1 在可视范围外(不显示)
   // 只要有一处写入深度值, 默认值将被禁用, 所有过程都必须写入深度值
-  gl_FragDepth = 0.99999;
+  gl_FragDepth = gl_FragCoord.z;
 }
 
 

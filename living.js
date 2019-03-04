@@ -2,7 +2,10 @@
 // 会动的活物
 //
 export default {
+  // 读取文件
   loadEmd,
+  // 用游戏内部编号读取模型
+  fromEmd,
 };
 
 import Mod2   from './model2.js'
@@ -29,6 +32,7 @@ class AngleLinearFrame {
     this.state = 0;
     this.qa = quat.create();
     this.qb = quat.create();
+    this.w = 1;
   }
 
   // percentage 从 0~1, 1表示完成
@@ -90,30 +94,18 @@ class AngleLinearFrame {
 };
 
 
-function Vec3Transition(xyz, speed) {
-  if (!speed) speed = 1;
-  return {
-    line,
-    speed : setSpeed,
-  };
-
-  function setSpeed(s) {
-    if (s) speed = s;
-  }
-
-  function line(used, end_vec3) {
-    var f = speed / used;
-    ctrl_vec3[0] = ctrl_vec3[0] + (end_vec3[0] - ctrl_vec3[0])/f;
-    ctrl_vec3[1] = ctrl_vec3[1] + (end_vec3[1] - ctrl_vec3[1])/f;
-    ctrl_vec3[2] = ctrl_vec3[2] + (end_vec3[2] - ctrl_vec3[2])/f;
-  }
+function fromEmd(playId, emdId) {
+  let e = emdId.toString(16);
+  let p = playId ? '1' : '0';
+  if (emdId < 0x10) throw new Error("bad emd id");
+  return loadEmd(p, e);
 }
 
 
 //
 // 读取并解析敌人文件, 返回可绘制对象
 // playId - 0 里昂, 1 克莱尔
-// emdId - 文件id
+// emdId - 文件id, 如果是数字应该转换为 16 进制字符串
 //
 function loadEmd(playId, emdId) {
   const key = `pl${playId}/emd${playId}/EM${playId}${emdId}`;
@@ -147,7 +139,13 @@ function loadEmd(playId, emdId) {
     free,
     setAnim,
     setDir,
+    where,
   };
+
+
+  function where() {
+    return components[0].where();
+  }
 
 
   function setDir(d) {
@@ -176,9 +174,9 @@ function loadEmd(playId, emdId) {
     liner_pos.y = frame_data.y;
     liner_pos.z = frame_data.z;
 
-    console.line("Anim", anim_idx, "Frame", anim_frame, 
-      "Speed:", frame_data.spx, frame_data.spy, frame_data.spz, 
-      "Offset", frame_data.x, frame_data.y, frame_data.z, "\t");
+    // console.line("Anim", anim_idx, "Frame", anim_frame, 
+    //   "Speed:", frame_data.spx, frame_data.spy, frame_data.spz, 
+    //   "Offset", frame_data.x, frame_data.y, frame_data.z, "\t");
     return true;
   }
 

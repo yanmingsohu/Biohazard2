@@ -16,12 +16,15 @@ const matrix = Node.load('boot/gl-matrix.js');
 //
 // 房间浏览器
 //
-function roomBrowse(Room, window) {
+function roomBrowse(Room, window, cam) {
   let roomIdx = -1;
+  let cameraFront = cam.lookWhere();
+  let cameraCenter = cam.pos();
 
   console.log("Total room", Room.count);
   // Room.switchRoom(roomIdx++);
   Room.showPic('common/data/Tit_bg.adt');
+  // Room.showPic('common/file/map10.adt'); // 小地图
   // Room.showPic('pl0/emd0/EM03A.TIM');
   // Room.showPic('pl0/emd0/EM03A.tim');
 
@@ -31,6 +34,10 @@ function roomBrowse(Room, window) {
 
   window.input().pressOnce(gl.GLFW_KEY_K, function() {
     _sw(-1);
+  });
+
+  window.onKey(gl.GLFW_KEY_Z, gl.GLFW_PRESS, 0, function() {
+    matrix.vec3.rotateY(cameraFront, cameraFront, cameraCenter, 0.01);
   });
 
   console.log("Press J/K switch picture");
@@ -51,7 +58,7 @@ function roomBrowse(Room, window) {
 }
 
 
-function enemyBrowse(Liv, window, Room) {
+function enemyBrowse(Liv, window, Room, camera) {
   let mods = [];
   // 39:艾达, 51:里昂, 94:机械臂, 91:食人花, 71:鳄鱼
   let mindex = 51;
@@ -62,9 +69,10 @@ function enemyBrowse(Liv, window, Room) {
   let anim_idx = 0;
   let anim_frame = 0;
   let q = 0;
+  let one_step = 5;
 
   let tmat = matrix.mat4.create(1);
-  matrix.mat4.translate(tmat, tmat, [0, -4, 0]);
+  matrix.mat4.translate(tmat, tmat, [0, -4300, -3500]);
   matrix.mat4.rotateZ(tmat, tmat, Math.PI);
   Shader.setModelTrans(tmat);
   switchMod(0);
@@ -80,12 +88,12 @@ function enemyBrowse(Liv, window, Room) {
   });
 
   window.onKey(gl.GLFW_KEY_S, gl.GLFW_PRESS, 0, function() {
-    matrix.mat4.translate(tmat, tmat, [-0.01, 0, 0]);
+    matrix.mat4.translate(tmat, tmat, [-one_step, 0, 0]);
     Shader.setModelTrans(tmat);
   });
 
   window.onKey(gl.GLFW_KEY_W, gl.GLFW_PRESS, 0, function() {
-    matrix.mat4.translate(tmat, tmat, [0.01 ,0, 0]);
+    matrix.mat4.translate(tmat, tmat, [one_step ,0, 0]);
     Shader.setModelTrans(tmat);
   });
 
@@ -144,6 +152,7 @@ function enemyBrowse(Liv, window, Room) {
     let info = mods[mindex];
     mod = Liv.loadEmd(info.player, info.id);
     window.add(mod);
+    camera.lookAtSprite(mod);
     // 切换模型的同时, 用模型纹理做背景
     // Room.showPic(mod.texfile);
     console.log("Mod index:", mindex, info.player, info.id);

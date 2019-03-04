@@ -62,6 +62,10 @@ const pic_map = {
   // 记事本纹理 3种调色板
   'item_book': 'common/data/ST_FILE.tim',
 
+  // 特殊效果小图片
+  'esp1' : 'common/bin/espdat1.bin',
+  'esp2' : 'common/bin/espdat2.bin',
+
   // 开场介绍 骷髅头
   'start_0' : 'common/data/open10.adt',
   // 开场介绍 细胞, 一张图片做动画化处理

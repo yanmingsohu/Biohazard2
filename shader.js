@@ -20,7 +20,9 @@ export default {
 
 import Draw from '../boot/draw.js'
 
-
+const FOVY = 60;
+const NEAR = 1;
+const FAR  = 1000;
 //
 // 单例模式, 任何模块都引用同一个着色器程序
 // 并且只能初始化一次
@@ -42,7 +44,8 @@ function init(window) {
   // sp.readGeoShader("bio2/bio2.geo");
   sp.readFragShader("bio2/bio2.frag");
   sp.link();
-  sp.setProjection(45, 4/3, 0.01, 1000);
+  sp.setProjection(radians(FOVY), 4/3, NEAR, FAR);
+  // test(sp, window);
 
   gl.glEnable(gl.GL_BLEND);
   gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA);
@@ -55,6 +58,33 @@ function init(window) {
 
   program = sp;
   return sp;
+}
+
+
+function test(sp, w) {
+  const i = w.input();
+  let n = NEAR, r = FOVY, f = FAR;
+
+  i.pressOnce(gl.GLFW_KEY_0, function() {
+    f += 1; setp();
+  });
+
+  i.pressOnce(gl.GLFW_KEY_9, function() {
+    f -= 1; setp();
+  });
+
+  i.pressOnce(gl.GLFW_KEY_EQUAL, function() {
+    r += 1; setp();
+  });
+
+  i.pressOnce(gl.GLFW_KEY_MINUS, function() {
+    r -= 1; setp();
+  });
+
+  function setp() {
+    sp.setProjection(radians(r), 4/3, n, f);
+    console.line("Fov", r, "near", n, 'far', f);
+  }
 }
 
 
@@ -91,5 +121,10 @@ function bindBoneOffset(vec4arr, len) {
 
 
 function boneOffset(x, y, z) {
-  bone_offset.setUniform3f(x, y, z);
+  bone_offset && bone_offset.setUniform3f(x, y, z);
+}
+
+
+function radians(degress) {
+  return degress * Math.PI/180;
 }

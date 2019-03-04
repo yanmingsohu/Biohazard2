@@ -103,7 +103,7 @@ class SkeletonBone {
     bind_bone[4 +boffset] = alf.x;
     bind_bone[5 +boffset] = alf.y;
     bind_bone[6 +boffset] = alf.z;
-    bind_bone[7 +boffset] = alf.w || 0;
+    bind_bone[7 +boffset] = alf.w;
     count++;
 
     Shader.bindBoneOffset(bind_bone, count);

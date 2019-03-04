@@ -561,6 +561,7 @@ function compile(arrbuf) {
         zb.dir = mem.short();
         mem.s(4);
         debug(JSON.stringify(zb));
+        game.addEnemy(zb);
         break;
 
       case 0x45:
