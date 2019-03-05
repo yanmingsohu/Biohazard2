@@ -7,7 +7,7 @@ import Shader from './shader.js'
 import Res  from '../boot/resource.js'
 
 
-// const roomcut = Bin.load('common/bin/osp.bin');
+// const roomcut = Bin.load('common/bin/itemdata.bin');
 const roomcut = Bin.load('common/bin/roomcut.bin');
 const roomCache = Res.createLimitCache(loadRoom, freeRoom, 10);
 const z = 0.99999;
@@ -15,14 +15,13 @@ const z = 0.99999;
 let background;
 let bgtex;
 let mask;
-let w, h; // 背景图片的宽x高
 
 const vertices = new Float32Array([
-  // positions   // texture coords
-   1,  1, z,    1.0, 0.0,   // top right
-   1, -1, z,    1.0, 1.0,   // bottom right
-  -1, -1, z,    0.0, 1.0,   // bottom left
-  -1,  1, z,    0.0, 0.0,   // top left 
+  // positions  // texture coords
+   1,  1, z,    1.0, 0.0,  
+   1, -1, z,    1.0, 1.0, 
+  -1, -1, z,    0.0, 1.0, 
+  -1,  1, z,    0.0, 0.0, 
 ]);
 
 const indices = new Uint32Array([
@@ -57,8 +56,11 @@ function init(window) {
 
 function draw(u, t) {
   Shader.draw_background();
-  if (mask) mask.draw();
   background.draw(u, t);
+  if (mask) {
+    Shader.draw_mask();
+    mask.draw();
+  }
 }
 
 
@@ -68,7 +70,7 @@ function loadRoom(id) {
   if (!binbuf) {
     return;
   }
-  return Adt.unpack(binbuf);
+  return Adt.room(binbuf);
 }
 
 
@@ -80,12 +82,20 @@ function freeRoom(id, room) {
 //
 // 用图像索引切换背景
 //
-function switchRoom(id) {
+function switchRoom(id, mask_dat) {
   let room = roomCache.get(id);
   if (room) {
     room.bindTexTo(bgtex);
-    w = room.width / 2;
-    h = room.height / 2;
+    // 显示蒙版, 可能崩溃
+    // if (room.bindMaskTexTo) {
+    //   room.bindMaskTexTo(bgtex);
+    // }
+    
+    let mask = setMask(mask_dat, 
+        room.width, room.height, room.maskw, room.maskh);
+    if (mask) {
+      room.bindMaskTexTo(mask.getTexture());
+    }
     return true;
   }
   return false;
@@ -98,9 +108,9 @@ function switchRoom(id) {
 // room  - 房间编号, 从 0 开始
 // carame - 摄像机编号, 从 0 开始, 最多 0xF 个.
 //
-function switchWith(stage, room, carame) {
+function switchWith(stage, room, carame, mask) {
   let id = (stage-1) *512 + room*16 + carame;
-  return switchRoom(id);
+  return switchRoom(id, mask);
 }
 
 
@@ -120,7 +130,10 @@ function showPic(file) {
 }
 
 
-function setMask(m) {
+//
+// 在切换房间之前设置遮掩数据
+//
+function setMask(m, rw, rh, mw, mh) {
   if (mask) {
     mask.free();
     mask = null;
@@ -132,44 +145,58 @@ function setMask(m) {
   // | x,y,z | u, v |
   const buf = new Float32Array(m.length * 5 * 4);
   const idx = new Uint32Array(m.length * 6);
-  let bi = 0, ii = 0;
+  let bi = 0, ii = 0, vi = 0;
+  let dx, dy, sx, sy, dep, ww, hh;
+  rw = rw/2;
+  rh = rh/2;
 
   // {"src_x":8,"src_y":48,"dst_x":80,"dst_y":0,"depth":86,
   //  "x":232,"y":120,"width":8,"height":8}
   for (let i=0, len=m.length; i<len; ++i) {
+    dx = m[i].dst_x;
+    dy = m[i].dst_y;
+    sx = m[i].src_x;
+    sy = m[i].src_y;
+    ww = m[i].w;
+    hh = m[i].h;
+    dep = -m[i].depth / 0xFFFF;
+    vi = i * 4;
+
+    // if (i>5) break;;
+    console.log(i, JSON.stringify(m[i]));
+
     bi = i * 5 * 4;
-    buf[bi + 0] =  (m[i].dst_x) /w -1;
-    buf[bi + 1] = -(m[i].dst_y) /h +1;
-    buf[bi + 2] =  -m[i].depth / 0xFFFF;
-    buf[bi + 3] =  (m[i].src_x) / 0xFF; // 这不对!!
-    buf[bi + 4] =  (m[i].src_y) / 0xFF;
+    buf[bi + 0] =  dx / rw -1;
+    buf[bi + 1] = -dy / rh +1;
+    buf[bi + 2] =  dep;
+    buf[bi + 3] =  sx / mw;
+    buf[bi + 4] =  sy / mh;
     bi += 5;
-    buf[bi + 0] =  (m[i].dst_x + m[i].w) /w -1;
-    buf[bi + 1] = -(m[i].dst_y) /h +1;
-    buf[bi + 2] =  -m[i].depth / 0xFFFF;
-    buf[bi + 3] =  (m[i].src_x + m[i].w) / 0xFF;
-    buf[bi + 4] =  (m[i].src_y) / 0xFF;
+    buf[bi + 0] =  (dx + ww) / rw -1;
+    buf[bi + 1] = -dy / rh +1;
+    buf[bi + 2] =  dep;
+    buf[bi + 3] =  (sx + ww) / mw;
+    buf[bi + 4] =  sy / mh;
     bi += 5;
-    buf[bi + 0] =  (m[i].dst_x + m[i].w) /w -1;
-    buf[bi + 1] = -(m[i].dst_y + m[i].h) /h +1;
-    buf[bi + 2] =  -m[i].depth / 0xFFFF;
-    buf[bi + 3] =  (m[i].src_x + m[i].w) / 0xFF;
-    buf[bi + 4] =  (m[i].src_y + m[i].h) / 0xFF;
+    buf[bi + 0] =  (dx + ww) / rw -1;
+    buf[bi + 1] = -(dy + hh) / rh +1;
+    buf[bi + 2] =  dep;
+    buf[bi + 3] =  (sx + ww) / mw;
+    buf[bi + 4] =  (sy + hh) / mh;
     bi += 5;
-    buf[bi + 0] =  (m[i].dst_x) /w -1;
-    buf[bi + 1] = -(m[i].dst_y + m[i].h) /h +1;
-    buf[bi + 2] =  -m[i].depth / 0xFFFF;
-    buf[bi + 3] =  (m[i].src_x) / 0xFF;
-    buf[bi + 4] =  (m[i].src_y + m[i].h) / 0xFF;
-    bi += 5;
+    buf[bi + 0] =  dx / rw -1;
+    buf[bi + 1] = -(dy + hh) / rh +1;
+    buf[bi + 2] =  dep;
+    buf[bi + 3] =  sx / mw;
+    buf[bi + 4] =  (sy + hh) / mh;
 
     ii = i * 6;
-    idx[ii + 0] = 0 + i*4;
-    idx[ii + 1] = 3 + i*4;
-    idx[ii + 2] = 2 + i*4;
-    idx[ii + 3] = 0 + i*4;
-    idx[ii + 4] = 1 + i*4;
-    idx[ii + 5] = 2 + i*4;
+    idx[ii + 0] = 0 + vi;
+    idx[ii + 1] = 1 + vi;
+    idx[ii + 2] = 2 + vi;
+    idx[ii + 3] = 0 + vi;
+    idx[ii + 4] = 3 + vi;
+    idx[ii + 5] = 2 + vi;
   };
 
   mask = Shader.createBasicDrawObject();
@@ -177,5 +204,5 @@ function setMask(m) {
   mask.setAttr({ index: 0, vsize: 3, stride: 5*gl.sizeof$float });
   mask.setAttr({ index: 2, vsize: 2, stride: 5*gl.sizeof$float, 
               offset: 3*gl.sizeof$float });
-  
+  return mask;
 }

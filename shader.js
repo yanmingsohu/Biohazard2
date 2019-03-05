@@ -7,6 +7,8 @@ export default {
   draw_living,
   // 绘制背景
   draw_background,
+  // 绘制背景蒙版
+  draw_mask,
   // 创建绘制对象, 无参数
   createBasicDrawObject,
   // 设置模型变换矩阵
@@ -22,7 +24,7 @@ import Draw from '../boot/draw.js'
 
 const FOVY = 60;
 const NEAR = 1;
-const FAR  = 1000;
+const FAR  = 45;
 //
 // 单例模式, 任何模块都引用同一个着色器程序
 // 并且只能初始化一次
@@ -95,6 +97,11 @@ function draw_living() {
 
 function draw_background() {
   draw_type.setUniform1i(2);
+}
+
+
+function draw_mask() {
+  draw_type.setUniform1i(3);
 }
 
 

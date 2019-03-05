@@ -5,6 +5,8 @@ export default {
   roomBrowse,
   runAllScript,
   enemyBrowse,
+  smallMapBrowse,
+  dataDirBrowse,
 };
 
 import File   from './file.js'
@@ -24,7 +26,7 @@ function roomBrowse(Room, window, cam) {
   console.log("Total room", Room.count);
   // Room.switchRoom(roomIdx++);
   Room.showPic('common/data/Tit_bg.adt');
-  // Room.showPic('common/file/map10.adt'); // 小地图
+  // Room.showPic('common/file/map00d.adt'); // 小地图
   // Room.showPic('pl0/emd0/EM03A.TIM');
   // Room.showPic('pl0/emd0/EM03A.tim');
 
@@ -55,6 +57,56 @@ function roomBrowse(Room, window, cam) {
     }
     console.log('room', roomIdx.toString(16));
   }
+}
+
+
+function adtBrowse(dir, Room, window) {
+  let mapIdx = 0;
+  const maps = [];
+  const p = dir.split('/')[0];
+
+  let tmp = File.read_dir(dir);
+  tmp.forEach(function(f) {
+    if (f.endsWith('.adt') || f.endsWith('.tim')) {
+      let x = f.indexOf(p);
+      maps.push(f.substr(x));
+    }
+  });
+
+  console.log("Total map", maps.length);
+  Room.showPic(maps[0]); // 小地图
+
+  window.input().pressOnce(gl.GLFW_KEY_J, function() {
+    _sw(1);
+  });
+
+  window.input().pressOnce(gl.GLFW_KEY_K, function() {
+    _sw(-1);
+  });
+
+  console.log("Press J/K switch picture");
+
+  function _sw(x) {
+    mapIdx += x;
+    if (mapIdx < 0) mapIdx = maps.length-1;
+    else if (mapIdx >= maps.length) mapIdx = 0;
+    console.line(mapIdx, maps[mapIdx]);
+    try {
+      Room.showPic(maps[mapIdx]);
+    } catch(e) {
+      console.error(e.stack);
+    }
+  }
+}
+
+
+function smallMapBrowse(Room, window) {
+  adtBrowse('common/file', Room, window);
+}
+
+
+function dataDirBrowse(Room, window) {
+  adtBrowse('common/data', Room, window);
 }
 
 

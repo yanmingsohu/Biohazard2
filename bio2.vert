@@ -98,6 +98,7 @@ void main() {
       draw_living();
       break;
 
+    case 3:
     case 2:
       draw_background();
       break;

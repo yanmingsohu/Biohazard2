@@ -95,8 +95,7 @@ function switch_camera(num) {
   let cd = map_data.cameras[num];
   camera.setPos(cd.from_x, cd.from_y, cd.from_z);
   camera.lookAt(cd.to_x, cd.to_y, cd.to_z);
-  Room.switchWith(stage, room_nm, camera_nm);
-  Room.setMask(cd.mask);
+  Room.switchWith(stage, room_nm, camera_nm, cd.mask);
 }
 
 

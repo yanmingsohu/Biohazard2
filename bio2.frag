@@ -36,6 +36,13 @@ void draw_background() {
 }
 
 
+void draw_mask() {
+  vec4 tex = texture(ourTexture, oTexCoord);
+  FragColor = vec4(tex.x, 0, tex.x, tex.x); //!!!!!!
+  gl_FragDepth = gl_FragCoord.z;
+}
+
+
 void main() {
   switch (draw_type) {
     case 1:
@@ -44,6 +51,10 @@ void main() {
 
     case 2:
       draw_background();
+      break;
+
+    case 3:
+      draw_mask();
       break;
   }
 }

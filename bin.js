@@ -22,7 +22,8 @@ function load(file) {
   if (file.indexOf('file') > 0) {
     return _file(file);
   }
-  throw new Error("cannot open BIN: "+ file);
+  _bin(file);
+  // throw new Error("cannot open BIN: "+ file);
 }
 
 

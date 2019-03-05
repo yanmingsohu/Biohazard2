@@ -6,6 +6,10 @@ import Script from './script.js'
 import Tim from './tim.js'
 import File from './file.js'
 
+//
+// 不同的语言使用对应的目录
+// RDP/RDS/RDF/RDT
+//
 export default {
   load,
   from,
@@ -85,7 +89,7 @@ function readVAB(filebuf, off, ret) {
 
 
 function readTim(filebuf, off, obj) {
-  debug("TIM", new Uint8Array(filebuf, off, 333));
+  debug("Obj10 TIM", new Uint8Array(filebuf, off, 333));
 }
 
 
@@ -105,7 +109,7 @@ function readSpritesTim(buf, off, obj) {
 
 
 function readSpritesAnim(filebuf, off, obj) {
-  // debug("Sp Anim:");
+  debug("Sprites Anim:");
   // hex.printHex(new Uint8Array(filebuf, off.sprites_tim, 1500));
 
   const v = new DataView(filebuf, off.sprites_tim);
@@ -206,14 +210,14 @@ function readCameraPos(filebuf, off, ret, count) {
   for (let i = 0; i<count; ++i) {
     let v = new DataView(filebuf, off.cam_pos + len*i, len);
     let c = {
+      unknow : v.getUint16(0, true),
+      const0 : v.getUint16(2, true),
       from_x : v.getInt32(4, true),
       from_y : v.getInt32(8, true),
       from_z : v.getInt32(12, true),
       to_x   : v.getInt32(16, true),
       to_y   : v.getInt32(20, true),
       to_z   : v.getInt32(24, true),
-      unknow : v.getUint16(0, true),
-      const0 : v.getUint16(2, true),
     };
     let mask_off = v.getUint32(28, true);
     debug("camera", J(c));
@@ -226,64 +230,59 @@ function readCameraPos(filebuf, off, ret, count) {
 
 
 function readMask(filebuf, off) {
-  let v = new DataView(filebuf, off, 4);
-  let c_offset = v.getUint16(0, true);
-  let c_masks  = v.getUint16(2, true);
-  debug("Mask OFFset", c_offset, c_masks);
-  off += 4;
+  const v = new DataView(filebuf, off);
+  const c_offset = v.getUint16(0, true);
+  const c_masks  = v.getUint16(2, true);
+  debug("Mask OFFset", c_offset, c_masks, off);
   if (c_offset == 0xFFFF || c_masks == 0xFFFF) {
     return;
   }
+
   let offset_obj = [];
+  let to_count = 0;
+  off = 4;
   
   for (let i = 0; i<c_offset; ++i) {
     let mask = offset_obj[i] = {};
-    v = new DataView(filebuf, off, 8);
-    off += 8;
-    let ct = mask.count = v.getUint16(0, true);
-    mask.unknow = v.getUint16(2, true);
-    mask.x = v.getUint16(4, true);
-    mask.y = v.getUint16(6, true);
+    let ct = mask.count = v.getUint16(off, true);
+    mask.unknow = v.getUint16(off+2, true);
+    // 要添加的背景图像/屏幕上的目的地位置块偏移
+    mask.x = v.getUint16(off+4, true);
+    mask.y = v.getUint16(off+6, true);
     // debug(off-8, ct, mask.x, mask.y);
-    c_masks -= ct;
-    if (c_masks < 0) {
-      throw new Error("bad mask count");
-    }
+    to_count += ct;
+    off += 8;
+    // hex.printHex(new Uint8Array(filebuf, mask.unknow, 1000));
     debug('Mask info', ct, J(mask));
   }
+  
+  if (to_count > c_masks) {
+    throw new Error("bad mask count");
+  }
 
-  let ret = [];
+  const ret = [];
   for (let i=0; i<c_offset; ++i) {
-    let mask = offset_obj[i];
+    const mask = offset_obj[i];
 
     for (let j=0; j<mask.count; ++j) {
-      let chip = {};
+      const chip = {};
       ret.push(chip);
 
-      v = new DataView(filebuf, off, 12);
-      // 共同的源位置/ objspr / rsRXXP.adt图像文件
-      chip.src_x = v.getUint8(0);
-      chip.src_y = v.getUint8(1);
+      // 蒙版图像存储于房间图片的下方
+      chip.src_x = v.getUint8(off+0);
+      chip.src_y = v.getUint8(off+1);
       // 背景图像/屏幕上的目的地位置
-      chip.dst_x = v.getUint8(2) + mask.x;
-      chip.dst_y = v.getUint8(3) + mask.y;
+      chip.dst_x = v.getUint8(off+2) + mask.x;
+      chip.dst_y = v.getUint8(off+3) + mask.y;
       // “深度”值是掩模与相机的Z距离（低值=近，高值=远）。
-      chip.depth = v.getUint16(4, true);
-      let w = v.getUint16(6, true);
-      // 要添加的背景图像/屏幕上的目的地位置
-      // chip.x     = mask.x;
-      // chip.y     = mask.y;
+      chip.depth = v.getUint16(off+4, true);
+      const w = v.getUint16(off+6, true);
 
-      let type = v.getUint16(6, true);
-      if (type == 0) {
-        // chip.rect   = true;
-        // chip.type   = 'rect';
-        chip.w = v.getUint16(8, true);
-        chip.h = v.getUint16(10, true);
+      if (w == 0) {
+        chip.w = v.getUint16(off+8, true);
+        chip.h = v.getUint16(off+10, true);
         off += 12;
       } else {
-        // chip.rect  = false;
-        // chip.type  = 'square';
         chip.w = w;
         chip.h = w;
         off += 8;
@@ -409,7 +408,9 @@ function readOffset(filebuf) {
 
 
 function J(o, x, n) {
+  // 注释 debug 的同时, 注释这里
   return JSON.stringify(o, x, n);
+  // return o;
 }
 
 

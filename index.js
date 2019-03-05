@@ -21,8 +21,13 @@ camera.lookAt(0, 0, -1);
 Room.init(window);
 Scenes.init(window, camera, sp);
 Scenes.start_game();
+
+// 开发测试用
 // Dev.roomBrowse(Room, window, camera);
+// Dev.smallMapBrowse(Room, window);
+// Dev.dataDirBrowse(Room, window);
 // Dev.enemyBrowse(Liv, window, Room, camera);
+
 gameLoop();
 
 
