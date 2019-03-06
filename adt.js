@@ -139,12 +139,15 @@ function parseMaskBuf(sbuf) {
   const w = 256;
   const h = 256;
   const offy = 256 + 64 + 1;
-  const beginOff = offy*w*2;
+  const beginOff = offy * w * 2;
   // let x = 0, y = 0;
 
   if (beginOff >= sbuf.byteLength) {
     return null;
   }
+
+  // let tmp = new Uint8Array(sbuf.buffer, sbuf.byteOffset+(256+64)*w*2, 256*2);
+  // H.printHex(tmp);
 
   let buf = new Uint8Array(sbuf.buffer, sbuf.byteOffset + beginOff);
   // let buf = new Uint8Array(w*h);

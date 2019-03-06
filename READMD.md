@@ -1,4 +1,9 @@
-# 生化危机2 重生1999
+# 生化危机2 - 99重生
+
+.....................................................................
+
+
+# TODO list
 
 * [ ] 视觉效果
   * [ ] 真实的阴影
@@ -17,3 +22,10 @@
   * [ ] 房间博物馆(和隐藏的测试房间)
   * [ ] 模型博物馆
   * [ ] 双人模式
+
+
+  # Thanks
+
+  * https://github.com/MeganGrass/BioScript
+  * https://github.com/mortician
+  * https://github.com/pmandin

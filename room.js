@@ -16,6 +16,7 @@ let background;
 let bgtex;
 let mask;
 
+// 上下颠倒
 const vertices = new Float32Array([
   // positions  // texture coords
    1,  1, z,    1.0, 0.0,  
@@ -86,16 +87,18 @@ function switchRoom(id, mask_dat) {
   let room = roomCache.get(id);
   if (room) {
     room.bindTexTo(bgtex);
-    // 显示蒙版, 可能崩溃
+
+    // 测试: 显示蒙版, 可能崩溃
     // if (room.bindMaskTexTo) {
     //   room.bindMaskTexTo(bgtex);
     // }
     
-    let mask = setMask(mask_dat, 
-        room.width, room.height, room.maskw, room.maskh);
-    if (mask) {
-      room.bindMaskTexTo(mask.getTexture());
-    }
+    // TODO: 蒙版错误
+    // let mask = setMask(mask_dat, 
+    //     room.width, room.height, room.maskw, room.maskh);
+    // if (mask) {
+    //   room.bindMaskTexTo(mask.getTexture());
+    // }
     return true;
   }
   return false;
@@ -133,7 +136,7 @@ function showPic(file) {
 //
 // 在切换房间之前设置遮掩数据
 //
-function setMask(m, rw, rh, mw, mh) {
+function setMask(m, ow, oh, mw, mh) {
   if (mask) {
     mask.free();
     mask = null;
@@ -146,9 +149,9 @@ function setMask(m, rw, rh, mw, mh) {
   const buf = new Float32Array(m.length * 5 * 4);
   const idx = new Uint32Array(m.length * 6);
   let bi = 0, ii = 0, vi = 0;
-  let dx, dy, sx, sy, dep, ww, hh;
-  rw = rw/2;
-  rh = rh/2;
+  let dx, dy, sx, sy, z, ww, hh;
+  let rw = ow/2;
+  let rh = oh/2;
 
   // {"src_x":8,"src_y":48,"dst_x":80,"dst_y":0,"depth":86,
   //  "x":232,"y":120,"width":8,"height":8}
@@ -159,37 +162,39 @@ function setMask(m, rw, rh, mw, mh) {
     sy = m[i].src_y;
     ww = m[i].w;
     hh = m[i].h;
-    dep = -m[i].depth / 0xFFFF;
-    vi = i * 4;
+    z = -m[i].depth / 0xFFFF;
 
+    // if (dx < 0) dx = ow + dx;
+    // if (dy < 0) dy = oh + dy;
     // if (i>5) break;;
     console.log(i, JSON.stringify(m[i]));
 
     bi = i * 5 * 4;
-    buf[bi + 0] =  dx / rw -1;
-    buf[bi + 1] = -dy / rh +1;
-    buf[bi + 2] =  dep;
-    buf[bi + 3] =  sx / mw;
-    buf[bi + 4] =  sy / mh;
+    buf[bi + 0] =  dx        / rw -1;
+    buf[bi + 1] = -dy        / rh +1;
+    buf[bi + 2] =  z;
+    buf[bi + 3] =  sx        / mw;
+    buf[bi + 4] =  sy        / mh;
     bi += 5;
     buf[bi + 0] =  (dx + ww) / rw -1;
-    buf[bi + 1] = -dy / rh +1;
-    buf[bi + 2] =  dep;
+    buf[bi + 1] = -dy        / rh +1;
+    buf[bi + 2] =  z;
     buf[bi + 3] =  (sx + ww) / mw;
-    buf[bi + 4] =  sy / mh;
+    buf[bi + 4] =  sy        / mh;
     bi += 5;
     buf[bi + 0] =  (dx + ww) / rw -1;
     buf[bi + 1] = -(dy + hh) / rh +1;
-    buf[bi + 2] =  dep;
+    buf[bi + 2] =  z;
     buf[bi + 3] =  (sx + ww) / mw;
     buf[bi + 4] =  (sy + hh) / mh;
     bi += 5;
-    buf[bi + 0] =  dx / rw -1;
+    buf[bi + 0] =  dx        / rw -1;
     buf[bi + 1] = -(dy + hh) / rh +1;
-    buf[bi + 2] =  dep;
-    buf[bi + 3] =  sx / mw;
+    buf[bi + 2] =  z;
+    buf[bi + 3] =  sx        / mw;
     buf[bi + 4] =  (sy + hh) / mh;
 
+    vi = i * 4;
     ii = i * 6;
     idx[ii + 0] = 0 + vi;
     idx[ii + 1] = 1 + vi;

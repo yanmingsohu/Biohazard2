@@ -43,6 +43,12 @@ void draw_mask() {
 }
 
 
+void draw_invisible() {
+  FragColor = vec4(0.5, 0.5, 0.5, 0.5);
+  gl_FragDepth = gl_FragCoord.z;
+}
+
+
 void main() {
   switch (draw_type) {
     case 1:
@@ -55,6 +61,10 @@ void main() {
 
     case 3:
       draw_mask();
+      break;
+
+    case 4:
+      draw_invisible();
       break;
   }
 }

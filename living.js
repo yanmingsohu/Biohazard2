@@ -116,6 +116,7 @@ function loadEmd(playId, emdId) {
   const bind_bone = new Float32Array(20*8);
   const liner_pos = {x:0, y:0, z:0};
   const liner_pos_tr = Game.Pos3Transition(liner_pos, 0);
+  const skeletonBind = [];
 
   let comp_len = 0;
   let currentSk;
@@ -131,14 +132,19 @@ function loadEmd(playId, emdId) {
   let speed = 50 /1000;
 
   init();
+  setSkGrp(0);
   setAnim(0, 0);
 
   return {
     texfile,
     draw,
     free,
+    // 设置动画片段
     setAnim,
+    // 设置动画的播放方向, 1正向播放, -1反向播放, 0停止
     setDir,
+    // 设置骨骼绑定组, 默认 0, 0~3?
+    setSkGrp,
     where,
   };
 
@@ -150,6 +156,17 @@ function loadEmd(playId, emdId) {
 
   function setDir(d) {
     anim_dir = d;
+  }
+
+
+  function setSkGrp(i) {
+    let b = skeletonBind[i];
+    if (!b || !b.sk || !b.am) {
+      throw new Error("skeleton bind "+ i +' not exists');
+    }
+    console.debug('setSkGrp', i, skeletonBind.length);
+    currentSk = b.sk;
+    currentAnim = b.am;
   }
 
 
@@ -221,8 +238,10 @@ function loadEmd(playId, emdId) {
     console.debug("Load EMD", emdfile, '-', texfile);
     const mod = Mod2.emd(emdfile);
     const tex = Tim.parseStream(File.openDataView(texfile));
-    currentSk = mod.sk1;
-    currentAnim = mod.am1;
+
+    putSkAm(mod.sk1, mod.am1);
+    putSkAm(mod.sk2, mod.am2);
+    putSkAm(mod.sk3, mod.am3);
   
     for (let i=0; i<mod.mesh.length; ++i) {
       let t = mergeTriVertexBuffer(mod.mesh[i].tri, tex);
@@ -231,6 +250,20 @@ function loadEmd(playId, emdId) {
       ++comp_len;
     }
     console.debug("MODEL has", comp_len, "components");
+  }
+
+
+  function putSkAm(sk, am) {
+    // 只有动画没有骨骼则使用默认骨骼
+    if (!sk || sk.length <= 0) {
+      sk = skeletonBind[0].sk;
+      console.debug("Use default sk");
+    }
+    if (am) {
+      skeletonBind.push({sk, am});
+    } else {
+      console.debug("Empty anim data");
+    }
   }
 }
 

@@ -4,10 +4,6 @@ layout (location = 1) in vec3 iNormal;
 layout (location = 2) in vec2 iTexCoord;
 // layout (location = 1) in vec3 aColor;
 
-// // 骨骼绑定 [骨骼索引 -1 无骨骼, 关联系数 1-100]
-// layout (location = 2) in vec2 skBind;
-// uniform vec3 skeleton[10];
-
 uniform mat4 model;
 uniform mat4 bone_rotate;
 uniform mat4 camera;
@@ -92,6 +88,12 @@ void draw_background() {
 }
 
 
+void draw_invisible() {
+  vec4 p = camera * vec4(pos.xyz, 1);
+  gl_Position = projection * vec4(p.xyz, 1000);
+}
+
+
 void main() {
   switch (draw_type) {
     case 1:
@@ -101,6 +103,10 @@ void main() {
     case 3:
     case 2:
       draw_background();
+      break;
+
+    case 4:
+      draw_invisible();
       break;
   }
 }

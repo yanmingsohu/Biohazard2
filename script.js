@@ -13,36 +13,36 @@ class Mem {
 
   byte() {
     let d = this._buf.getUint8(this._pc);
-    debug(">", h(this._pc), d);
+    // debug(">", h(this._pc), d);
     this._pc += 1;
     return d;
   }
 
   ushort() {
     let d = this._buf.getUint16(this._pc, true);
-    debug(">", h(this._pc), d);
+    // debug(">", h(this._pc), d);
     this._pc += 2;
     return d;
   }
 
   short() {
     let d = this._buf.getInt16(this._pc, true);
-    debug(">", h(this._pc), d);
+    // debug(">", h(this._pc), d);
     this._pc += 2;
     return d;
   }
 
   // 跳过 n 个字节
   s(n) {
-    console.debug("^", h(this._pc), "[", 
-        new Uint8Array(this._buf.buffer, this._pc, n), "]");
+    // console.debug("^", h(this._pc), "[", 
+    //     new Uint8Array(this._buf.buffer, this._pc, n), "]");
     this._pc += n;
   }
 
   // 将当前 pc + length 压入栈中
   // 必须在指令的第一个操作前压入
   push(pc) {
-    debug("PUSH", h(this._pc), h(pc));
+    // debug("PUSH", h(this._pc), h(pc));
     this._stack.push(pc);
   }
 
@@ -51,7 +51,7 @@ class Mem {
     if (this._stack.length <= 0) 
         throw new Error("POP empty stack");
     this._pc = this._stack.pop();
-    debug("POP", h(this._pc));
+    // debug("POP", h(this._pc));
   }
 }
 
@@ -390,6 +390,7 @@ function compile(arrbuf) {
         mem.s(1);
         mem.s(1);
         debug("Non pickable:", JSON.stringify(npo));
+        game.obstacle(npo);
         break;
 
       case 0x2D:
@@ -492,6 +493,7 @@ function compile(arrbuf) {
         door.key = mem.byte();
         mem.s(1);
         debug(JSON.stringify(door));
+        game.setDoor(door);
         break;
 
       case 0x3C:
@@ -749,6 +751,7 @@ function compile(arrbuf) {
         wall.y4 = mem.short();
         mem.s(6);
         debug("Wall", JSON.stringify(wall));
+        game.addPlyRange(wall);
         break;
 
       case 0x68:

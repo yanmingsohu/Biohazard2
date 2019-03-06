@@ -69,7 +69,7 @@ function animation(buf, am_off) {
       };
       // console.log('  -', group[j].f, group[j].d);
     }
-    console.log(' >', i/4, group.length);
+    // console.log(' >', i/4, group.length);
   }
   console.log("Anim count", ret.length);
   return ret;
@@ -153,7 +153,7 @@ function skeleton(buf, sk_offset) {
         sk.child.push(chref);
         bind[chref] = bone[i];
       }
-      console.debug("SK", i, JSON.stringify(sk));
+      // console.debug("SK", i, JSON.stringify(sk));
     }
 
     for (let i=0; i<count; ++i) {

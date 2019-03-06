@@ -9,6 +9,8 @@ export default {
   draw_background,
   // 绘制背景蒙版
   draw_mask,
+  // 绘制不可见物体(地板, 空气墙)用于测试
+  draw_invisible,
   // 创建绘制对象, 无参数
   createBasicDrawObject,
   // 设置模型变换矩阵
@@ -102,6 +104,11 @@ function draw_background() {
 
 function draw_mask() {
   draw_type.setUniform1i(3);
+}
+
+
+function draw_invisible() {
+  draw_type.setUniform1i(4);
 }
 
 
