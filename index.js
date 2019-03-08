@@ -12,6 +12,12 @@ const window = Draw.createWindow();
 window.setClearColor([0.2, 0.3, 0.3, 1]);
 window.center();
 
+window.onKey(gl.GLFW_KEY_ESCAPE, gl.GLFW_PRESS, 0, function() {
+  window.shouldClose();
+});
+window.prepareDraw();
+
+
 const sp = Shader.init(window);
 const camera = Game.createCamera(sp);
 window.add(camera);
@@ -28,18 +34,9 @@ Scenes.start_game();
 // Dev.dataDirBrowse(Room, window);
 // Dev.enemyBrowse(Liv, window, Room, camera);
 
-gameLoop();
 
-
-function gameLoop() {
-  // window.add(Draw.showRate());
-
-  window.onKey(gl.GLFW_KEY_ESCAPE, gl.GLFW_PRESS, 0, function() {
-      window.shouldClose();
-  });
-
-  window.prepareDraw();
-  while (window.nextFrame()) {
-  }
-  window.destroy();
+// 备用游戏循环, 有戏主循环在别处
+// window.add(Draw.showRate());
+while (window.nextFrame()) {
 }
+window.destroy();

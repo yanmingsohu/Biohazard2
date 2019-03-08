@@ -5,7 +5,28 @@ export default {
   showRange,
   showBox,
   xywh2range,
+  xywhBindRange,
+  bindWindow,
+  debug,
 };
+
+
+function debug() {
+  const a = arguments;
+  let v;
+  for (let i=0; i<a.length; ++i) {
+    v = a[i];
+    if (v === null) v = 'null';
+    else if (v === undefined) v = 'undefined';
+    else if (v.constructor != Number && 
+        v.constructor != String &&
+        v.constructor != Boolean
+    ) {
+      a[i] = JSON.stringify(v);
+    } 
+  }
+  console.debug.apply(console, a);
+}
 
 
 //
@@ -39,6 +60,7 @@ function inRanges(range, who) {
 //
 function xywh2range(n) {
   return {
+    id: n.id,
     x1: n.x + n.w,
     y1: n.y + n.h,
     x2: n.x,
@@ -48,6 +70,30 @@ function xywh2range(n) {
     x4: n.x + n.h,
     y4: n.y,
   };
+}
+
+
+//
+// 把自身的 xywh 属性转换为4个坐标保存在自身
+//
+function xywhBindRange(n) {
+  if (isNaN(n.x1) && isNaN(n.x2) && 
+      isNaN(n.x3) && isNaN(n.x4) &&
+      isNaN(n.y1) && isNaN(n.y2) &&
+      isNaN(n.y3) && isNaN(n.y4) ) 
+  {
+    n.x1 = n.x + n.w;
+    n.y1 = n.y + n.h;
+    n.x2 = n.x;
+    n.y2 = n.y + n.h;
+    n.x3 = n.x;
+    n.y3 = n.y;
+    n.x4 = n.x + n.h;
+    n.y4 = n.y;
+  } else {
+    throw new Error("bad arg");
+  }
+  return n;
 }
 
 
@@ -68,12 +114,7 @@ function showRange(range, window) {
   r.addVertices(vertices, 6);
   r.setAttr({ index: 0, vsize: 3, stride: 3*gl.sizeof$float });
 
-  window.add({ 
-    draw(u, t) {
-      Shader.draw_invisible();
-      r.draw(u, t);
-    },
-  });
+  return bindWindow(window, r, Shader.draw_invisible);
 }
 
 
@@ -98,10 +139,26 @@ function showBox(x, y, w, h, window) {
   box.addVerticesElements(v, i);
   box.setAttr({ index: 0, vsize: 3, stride: 3*gl.sizeof$float });
 
-  window.add({ 
-    draw() {
-      Shader.draw_invisible();
-      box.draw();
+  return bindWindow(window, box, Shader.draw_invisible);
+}
+
+
+//
+// 把窗口和可绘制对象进行绑定, 
+// 绘制对象释放时从 win 中删除, 并删除自身
+//
+function bindWindow(win, drawer, draw_type_fn) {
+  const wrap = {
+    draw(u, t) {
+      draw_type_fn();
+      drawer.draw(u, t);
     },
-  });
+
+    free() {
+      win.remove(wrap);
+      drawer.free();
+    },
+  };
+  win.add(wrap);
+  return wrap;
 }

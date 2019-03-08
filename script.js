@@ -1,6 +1,12 @@
+import Tool from './tool.js'
+
 export default {
   compile,
 };
+
+const EMPTY = '';
+let indentation = '';
+let addr = 0;
 
 
 class Mem {
@@ -9,10 +15,18 @@ class Mem {
     this._buf = buf;
     this._pc = pc;
     this._stack = [];
+    this.sub_stack = [];
   }
 
   byte() {
     let d = this._buf.getUint8(this._pc);
+    // debug(">", h(this._pc), d);
+    this._pc += 1;
+    return d;
+  }
+
+  char() {
+    let d = this._buf.getInt8(this._pc);
     // debug(">", h(this._pc), d);
     this._pc += 1;
     return d;
@@ -32,6 +46,12 @@ class Mem {
     return d;
   }
 
+  ulong() {
+    let d = this._buf.getUint32(this._pc, true);
+    this._ps += 4;
+    return d;
+  }
+
   // 跳过 n 个字节
   s(n) {
     // console.debug("^", h(this._pc), "[", 
@@ -39,30 +59,58 @@ class Mem {
     this._pc += n;
   }
 
-  // 将当前 pc + length 压入栈中
-  // 必须在指令的第一个操作前压入
+  // 值压入栈
   push(pc) {
     // debug("PUSH", h(this._pc), h(pc));
     this._stack.push(pc);
+    indentation += '  ';
+    // TODO: 过多的缩进是 bug
+    if (indentation.length > 20) {
+      throw new Error("many indentation");
+    }
   }
 
   // 弹出的栈值作为 pc 的值
   pop() {
     if (this._stack.length <= 0) 
         throw new Error("POP empty stack");
-    this._pc = this._stack.pop();
-    // debug("POP", h(this._pc));
+    let v = this._stack.pop();
+    // debug("POP", h(v));
+    indentation = indentation.substr(2);
+    return v;
+  }
+
+  // 弹出的栈值作为 pc 的值
+  poppc() {
+    this._pc = this.pop();
+  }
+
+  // 返回栈顶的值但不弹出
+  top() {
+    if (this._stack.length <= 0) 
+        throw new Error("TOP empty stack");
+    return this._stack[this._stack.length-1];
+  }
+
+  is_stack_non() {
+    return this._stack.length === 0;
   }
 }
 
 
 function debug() {
-  console.debug.apply(console, arguments);
+  let a = [addr, '#', indentation];
+  for (let i=0; i<arguments.length; ++i) a.push(arguments[i]);
+  Tool.debug.apply(null, a);
 }
 
 
 function h(n) {
-  return '0x'+ n.toString(16);
+  if (n < 0x10) {
+    return '0x0'+ n.toString(16);
+  } else {
+    return '0x'+ n.toString(16);
+  }
 }
 
 
@@ -78,7 +126,7 @@ function compile(arrbuf) {
     fun_point.push(arrbuf.getUint16(i, true));
   }
 
-  console.log("Func Point:", fun_point);
+  console.log("Bio2 Script Func Point:", fun_point);
 
   return {
     // 启动一个脚本
@@ -95,16 +143,19 @@ function compile(arrbuf) {
   //
   function run(game, sub_num = 0) {
     let mem = new Mem(arrbuf, fun_point[sub_num]);
+    mem.funcid = sub_num;
     let pc = 0;
     game.func_ret = undefined;
+    indentation = EMPTY;
 
-    while (undefined === game.func_ret) {
+    while (game.script_running && game.func_ret === undefined) {
       // 指向当前指令的地址
       pc = mem._pc;
       _do(game, mem.byte(), mem, pc);
     }
     debug("EXIT:", game.func_ret);
   }
+
 
   //
   // game 游戏对象
@@ -113,6 +164,7 @@ function compile(arrbuf) {
   // oppc 操作码所在的指针
   //
   function _do(game, op, mem, oppc) {
+    addr = oppc +"/"+ h(op);
     switch(op) {
       default:
         throw new Error("BAD OP "+ h(op));
@@ -126,12 +178,20 @@ function compile(arrbuf) {
         break;
 
       case 0x01:
-        debug("Evt_end exit and ret");
-        game.func_ret = mem.byte();
+        let r = mem.byte();
+        debug("Evt_end EXIT", r);
+        if (mem.is_stack_non()) {
+          game.func_ret = r;
+        } else {
+          mem.poppc();
+        }
         break;
 
       case 0x02:
-        debug("Evt_next wait input");
+        debug("Evt_next"); // wait input?
+        if (!game.next_frame()) {
+          game.func_ret = 0;
+        }
         break;
 
       case 0x03:
@@ -143,9 +203,12 @@ function compile(arrbuf) {
 
       case 0x04:
         debug("Evt_exec");
-        mem.byte();
-        mem.byte();
-        mem.byte();
+        if (0xFF != mem.byte()) debug("not 0xff");
+        if (0x18 != mem.byte()) debug("not 0x18");
+        var scd = mem.byte();
+        debug('scd num', scd);
+        mem.push(mem._pc);
+        mem._pc = fun_point[scd];
         break;
 
       case 0x05:
@@ -156,21 +219,30 @@ function compile(arrbuf) {
       case 0x06:
         debug("IF {");
         mem.s(1);
-        mem.push(mem.ushort() + oppc);
+        // 指令记录了块结束的位置
+        // CK(0x21) 指令一般在 if/while/for 后面
+        // 弹出后应该指向 if 结束指令的下一条指令.
+        var end = mem.ushort() + mem._pc;
+        mem.push(end);
+        debug("end:", end);
         break;
 
       case 0x07:
         debug("Else {");
         mem.s(1);
-        mem.push(mem.ushort() + oppc);
+        var end = mem.ushort() + oppc;
         if (mem.ck !== false) {
-          mem.pop();
+          mem._pc = end;
+          debug("skip else", end);
         }
+        mem.pop();
         break;
 
       case 0x08:
         debug("IF }");
+        // 块结束必须弹出 if 压入的块长度
         mem.pop();
+        mem.s(1);
         break;
 
       case 0x09:
@@ -178,9 +250,9 @@ function compile(arrbuf) {
         break;
 
       case 0x0A:
-        debug("sleep");
-        mem.byte();
-        mem.byte();
+        var sleeping = mem.byte();
+        var count = mem.byte();
+        debug("sleep", sleeping, count);
         break;
 
       case 0x0B:
@@ -194,48 +266,65 @@ function compile(arrbuf) {
       case 0x0D:
         debug("FOR {");
         mem.s(1);
-        mem.ushort();
-        mem.ushort();
+        var size = mem.ushort();
+        var count = mem.ushort();
+        mem.push(size + mem._pc);
+        debug("size", size, 'count', count);
         break;
 
       case 0x0E:
         debug("FOR }");
         mem.s(1);
+        mem.pop();
         break;
 
       case 0x0F:
         debug("While {");
-        mem.s(1);
-        mem.ushort();
+        var num = mem.s(1);
+        mem.push(mem.ushort() + mem._pc);
         break;
 
       case 0x10:
         debug("While }");
         mem.byte();
+        mem.pop();
         break;
 
       case 0x11:
         debug("DO {");
-        mem.s(1);
-        mem.ushort();
+        var num = mem.byte();
+        var size = mem.ushort();
+        // mem.push(size + mem._pc);
+        debug(num, size);
         break;
 
       case 0x12:
-        debug("DO }");
-        mem.byte();
+        debug("do_while }");
+        var size = mem.byte();
+        var begin = mem._pc - size;
+        debug(size, begin);
+        // mem.pop();
         break;
 
       case 0x13:
         debug("Switch {");
-        mem.byte();
-        mem.ushort();
+        var idx = mem.byte();
+        var switch_val = game.getGameVar(idx);
+        var end = mem.ushort() + mem._pc;
+        mem.push(end);
+        mem.push(switch_val);
+        debug("switch_val:", idx, '=>', switch_val, '| end:', end);
         break;
 
       case 0x14:
-        debug("Case:");
         mem.s(1);
-        mem.ushort();
-        mem.ushort();
+        var size = mem.ushort();
+        var val = mem.ushort();
+        var switch_val = mem.top();
+        if (val != switch_val) {
+          mem._pc = size + mem._pc;
+        }
+        debug("Case: size/val", size, val, val == switch_val);
         break;
 
       case 0x15:
@@ -246,31 +335,41 @@ function compile(arrbuf) {
       case 0x16:
         debug("Switch }");
         mem.s(1);
+        mem.pop(); // switch_val
+        mem.pop(); // size
         break;
 
       case 0x17:
         debug("GOTO");
+        // always 0xFF (0x01 on r304-sub05, only)
+        var Ifel_ctr = mem.byte();
+        // always 0xFF (0x00 on r500-sub04 and sub07, only)
+        var Loop_ctr = mem.byte();
         mem.s(1);
-        mem.s(1);
-        mem.s(1);
-        mem.short();
+        var offset = mem.short();
+        debug(Ifel_ctr, Loop_ctr, offset);
+        mem._pc = oppc + offset;
         break;
 
       case 0x18:
-        debug("CALL-SUB");
-        var event = mem.byte();
-        console.log(event);
+        var scd = mem.byte();
+        debug("CALL-SUB", scd);
+        // mem.sub_stack.push({ s: mem._stack.length, p: mem._pc });
+        // mem._pc = fun_point[scd];
+        mem.push(mem._pc);
+        mem._pc = fun_point[scd];
         break;
 
       case 0x19:
         debug("END-SUB");
         mem.s(1);
+        mem.poppc();
         break;
 
       case 0x1A:
         debug("Break");
-        // mem.s(1);
-        mem.pop();
+        mem.s(1);
+        // mem.poppc();
         break;
 
       case 0x1B:
@@ -296,10 +395,11 @@ function compile(arrbuf) {
         var arr = mem.byte();
         var num = mem.byte();
         var val = mem.byte();
+        debug(arr, num, val);
         
         if (val != game.get_bitarr(arr, num)) {
           mem.ck = false;
-          mem.pop();
+          mem.poppc();
         } else {
           mem.ck = true;
         }
@@ -340,16 +440,24 @@ function compile(arrbuf) {
       case 0x26:
         debug("Calc");
         mem.s(1);
-        mem.byte();
-        mem.byte();
-        mem.ushort();
+        var op = mem.byte();
+        var i = mem.byte();
+        var v = mem.short();
+        var a = game.getGameVar(i);
+        var r = game.calc(op, a, v);
+        game.setGameVar(i, r);
+        debug(op, i, v, a, r);
         break;
 
       case 0x27:
         debug("Calc2");
-        mem.byte();
-        mem.byte();
-        mem.byte();
+        var op = mem.byte();
+        var i = mem.byte();
+        var v = mem.byte();
+        var a = game.getGameVar(i);
+        var r = game.calc(op, a, v);
+        game.setGameVar(i, r);
+        debug(op, i, v, a, r);
         break;
 
       case 0x28:
@@ -375,22 +483,24 @@ function compile(arrbuf) {
         break;
 
       case 0x2C:
-        debug("Aot_set 不可拾取的物体--障碍物，检查物体时的信息，死尸，火");
+        // 障碍物，检查物体时的信息，死尸，火, 触发的事件
+        debug("Aot_set 不可拾取的物体");
         var npo = {};
         npo.id = mem.byte();
         npo.type = mem.byte();
-        mem.s(1);
-        mem.s(1);
-        mem.s(1);
+        npo.u0 = mem.byte();
+        npo.u1 = mem.byte();
+        npo.u2 = mem.byte();
         npo.x = mem.short();
         npo.y = mem.short();
         npo.w = mem.short();
         npo.h = mem.short();
-        mem.s(1);
-        mem.s(1);
-        mem.s(1);
-        debug("Non pickable:", JSON.stringify(npo));
-        game.obstacle(npo);
+        npo.ua = mem.ushort();
+        npo.ub = mem.ushort();
+        npo.uc = mem.ushort();
+        debug(npo);
+        Tool.xywhBindRange(npo);
+        game.aot_set(npo);
         break;
 
       case 0x2D:
@@ -401,8 +511,11 @@ function compile(arrbuf) {
 
       case 0x2E:
         debug("Work_set");
-        var component = mem.byte();
-        var index = mem.byte();
+        var type = mem.byte();
+        var aot = mem.char();
+        debug(type, aot);
+        game.work = game.object_arr[aot];
+        game.worktype = type;
         break;
 
       case 0x2F:
@@ -433,12 +546,14 @@ function compile(arrbuf) {
         debug("Member_set");
         var operation = mem.byte();
         var value = mem.short();
+        debug('op:', operation, 'v:', value);
         break;
 
       case 0x35:
         debug("Member_set2");
         var id = mem.byte();
         var varw = mem.byte();
+        debug(id, varw);
         break;
 
       case 0x36:
@@ -455,6 +570,7 @@ function compile(arrbuf) {
         debug("Sca_id_set");
         var id = mem.byte();
         var flag = mem.byte();
+        debug(id, flag);
         break;
 
       case 0x39:
@@ -492,19 +608,21 @@ function compile(arrbuf) {
         door.locked = mem.byte();
         door.key = mem.byte();
         mem.s(1);
-        debug(JSON.stringify(door));
+        debug((door));
         game.setDoor(door);
         break;
 
       case 0x3C:
         debug('Cut_auto');
         var screen = mem.byte();
+        debug('screen', screen);
         break;
 
       case 0x3D:
         debug('Member_copy');
         var varw = mem.byte();
         var id = mem.byte();
+        debug(varw, id);
         break;
 
       case 0x3E:
@@ -512,6 +630,7 @@ function compile(arrbuf) {
         mem.s(2);
         var compare = mem.byte();
         var value = mem.short();
+        debug(compare, value);
         break;
 
       case 0x3F:
@@ -562,7 +681,7 @@ function compile(arrbuf) {
         zb.z = mem.short();
         zb.dir = mem.short();
         mem.s(4);
-        debug(JSON.stringify(zb));
+        debug((zb));
         game.addEnemy(zb);
         break;
 
@@ -573,8 +692,14 @@ function compile(arrbuf) {
 
       case 0x46:
         debug("Aot_reset");
-        var id = mem.byte();
-        mem.s(8);
+        let obj = {};
+        obj.id = mem.byte();
+        obj.uk0 = mem.byte();
+        obj.uk1 = mem.byte();
+        obj.uk2 = mem.ushort();
+        obj.uk3 = mem.ushort();
+        obj.uk4 = mem.ushort();
+        debug(obj);
         break;
 
       case 0x47:
@@ -609,13 +734,35 @@ function compile(arrbuf) {
         break;
 
       case 0x4D:
-        debug("0x4D ?");
+        debug("0x4D ?Door_model_set");
         mem.s(21);
         break;
 
       case 0x4E:
         debug("Item_aot_set");
-        mem.s(21);
+        var item = {};
+        item.id = mem.byte();
+        // item.uk0 = mem.ulong();
+        item.sce = mem.byte();
+        item.sat = mem.byte();
+        item.floor = mem.byte();
+        item.super = mem.byte();
+        item.x = mem.short();
+        item.y = mem.short();
+        item.w = mem.short();
+        item.h = mem.short();
+        // 0x07: flower? typewrite ribbon? 0x14: ammo for gun
+        item.itemid = mem.ushort(); 
+        /* For ammo: number of bullets/shells/etc */
+				/* For a key: number of times it can be used before the 'Discard key?' message */		
+        item.amount = mem.ushort();
+        // 物品拾起后不再生成, 这些信息保存在
+        item.array08_idx = mem.ushort();
+        // item.uk1 = mem.ushort();
+        item.md1 = mem.byte();
+        item.act = mem.byte();
+        debug(item);
+        game.aot_set(item);
         break;
 
       case 0x4F:
@@ -630,7 +777,16 @@ function compile(arrbuf) {
 
       case 0x51:
         debug("Sce_bgm_control");
-        mem.s(5);
+        var bgm = {};
+        // 0:Main, 1:sub0, 2:sub1
+        bgm.id = mem.byte();
+        // 0:nop, 1:start, 2:stop, 3:restart, 4:pause, 5:fadeout
+        bgm.op = mem.byte();
+        // 0:MAIN_VOL, 1:PROG0_VOL, 2:PROG1_VOL, 3:PROG2_VOL
+        bgm.type = mem.byte();
+        bgm.l = mem.byte();
+        bgm.r = mem.byte();
+        debug(bgm);
         break;
 
       case 0x52:
@@ -705,7 +861,17 @@ function compile(arrbuf) {
 
       case 0x60:
         debug("Kage_set");
-        mem.s(13);
+        var kage = {};
+        kage.work = mem.byte();
+        kage.id = mem.char();
+        kage.d0 = mem.byte();
+        kage.d1 = mem.byte();
+        kage.d2 = mem.byte();
+        kage.da = mem.ushort();
+        kage.db = mem.ushort();
+        kage.dc = mem.ushort();
+        kage.dd = mem.ushort();
+        debug(kage);
         break;
 
       case 0x61:
@@ -740,7 +906,10 @@ function compile(arrbuf) {
         debug("Aot_set_4p, 用4个点定义一个范围, 玩家不能离开");
         var wall = {};
         wall.id = mem.byte();
-        mem.s(4);
+        wall.sce = mem.byte(); // sce 就是 type
+        wall.sat = mem.byte();
+        wall.floor = mem.byte();
+        wall.super = mem.byte();
         wall.x1 = mem.short();
         wall.y1 = mem.short();
         wall.x2 = mem.short();
@@ -749,9 +918,11 @@ function compile(arrbuf) {
         wall.y3 = mem.short();
         wall.x4 = mem.short();
         wall.y4 = mem.short();
-        mem.s(6);
-        debug("Wall", JSON.stringify(wall));
-        game.addPlyRange(wall);
+        wall.uk0 = mem.ushort();
+        wall.uk1 = mem.ushort();
+        wall.uk2 = mem.ushort();
+        debug("Wall", (wall));
+        game.aot_set(wall);
         break;
 
       case 0x68:

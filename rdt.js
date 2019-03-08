@@ -385,40 +385,6 @@ function readCameraSwitch(filebuf, off, ret) {
 }
 
 
-function readOffset(filebuf) {
-  const len = 4*23;
-  let Offset = new DataView(filebuf, 8, len);
-  let off = {};
-  off.offset0       = Offset.getUint32(0*4, true); // Soundbank?
-  off.vab           = Offset.getUint32(1*4, true); // Soundbank
-  off.offset2       = Offset.getUint32(2*4, true); // Soundbank?
-  off.offset3       = Offset.getUint32(3*4, true); // Soundbank?
-  off.offset4       = Offset.getUint32(4*4, true);
-  off.offset5       = Offset.getUint32(5*4, true);
-  off.offset6       = Offset.getUint32(6*4, true);
-  off.cam_pos       = Offset.getUint32(7*4, true);
-  off.cam_sw        = Offset.getUint32(8*4, true);
-  off.lights        = Offset.getUint32(9*4, true);
-  off.tim           = Offset.getUint32(10*4, true);
-  off.offset11      = Offset.getUint32(11*4, true); // Floor?
-  off.offset12      = Offset.getUint32(12*4, true); // Block?
-  off.lang1         = Offset.getUint32(13*4, true);
-  off.lang2         = Offset.getUint32(14*4, true);
-  off.offset15      = Offset.getUint32(15*4, true); // Scroll Texture?
-  off.init_script   = Offset.getUint32(16*4, true);
-  off.room_script   = Offset.getUint32(17*4, true);
-  off.sprites_anim  = Offset.getUint32(18*4, true);
-  off.offset19      = Offset.getUint32(19*4, true); // sprites_anim offset
-  off.list_tim      = Offset.getUint32(20*4, true);
-  off.another_tim   = Offset.getUint32(21*4, true);
-  off.offset22      = Offset.getUint32(22*4, true); // Player Animation?
-
-  debug(J(off, 0, 2));
-  // showOffsetBuf(filebuf, off);
-  return off;
-}
-
-
 function J(o, x, n) {
   // 注释 debug 的同时, 注释这里
   return JSON.stringify(o, x, n);
@@ -442,4 +408,38 @@ function showOffsetBuf(filebuf, off) {
       debug(e.message);
     }
   }
+}
+
+
+function readOffset(filebuf) {
+  const len = 4*23;
+  let Offset = new DataView(filebuf, 8, len);
+  let off = {};
+  off.offset0       = Offset.getUint32(0*4, true); // Soundbank?
+  off.vab           = Offset.getUint32(1*4, true); // Soundbank
+  off.offset2       = Offset.getUint32(2*4, true); // Soundbank?
+  off.offset3       = Offset.getUint32(3*4, true); // Soundbank?
+  off.offset4       = Offset.getUint32(4*4, true);
+  off.offset5       = Offset.getUint32(5*4, true);
+  off.offset6       = Offset.getUint32(6*4, true); // 可移动区域
+  off.cam_pos       = Offset.getUint32(7*4, true);
+  off.cam_sw        = Offset.getUint32(8*4, true);
+  off.lights        = Offset.getUint32(9*4, true);
+  off.tim           = Offset.getUint32(10*4, true);
+  off.offset11      = Offset.getUint32(11*4, true); // Floor?
+  off.offset12      = Offset.getUint32(12*4, true); // Block?
+  off.lang1         = Offset.getUint32(13*4, true);
+  off.lang2         = Offset.getUint32(14*4, true);
+  off.offset15      = Offset.getUint32(15*4, true); // Scroll Texture?
+  off.init_script   = Offset.getUint32(16*4, true);
+  off.room_script   = Offset.getUint32(17*4, true);
+  off.sprites_anim  = Offset.getUint32(18*4, true);
+  off.offset19      = Offset.getUint32(19*4, true); // sprites_anim offset
+  off.list_tim      = Offset.getUint32(20*4, true);
+  off.another_tim   = Offset.getUint32(21*4, true);
+  off.offset22      = Offset.getUint32(22*4, true); // Player Animation?
+
+  debug(J(off, 0, 2));
+  // showOffsetBuf(filebuf, off);
+  return off;
 }

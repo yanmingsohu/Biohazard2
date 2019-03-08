@@ -90,9 +90,11 @@ function player(mod, win, gameState) {
 
     i.pressOnce(bind.run, function() {
       one_step = 6 *WALK;
+      mod.setDir(-3);
       // mod.setAnim(1, 0);
     }, function() {
       one_step = WALK;
+      mod.setDir(-1);
       // mod.setAnim(0, 0);
     });
   }
@@ -146,7 +148,7 @@ function Base(mod, win, ext) {
 
   
   function setPos(x, y, z) {
-    mat4.translate(model_trans, model_trans, wrap0(x, y, z));
+    mat4.fromTranslation(model_trans, wrap0(x, y, z));
   }
 
 
