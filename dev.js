@@ -124,8 +124,8 @@ function enemyBrowse(Liv, window, Room, camera) {
   let one_step = 5;
 
   let tmat = matrix.mat4.create(1);
-  matrix.mat4.translate(tmat, tmat, [0, -4300, -3500]);
-  matrix.mat4.rotateZ(tmat, tmat, Math.PI);
+  matrix.mat4.translate(tmat, tmat, [0, -300, -3500]);
+  // matrix.mat4.rotateZ(tmat, tmat, Math.PI);
   Shader.setModelTrans(tmat);
   switchMod(0);
 

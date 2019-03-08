@@ -27,6 +27,7 @@ import Draw from '../boot/draw.js'
 const FOVY = 60;
 const NEAR = 1;
 const FAR  = 45;
+const DEF_RGB = new Float32Array([0.5, 0.5, 0.5]);
 //
 // 单例模式, 任何模块都引用同一个着色器程序
 // 并且只能初始化一次
@@ -37,6 +38,7 @@ let model;
 let bind_bones;
 let bind_len;
 let bone_offset;
+let rgb;
 
 
 function init(window) {
@@ -59,6 +61,7 @@ function init(window) {
   bind_bones  = sp.getUniform('bind_bones');
   bind_len    = sp.getUniform('bind_len');
   bone_offset = sp.getUniform('bone_offset');
+  rgb         = sp.getUniform('rgb');
 
   program = sp;
   return sp;
@@ -107,8 +110,9 @@ function draw_mask() {
 }
 
 
-function draw_invisible() {
+function draw_invisible(_rgbarr) {
   draw_type.setUniform1i(4);
+  rgb.setUniform3fv(_rgbarr || DEF_RGB);
 }
 
 

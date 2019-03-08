@@ -2,16 +2,15 @@
 layout (location = 0) in vec3 pos;
 layout (location = 1) in vec3 iNormal;
 layout (location = 2) in vec2 iTexCoord;
-// layout (location = 1) in vec3 aColor;
 
 uniform mat4 model;
 uniform mat4 bone_rotate;
 uniform mat4 camera;
 uniform mat4 projection;
-uniform int draw_type;
+uniform int  draw_type;
 
 uniform vec4 bind_bones[20*8/4];
-uniform int bind_len;
+uniform int  bind_len;
 uniform vec3 bone_offset;
 
 out vec2 oTexCoord;
@@ -73,7 +72,7 @@ void draw_living() {
 
   // bone_offset 的范围未知?
   // bone_offset.y = bone_offset.y + 2000;
-  mpos = mpos + vec4(bone_offset.x, bone_offset.y+2030, bone_offset.z, 0);
+  mpos = mpos + vec4(bone_offset.x, bone_offset.y+2100, bone_offset.z, 0);
   vec4 modelPos = camera * model * vec4(mpos.xyz, 1);
   gl_Position = projection * vec4(modelPos.xyz, 1000);
   
@@ -94,6 +93,12 @@ void draw_invisible() {
 }
 
 
+void draw_mask() {
+  gl_Position = vec4(pos.x, pos.y, pos.z, 1);
+  oTexCoord = iTexCoord;
+}
+
+
 void main() {
   switch (draw_type) {
     case 1:
@@ -101,6 +106,9 @@ void main() {
       break;
 
     case 3:
+      draw_mask();
+      break;
+
     case 2:
       draw_background();
       break;

@@ -28,6 +28,7 @@ function room(sbuf) {
     img.bindMaskTexTo = bindMaskTexTo;
     img.maskw = mask.w;
     img.maskh = mask.h;
+    img.maskbuf = mask.buf;
   }
 
   return img;
@@ -139,28 +140,12 @@ function parseMaskBuf(sbuf) {
   const w = 256;
   const h = 256;
   const offy = 256 + 64 + 1;
-  const beginOff = offy * w * 2;
-  // let x = 0, y = 0;
+  const beginOff = offy * w * 2 + 32;
 
   if (beginOff >= sbuf.byteLength) {
     return null;
   }
 
-  // let tmp = new Uint8Array(sbuf.buffer, sbuf.byteOffset+(256+64)*w*2, 256*2);
-  // H.printHex(tmp);
-
   let buf = new Uint8Array(sbuf.buffer, sbuf.byteOffset + beginOff);
-  // let buf = new Uint8Array(w*h);
-
-  // for (;;) {
-  //   buf[x + y*w] = ibuf[x +y*w];
-
-  //   if (++x >= w) {
-  //     x = 0;
-  //     if (++y >= h) {
-  //       break;
-  //     }
-  //   }
-  // }
   return { buf, w, h };
 }

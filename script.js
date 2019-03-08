@@ -98,22 +98,6 @@ class Mem {
 }
 
 
-function debug() {
-  let a = [addr, '#', indentation];
-  for (let i=0; i<arguments.length; ++i) a.push(arguments[i]);
-  Tool.debug.apply(null, a);
-}
-
-
-function h(n) {
-  if (n < 0x10) {
-    return '0x0'+ n.toString(16);
-  } else {
-    return '0x'+ n.toString(16);
-  }
-}
-
-
 //
 // 编译生化危机脚本为 js 脚本, 并返回执行函数
 //
@@ -1128,5 +1112,21 @@ function compile(arrbuf) {
         mem.s(23);
         break;
     }
+  }
+}
+
+
+function debug() {return;
+  let a = [addr, '#', indentation];
+  for (let i=0; i<arguments.length; ++i) a.push(arguments[i]);
+  Tool.debug.apply(null, a);
+}
+
+
+function h(n) {
+  if (n < 0x10) {
+    return '0x0'+ n.toString(16);
+  } else {
+    return '0x'+ n.toString(16);
   }
 }

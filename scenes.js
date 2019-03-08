@@ -19,6 +19,8 @@ const CLAIRE = 1;
 const HARD = 2;
 const NORMAL = 1;
 const EASY = 0;
+// 切换镜头的等待时间, 太短刺眼
+const CAM_SW_WAIT = 300;
 
 // game_var 常量定义
 const V_CAMERA = 26;
@@ -74,10 +76,8 @@ const gameState = {
 function init(_window, _camera, _shader_pro) {
   window = _window;
   camera = _camera;
-
   vec3.set(camera.up(), 0, -1, 0);
   // _test();
-
 }
 
 
@@ -101,16 +101,32 @@ function switch_camera() {
     }
   }
 
+  find_camera_switcher();
+}
+
+
+function find_camera_switcher() {
+  let cam0 = 0;
+  Tool.debug("Current Camera", camera_nm);
+
   for (let i = map_data.cameras_sw.length-1; i>=0; --i) {
     let sw = map_data.cameras_sw[i];
-    if (sw.cam1 && sw.cam0 == camera_nm) {
-      touch.push(sw);
+    if (sw.cam0 == camera_nm && sw.cam0 != sw.cam1) {
+      bind_cm(sw);
+    }
+  }
 
+  function bind_cm(sw) {
+    // TODO: 如果角色离开摄像机开关, 恢复开关的功能
+    let isStanding = Tool.inRange(sw, p1);
+    if (!isStanding) {
       sw.act = function() {
-        thread.wait(200);
+        // if (isStanding) return;
+        thread.wait(CAM_SW_WAIT);
         camera_nm = this.cam1;
         switch_camera();
-      }
+      };
+      touch.push(sw);
     }
   }
 }
@@ -132,6 +148,20 @@ function load_map() {
   free_map();
   map_data = Rdt.from(stage, room_nm, player);
   room_script = map_data.room_script;
+
+  const color = new Float32Array([0.9, 0.1, 0.3]);
+  for (let i=map_data.block.length-1; i>=0; --i) {
+    let b = map_data.block[i];
+    play_range.push(b);
+    // 调试 block
+    free_objects.push(Tool.showRange(b, window, color));
+  }
+
+  // 显示碰撞体
+  for (let i=0; i<map_data.collision.length; ++i) {
+    let c = map_data.collision[i];
+    
+  }
 
   try {
     gameState.script_running = true;
@@ -244,9 +274,9 @@ function addEnemy(zb) {
 function aot_set(npo) {
   const type = isNaN(npo.type) ? npo.sce : npo.type;
   switch (type) {
-    case 3:  // 长方形地板, 转为可移动空间
+    case 3:  // 长方形地板, 转为可移动空间??
       Tool.debug("地板");
-      play_range.push(npo);
+      // play_range.push(npo);
       break;
 
     case 2: // item

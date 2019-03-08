@@ -2,6 +2,7 @@ import Shader from './shader.js'
 
 export default {
   inRanges,
+  inRange,
   showRange,
   showBox,
   xywh2range,
@@ -20,7 +21,9 @@ function debug() {
     else if (v === undefined) v = 'undefined';
     else if (v.constructor != Number && 
         v.constructor != String &&
-        v.constructor != Boolean
+        v.constructor != Boolean &&
+        v.constructor != Array &&
+        !ArrayBuffer.isView(v)
     ) {
       a[i] = JSON.stringify(v);
     } 
@@ -50,6 +53,24 @@ function inRanges(range, who) {
        (a < 0 && b < 0 && c < 0 && d < 0)) {
 			return i;
 		}
+  }
+  return;
+}
+
+
+function inRange(r, who) {
+  const w = who.where();
+  const x = w[0], y = w[2];
+  let a, b, c, d;
+
+  a = (r.x2 - r.x1)*(y - r.y1) - (r.y2 - r.y1)*(x - r.x1);
+  b = (r.x3 - r.x2)*(y - r.y2) - (r.y3 - r.y2)*(x - r.x2);
+  c = (r.x4 - r.x3)*(y - r.y3) - (r.y4 - r.y3)*(x - r.x3);
+  d = (r.x1 - r.x4)*(y - r.y4) - (r.y1 - r.y4)*(x - r.x4);
+
+  if((a > 0 && b > 0 && c > 0 && d > 0) ||
+      (a < 0 && b < 0 && c < 0 && d < 0)) {
+    return true;
   }
   return;
 }
@@ -100,7 +121,7 @@ function xywhBindRange(n) {
 //
 // 测试用, 可视化范围(x1~4, y1~4)
 //
-function showRange(range, window) {
+function showRange(range, window, color) {
   const vertices = new Float32Array([
     range.x1, 0, range.y1,
     range.x2, 0, range.y2,
@@ -114,7 +135,7 @@ function showRange(range, window) {
   r.addVertices(vertices, 6);
   r.setAttr({ index: 0, vsize: 3, stride: 3*gl.sizeof$float });
 
-  return bindWindow(window, r, Shader.draw_invisible);
+  return bindWindow(window, r, Shader.draw_invisible, color);
 }
 
 
@@ -147,10 +168,10 @@ function showBox(x, y, w, h, window) {
 // 把窗口和可绘制对象进行绑定, 
 // 绘制对象释放时从 win 中删除, 并删除自身
 //
-function bindWindow(win, drawer, draw_type_fn) {
+function bindWindow(win, drawer, draw_type_fn, _data) {
   const wrap = {
     draw(u, t) {
-      draw_type_fn();
+      draw_type_fn(_data);
       drawer.draw(u, t);
     },
 

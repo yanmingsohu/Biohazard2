@@ -7,6 +7,9 @@ import Shader from './shader.js'
 import Scenes from './scenes.js'
 import Dev    from './dev.js'
 import Liv    from './living.js'
+import Node   from '../boot/node.js'
+const matrix = Node.load('boot/gl-matrix.js');
+const {vec3, mat4} = matrix;
 
 const window = Draw.createWindow();
 window.setClearColor([0.2, 0.3, 0.3, 1]);
@@ -21,18 +24,19 @@ window.prepareDraw();
 const sp = Shader.init(window);
 const camera = Game.createCamera(sp);
 window.add(camera);
-camera.lookAt(0, 0, -1);
+// camera.lookAt(0, 0, -1);
+vec3.set(camera.up(), 0, -1, 0);
 
 
 Room.init(window);
 Scenes.init(window, camera, sp);
-Scenes.start_game();
+// Scenes.start_game();
 
 // 开发测试用
 // Dev.roomBrowse(Room, window, camera);
 // Dev.smallMapBrowse(Room, window);
 // Dev.dataDirBrowse(Room, window);
-// Dev.enemyBrowse(Liv, window, Room, camera);
+Dev.enemyBrowse(Liv, window, Room, camera);
 
 
 // 备用游戏循环, 有戏主循环在别处

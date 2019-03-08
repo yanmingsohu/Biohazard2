@@ -1,10 +1,14 @@
 //
 // https://github.com/pmandin/reevengi-tools/wiki/.RDT-%28Resident-Evil-2%29
 //
-import hex from '../boot/hex.js'
+import hex    from '../boot/hex.js'
 import Script from './script.js'
-import Tim from './tim.js'
-import File from './file.js'
+import Tim    from './tim.js'
+import File   from './file.js'
+import Tool   from './tool.js'
+import Node   from '../boot/node.js'
+const matrix = Node.load('boot/gl-matrix.js');
+const {vec3, mat4, vec2} = matrix;
 
 //
 // 不同的语言使用对应的目录
@@ -58,6 +62,7 @@ function load(file) {
   readVAB(filebuf, off, obj);
   readSpritesAnim(filebuf, off, obj);
   readSpritesTim(filebuf, off, obj);
+  readSpace(filebuf, off, obj);
 
   if (num_obj10) {
     readTim(filebuf, off, obj);
@@ -69,6 +74,122 @@ function load(file) {
     obj.room_script = readScript(filebuf, off.room_script);
   }
   return obj;
+}
+
+
+function readSpace(buf, offobj, obj) {
+  const block = offobj.offset12;
+  const floor = offobj.offset11;
+  const collision = offobj.offset6;
+  debug("Move Space", {block, floor, collision});
+  const v = new DataView(buf, 0);
+  let off = 0;
+
+  const bcount = v.getUint32(block, true);
+  const barr = obj.block = [];
+  off = block + 4;
+  for (let i=0; i<bcount; ++i) {
+    let b = {};
+    b.x1 = v.getInt16(off, true);
+    b.y1 = v.getInt16(off+2, true);
+    b.x3 = v.getInt16(off+4, true);
+    b.y3 = v.getInt16(off+6, true);
+    b.dir = v.getUint16(off+8, true);
+    b.abut = v.getUint16(off+10, true);
+    b.x2 = b.x3;
+    b.y2 = b.y1;
+    b.x4 = b.x1;
+    b.y4 = b.y3; 
+    if (b.dir > 0) {
+      // let out = [];
+      // let center = [0,0];
+      // let angle = b.dir/0xFFFF * Math.PI * 2;
+      // vec2.rotate(out, [b.x1, b.y1], center, angle);
+      // b.x1 = out[0]; b.y1 = out[1];
+      // vec2.rotate(out, [b.x3, b.y3], center, angle);
+      // b.x3 = out[0]; b.y3 = out[1];
+      // vec2.rotate(out, [b.x4, b.y4], center, angle);
+      // b.x4 = out[0]; b.y4 = out[1];
+    }
+    off += 12;
+    barr.push(b);
+    debug('. Block', i, b);
+  }
+
+  const fcount = v.getUint16(floor, true);
+  const farr = obj.floor = [];
+  off = floor + 2;
+  for (let i=0; i<fcount; ++i) {
+    let f = {};
+    f.x = v.getInt16(off, true);
+    f.y = v.getInt16(off+2, true);
+    f.w = v.getUint16(off+4, true); //?有符号
+    f.d = v.getUint16(off+6, true);
+    f.se_no = v.getUint16(off+8, true); //地面音效编号?
+    f.height = v.getUint16(off+10, true);
+    farr.push(f);
+    off += 12;
+    debug(". Floor", i, f);
+  }
+
+  const cx = v.getInt16(collision, true);
+  const cz = v.getInt16(collision+2, true);
+  const d0 = v.getUint32(collision+4, true);
+  const d1 = v.getUint32(collision+8, true);
+  const d2 = v.getUint32(collision+12, true);
+  const d3 = v.getUint32(collision+16, true);
+  const d4 = v.getUint32(collision+20, true);
+  debug(". Collision", cx, cz, d0, d1, d2, d3, d4);
+
+  const carr = obj.collision = [];
+  off = collision + 24;
+  for (let i=0; i<d0; ++i) {
+    let c = {};
+    c.w = v.getUint16(off, true);
+    c.d = v.getUint16(off+2, true);
+    c.x = v.getInt16(off+4, true);
+    c.y = v.getInt16(off+6, true);
+    let id = v.getUint16(off+8, true);
+    c.shape     = id & 0x000F;
+    c.weapon_on = (id >> 4) & 0x08;
+    c.floor_on  = (id >> 8) & 1;
+    c.enemy_on  = (id >> 10) & 1;
+    c.bullet_on = (id >> 13) & 1;
+    c.obj_on    = (id >> 14) & 1;
+    c.play_on   = (id >> 15) & 1;
+    c.type      = v.getUint16(off+10, true);
+    carr.push(c);
+    off += 12;
+    debug('\t', c, shapeName(c.shape));
+  }
+}
+
+
+function shapeName(s) {
+  switch(s) {
+    case  0: return 'Rectangle';
+    case  1: return 'Right Triangle x--	z--';
+    case  2: return 'Right Triangle x++	z--';
+    case  3: return 'Right Triangle x--	z++';
+    case  4: return 'Right Triangle x++	z++';
+    case  5: return 'Rhombus |x/w| + |z/d| = 1';
+    case  6: return 'Circle';
+    // Ellipse, Rectangle w/Rounded corners on X-Axis'
+    case  7: return 'Oval x=(-x,0), z=(z,0)';
+    // Ellipse, Rectangle w/Rounded corners on Z-Axis
+    case  8: return 'Oval x=(x,0), z=(-z,0)';
+    // Found in 304
+    case  9: return 'Rectangle Climb Up'; 
+    // Found in 304
+    case 10: return 'Rectangle Jump Down';
+    // Found in 200
+    case 11: return 'Reflex Angle';
+    // Found in 200
+    case 12: return 'Rectangle Stairs';
+    // // found in 40B and 40F
+    case 13: return 'Cylinder';
+    default: return 'Unknow shape '+s;
+  }
 }
 
 
@@ -379,7 +500,7 @@ function readCameraSwitch(filebuf, off, ret) {
     }
     cameras.push(cam);
 
-    debug("Camera Switch", ++c, new Uint8Array(filebuf, beg, len));
+    debug("Camera Switch", c++);
     debug(J(cam));
   }
 }
@@ -387,13 +508,13 @@ function readCameraSwitch(filebuf, off, ret) {
 
 function J(o, x, n) {
   // 注释 debug 的同时, 注释这里
-  return JSON.stringify(o, x, n);
-  // return o;
+  // return JSON.stringify(o, x, n);
+  return o;
 }
 
 
 function debug() {
-  console.debug.apply(console, arguments);
+  Tool.debug.apply(null, arguments);
 }
 
 
@@ -421,7 +542,7 @@ function readOffset(filebuf) {
   off.offset3       = Offset.getUint32(3*4, true); // Soundbank?
   off.offset4       = Offset.getUint32(4*4, true);
   off.offset5       = Offset.getUint32(5*4, true);
-  off.offset6       = Offset.getUint32(6*4, true); // 可移动区域
+  off.offset6       = Offset.getUint32(6*4, true); // collision
   off.cam_pos       = Offset.getUint32(7*4, true);
   off.cam_sw        = Offset.getUint32(8*4, true);
   off.lights        = Offset.getUint32(9*4, true);

@@ -25,6 +25,8 @@ export default {
 // TODO: 模型的移动需要与动画参数偏移数据同步
 function player(mod, win, gameState) {
   const WALK = 8;
+  const ROT = 0.015;
+
   const thiz = Base(mod, win, {});
   const play_range = gameState.play_range;
   const touch = gameState.touch;
@@ -46,6 +48,7 @@ function player(mod, win, gameState) {
       // TODO: 蹭墙移动
       thiz.translate(thiz.wrap0(-s, 0, 0));
     }
+    // console.line(thiz.where());
 
     let ti = Tool.inRanges(touch, thiz);
     if (ti >= 0) {
@@ -58,11 +61,11 @@ function player(mod, win, gameState) {
   function bind_ctrl(bind) {
     const i = win.input();
     i.onKey(bind.right, gl.GLFW_PRESS, 0, function() {
-      thiz.rotateY(0.01);
+      thiz.rotateY(ROT);
     });
   
     i.onKey(bind.left, gl.GLFW_PRESS, 0, function() {
-      thiz.rotateY(-0.01);
+      thiz.rotateY(-ROT);
     });
   
     i.onKey(bind.up, gl.GLFW_PRESS, 0, function() {
