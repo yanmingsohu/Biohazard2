@@ -13,14 +13,14 @@ export default {
   start_game,
 };
 
-let window, camera;
+let window, camera, draw_order;
 const LEON = 0;
 const CLAIRE = 1;
 const HARD = 2;
 const NORMAL = 1;
 const EASY = 0;
 // 切换镜头的等待时间, 太短刺眼
-const CAM_SW_WAIT = 300;
+const CAM_SW_WAIT = 0; //300;
 
 // game_var 常量定义
 const V_CAMERA = 26;
@@ -73,9 +73,10 @@ const gameState = {
 };
 
 
-function init(_window, _camera, _shader_pro) {
+function init(_window, _camera, _shader_pro, order) {
   window = _window;
   camera = _camera;
+  draw_order = order;
   vec3.set(camera.up(), 0, -1, 0);
   // _test();
 }
@@ -106,7 +107,6 @@ function switch_camera() {
 
 
 function find_camera_switcher() {
-  let cam0 = 0;
   Tool.debug("Current Camera", camera_nm);
 
   for (let i = map_data.cameras_sw.length-1; i>=0; --i) {
@@ -185,7 +185,7 @@ function begin_level() {
 
   // TODO: 加载玩家角色模型
   let mod = Liv.fromEmd(player, 0x50);
-  p1 = Ai.player(mod, window, gameState);
+  p1 = Ai.player(mod, window, draw_order, gameState, camera);
   p1.setPos(19771.0371, 0, -2603.186);
   p1.rotateY(Math.PI);
 
@@ -260,7 +260,7 @@ function addEnemy(zb) {
     return;
 
   let mod = Liv.fromEmd(player, zb.model);
-  let ai = Ai.zombie(mod, window);
+  let ai = Ai.zombie(mod, window, draw_order);
   free_objects.push(ai);
   ai.setPos(zb.x, zb.y, zb.z);
   ai.setDirection(zb.dir);

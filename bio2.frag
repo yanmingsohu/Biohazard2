@@ -38,11 +38,10 @@ void draw_background() {
 
 
 void draw_mask() {
-  // vec4 tex = 
-  // float a = tex.r > 0 ? 1 : 0;
   vec4 tex = texture(ourTexture, oTexCoord);
+  // TODO: alpha 边缘柔化
   FragColor = tex;
-  gl_FragDepth = tex.a > 0 ? gl_FragCoord.z : 1;
+  gl_FragDepth = gl_FragCoord.z;
 }
 
 

@@ -1,9 +1,9 @@
 import Shader from './shader.js'
 import Game   from '../boot/game.js'
-import Node   from '../boot/node.js'
 import Tool   from './tool.js'
+import Node   from '../boot/node.js'
 const matrix = Node.load('boot/gl-matrix.js');
-const {vec3, mat4} = matrix;
+const {vec4, mat4} = matrix;
 
 // 按键绑定
 const defaultKeyBind = {
@@ -23,11 +23,11 @@ export default {
 
 
 // TODO: 模型的移动需要与动画参数偏移数据同步
-function player(mod, win, gameState) {
+function player(mod, win, order, gameState, camera) {
   const WALK = 8;
   const ROT = 0.015;
 
-  const thiz = Base(mod, win, {});
+  const thiz = Base(mod, win, order, {});
   const play_range = gameState.play_range;
   const touch = gameState.touch;
   const survey = gameState.survey;
@@ -55,6 +55,27 @@ function player(mod, win, gameState) {
       let t = touch[ti];
       t.act();
     }
+
+    // TODO 正确处理动画速度和偏移
+    console.line(mod.anim_offset)
+    // console.line(screenPos(), '\t');
+  }
+
+
+  // 返回角色在屏幕上的坐标(测试用)
+  function screenPos() {
+    let pos = thiz.where();
+    let out = [pos[0], pos[1]+2100, pos[2], 1];
+    // vec4.transformMat4(out, out, thiz.objTr);
+    camera.transform(out, out);
+    out[3] = 1000;
+    Shader.transformProjection(out, out);
+    // vec4.normalize(out, out);
+    out[0] /= out[3];
+    out[1] /= out[3];
+    out[2] /= out[3];
+    out[3] /= out[3];
+    return out;
   }
 
 
@@ -104,18 +125,18 @@ function player(mod, win, gameState) {
 }
 
 
-function zombie(mod, win) {
+function zombie(mod, win, order) {
   mod.setAnim(0, 0);
   mod.setDir(1);
 
-  const thiz = Base(mod, win, {
+  const thiz = Base(mod, win, order, {
   });
   const mx = thiz.mx;
   return thiz;
 }
 
 
-function Base(mod, win, ext) {
+function Base(mod, win, order, ext) {
   // matrix.mat4.translate(tmat, tmat, [0, -4, 0]);
   // matrix.mat4.rotateZ(tmat, tmat, Math.PI);
   const thiz = {
@@ -126,7 +147,8 @@ function Base(mod, win, ext) {
     wrap0,
   };
 
-  win.add(thiz);
+  // win.add(thiz);
+  order.addMod(thiz);
   const Tran = Game.Transformation(thiz);
   const model_trans = Tran.objTr;
   const swap = new Array(3);
@@ -144,7 +166,8 @@ function Base(mod, win, ext) {
 
 
   function free() {
-    win.remove(thiz);
+    // win.remove(thiz);
+    order.rmMod(thiz);
     mod.free();
     mod = null;
   }

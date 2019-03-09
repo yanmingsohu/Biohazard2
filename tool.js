@@ -8,6 +8,7 @@ export default {
   xywh2range,
   xywhBindRange,
   bindWindow,
+  createDrawOrder,
   debug,
 };
 
@@ -182,4 +183,69 @@ function bindWindow(win, drawer, draw_type_fn, _data) {
   };
   win.add(wrap);
   return wrap;
+}
+
+
+//
+// 只管绘制顺序, 不管资源释放;
+// 可以设置 null 对象以删除对象引用.
+//
+function createDrawOrder(shader) {
+  let background;
+  let mask;
+  const mod = [];
+
+  const thiz = {
+    setBackground,
+    setMask,
+    addMod,
+    rmMod,
+    draw,
+    free,
+  };
+  return thiz;
+
+  function setBackground(b) {
+    background = b;
+  }
+
+  function setMask(m) {
+    mask = m;
+  }
+
+  function addMod(m) {
+    mod.push(m);
+  }
+
+  function rmMod(m) {
+    for (let i=0, len=mod.length; i<len; ++i) {
+      if (mod[i] == m) {
+        mod.splice(i, 1);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function free() {
+    throw new Error("unsupport");
+  }
+
+  function draw(u, t) {
+    if (background) {
+      shader.draw_background();
+      background.draw(u, t);
+    }
+
+    if (mod.length > 0) {
+      for (let i=0, len=mod.length; i<len; ++i) {
+        mod[i].draw(u, t);
+      }
+    }
+
+    if (mask) {
+      shader.draw_mask();
+      mask.draw(u, t);
+    }
+  }
 }

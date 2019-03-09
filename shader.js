@@ -15,18 +15,21 @@ export default {
   createBasicDrawObject,
   // 设置模型变换矩阵
   setModelTrans,
-  // 设置骨骼总偏移向量
-  boneOffset,
-  // // 设置骨骼旋转矩阵
+  // 设置骨骼旋转矩阵
   // boneRotate,
   bindBoneOffset,
+  // 使用投影矩阵变换顶点
+  transformProjection,
 };
 
 import Draw from '../boot/draw.js'
+import Node from '../boot/node.js'
+const matrix = Node.load('boot/gl-matrix.js');
+const {vec4, mat4} = matrix;
 
 const FOVY = 60;
-const NEAR = 1;
-const FAR  = 45;
+const NEAR = 16;
+const FAR  = 45000;
 const DEF_RGB = new Float32Array([0.5, 0.5, 0.5]);
 //
 // 单例模式, 任何模块都引用同一个着色器程序
@@ -37,7 +40,6 @@ let draw_type;
 let model;
 let bind_bones;
 let bind_len;
-let bone_offset;
 let rgb;
 
 
@@ -54,17 +56,22 @@ function init(window) {
   // test(sp, window);
 
   gl.glEnable(gl.GL_BLEND);
+  gl.glEnable(gl.GL_ALPHA_TEST);
   gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA);
   
   draw_type   = sp.getUniform('draw_type');
   model       = sp.getUniform('model');
   bind_bones  = sp.getUniform('bind_bones');
   bind_len    = sp.getUniform('bind_len');
-  bone_offset = sp.getUniform('bone_offset');
   rgb         = sp.getUniform('rgb');
 
   program = sp;
   return sp;
+}
+
+
+function transformProjection(outvec4, srcvec4) {
+  vec4.transformMat4(outvec4, srcvec4, program.getProjection());
 }
 
 
@@ -135,11 +142,6 @@ function setModelTrans(mat4) {
 function bindBoneOffset(vec4arr, len) {
   bind_bones.setUniform4fv(vec4arr);
   bind_len.setUniform1i(len);
-}
-
-
-function boneOffset(x, y, z) {
-  bone_offset && bone_offset.setUniform3f(x, y, z);
 }
 
 

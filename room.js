@@ -15,6 +15,8 @@ const z = 0.99999;
 let background;
 let bgtex;
 let mask;
+let draw_order;
+let camera;
 
 // 上下颠倒
 const vertices = new Float32Array([
@@ -40,8 +42,10 @@ export default {
 };
 
 
-function init(window) {
+function init(window, _order, _camera) {
   Shader.check_init();
+  draw_order = _order;
+  camera = _camera;
 
   background = Shader.createBasicDrawObject();
   background.addVerticesElements(vertices, indices);
@@ -49,19 +53,8 @@ function init(window) {
   background.setAttr({ index: 2, vsize: 2, stride: 5*gl.sizeof$float, 
               offset: 3*gl.sizeof$float });
 
-  window.add({ draw });
-
+  draw_order.setBackground(background);
   bgtex = background.getTexture();
-}
-
-
-function draw(u, t) {
-  Shader.draw_background();
-  background.draw(u, t);
-  if (mask) {
-    Shader.draw_mask();
-    mask.draw();
-  }
 }
 
 
@@ -131,9 +124,12 @@ function showPic(file) {
 
 //
 // 在切换房间之前设置遮掩数据
+// maskbuf - 背景蒙版缓冲区
+// bg部分- 背景图像缓冲区
 //
 function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
   if (mask) {
+    draw_order.setMask(null);
     mask.free();
     mask = null;
   }
@@ -142,15 +138,32 @@ function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
   }
 
   const BUFLEN = 5;
-  // | x,y,z | u, v |
-  const ALP_BIT = 1 << 15;
-  const texbuf = new Uint16Array(mw * mh * 4);
+  // 纹理缓冲区
+  const texbuf = new Uint32Array(mw * mh);
+  // | x,y,z | u, v | 顶点缓冲区
   const buf = new Float32Array(m.length * BUFLEN * 4);
+  // 索引缓冲区
   const idx = new Uint32Array(m.length * 6);
+
   let bi = 0, ii = 0, vi = 0;
-  let dx, dy, sx, sy, z, ww, hh, alp;
+  let dx, dy, sx, sy, z, ww, hh, alpha, r, g, b, c1555;
   let rw = ow/2;
   let rh = oh/2;
+
+  let out = [0, 0, 0, 1];
+
+  function chipz(depth) {
+    const cp = camera.pos();
+    out[0] = cp[0];
+    out[1] = cp[1];
+    out[2] = cp[2];
+    out[3] = 1000;
+    // TODO: depth 作为长度在摄像机方向延伸
+    camera.transform(out, out);
+    out[3] = 1000;
+    Shader.transformProjection(out, out);
+    return out[2] / out[3];
+  }
 
   // {"src_x":8,"src_y":48,"dst_x":80,"dst_y":0,"depth":86,
   //  "x":232,"y":120,"width":8,"height":8}
@@ -161,10 +174,9 @@ function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
     sy = m[i].src_y;
     ww = m[i].w;
     hh = m[i].h;
-    z = (-m[i].depth / 370);
-    console.log(m[i].depth, z);
+    z = chipz(m[i].depth);// * 0.00033890505414608147;
 
-    // console.log(i, JSON.stringify(m[i]), alp, maskbuf[sx + sy * mw]);
+    console.log(i, m[i].depth, z);
 
     bi = i * BUFLEN * 4;
     buf[bi + 0] =  dx        / rw -1;
@@ -200,11 +212,17 @@ function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
     idx[ii + 4] = 3 + vi;
     idx[ii + 5] = 2 + vi;
 
-    texbuf[sx + sy * mw] = (bgbuf[dx + dy * ow] & 0x7FFF) | alp;
     for (ii = 0; ii < hh; ++ii) {
+      let y0 = sy * mw;
+      let y1 = dy * ow;
       for (vi = 0; vi < ww; ++vi) {
-        alp = maskbuf[sx+vi + sy * mw] > 0 ? ALP_BIT : 0;
-        texbuf[sx+vi + sy * mw] = (bgbuf[dx+vi + dy * ow] & 0x7FFF) | alp;
+        alpha = maskbuf[sx + vi + y0] >0 ? 0xFF : 0;
+        c1555 = bgbuf[dx + vi + y1];
+        b = (c1555 & 0x7c00) >> 10;
+        g = (c1555 & 0x3e0) >> 5;
+        r = (c1555 & 0x1F);
+        // r = g = b= 0xfff; // 白色测试
+        texbuf[sx + vi + y0] = (r << 27) | (g << 19) | (b << 11) | alpha;
       }
       ++sy; ++dy;
     }
@@ -218,7 +236,8 @@ function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
 
   let tex = mask.getTexture();
   tex.bindTexImage(texbuf, mw, mh, 
-      gl.GL_RGBA, gl.GL_UNSIGNED_SHORT_1_5_5_5_REV);
+      gl.GL_RGBA, gl.GL_UNSIGNED_INT_8_8_8_8, gl.GL_RGBA);
   tex.setParameter(gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST);
+  draw_order.setMask(mask);
   return true;
 }

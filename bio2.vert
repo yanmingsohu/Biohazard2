@@ -11,7 +11,6 @@ uniform int  draw_type;
 
 uniform vec4 bind_bones[20*8/4];
 uniform int  bind_len;
-uniform vec3 bone_offset;
 
 out vec2 oTexCoord;
 out vec4 oColor;
@@ -70,11 +69,8 @@ void draw_living() {
     mpos += off;
   }
 
-  // bone_offset 的范围未知?
-  // bone_offset.y = bone_offset.y + 2000;
-  mpos = mpos + vec4(bone_offset.x, bone_offset.y+2100, bone_offset.z, 0);
-  vec4 modelPos = camera * model * vec4(mpos.xyz, 1);
-  gl_Position = projection * vec4(modelPos.xyz, 1000);
+  vec4 modelPos = camera * model * mpos;
+  gl_Position = projection * modelPos;
   
   oTexCoord = iTexCoord;
   oNormal = iNormal;
@@ -89,12 +85,13 @@ void draw_background() {
 
 void draw_invisible() {
   vec4 p = camera * vec4(pos.xyz, 1);
-  gl_Position = projection * vec4(p.xyz, 1000);
+  gl_Position = projection * vec4(p.xyz, 1);
 }
 
 
 void draw_mask() {
-  gl_Position = vec4(pos.x, pos.y, pos.z, 1);
+  float z = pos.z; //-1/pos.z;
+  gl_Position = vec4(pos.x, pos.y, z, 1);
   oTexCoord = iTexCoord;
 }
 
