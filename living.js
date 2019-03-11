@@ -117,7 +117,7 @@ function loadEmd(playId, emdId) {
   const liner_pos = {x:0, y:0, z:0};
   const liner_pos_tr = Game.Pos3Transition(liner_pos, 0);
   const skeletonBind = [];
-  const anim_offset = [];
+  // const anim_offset = [];
 
   let comp_len = 0;
   let currentSk;
@@ -147,8 +147,14 @@ function loadEmd(playId, emdId) {
     // 设置骨骼绑定组, 默认 0, 0~3?
     setSkGrp,
     where,
-    anim_offset,
+    setSpeed,
+    // anim_offset,
   };
+
+
+  function setSpeed(s) {
+    speed = s;
+  }
 
 
   function where() {
@@ -210,9 +216,10 @@ function loadEmd(playId, emdId) {
 
     liner_pos_tr.line(u, frame_data);
     let p = liner_pos_tr.pos();
-    anim_offset[0] = p.x;
-    anim_offset[1] = p.y;
-    anim_offset[2] = p.z;
+    // anim_offset[0] = p.x;
+    // anim_offset[1] = p.y;
+    // anim_offset[2] = p.z;
+    Shader.setAnimOffset(p.x, p.y, p.z);
     currentSk[0].transform2(bind_bone, alf, components, 0);
     
     if (a >= speed) {

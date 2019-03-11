@@ -2,8 +2,10 @@ import Shader from './shader.js'
 import Game   from '../boot/game.js'
 import Tool   from './tool.js'
 import Node   from '../boot/node.js'
+import { Point2, Triangle2 } from './tool.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec4, mat4} = matrix;
+const PI2 = Math.PI * 2;
 
 // 按键绑定
 const defaultKeyBind = {
@@ -24,31 +26,41 @@ export default {
 
 // TODO: 模型的移动需要与动画参数偏移数据同步
 function player(mod, win, order, gameState, camera) {
-  const WALK = 8;
-  const ROT = 0.015;
+  const WALK       = 15;
+  const ROT        = 0.015;
+  const WALK_SPEED = 30 / 1000;
 
-  const thiz = Base(mod, win, order, {});
   const play_range = gameState.play_range;
-  const touch = gameState.touch;
-  const survey = gameState.survey;
+  const touch      = gameState.touch;
+  const survey     = gameState.survey;
+  const collisions = gameState.collisions;
+  const thiz       = Base(mod, win, order, {
+    back,
+    rotateY,
+    getAngle,
+    traverse,
+  });
+
   let one_step = WALK;
+  let run = 0;
+  let dir = -1;
+  let angle = 0;
 
   mod.setAnim(0, 0);
+  mod.setSpeed(WALK_SPEED);
   // mod.setDir(-1);
   bind_ctrl(defaultKeyBind);
 
   return thiz;
 
 
-  function move(s, d) {
-    thiz.translate(thiz.wrap0(s, 0, 0));
-    mod.setDir(d);
+  function move() {
+    thiz.translate(thiz.wrap0(one_step + run, 0, 0));
+    mod.setDir(dir);
   
     if (undefined === Tool.inRanges(play_range, thiz)) {
-      // TODO: 蹭墙移动
-      thiz.translate(thiz.wrap0(-s, 0, 0));
+      back();
     }
-    // console.line(thiz.where());
 
     let ti = Tool.inRanges(touch, thiz);
     if (ti >= 0) {
@@ -56,9 +68,24 @@ function player(mod, win, order, gameState, camera) {
       t.act();
     }
 
-    // TODO 正确处理动画速度和偏移
-    console.line(mod.anim_offset)
-    // console.line(screenPos(), '\t');
+    for (let i=0, l=collisions.length; i<l; ++i) {
+      let c = collisions[i];
+      if (c.play_on) {
+        check_collision(c, thiz);
+      }
+    }
+    // console.line(thiz.where());
+  }
+
+
+  // 横向移动, rate(0,1)
+  function traverse(rate) {
+    thiz.translate(thiz.wrap0(0, 0, (one_step + run) * rate));
+  }
+
+
+  function back() {
+    thiz.translate(thiz.wrap0(-one_step - run, 0, 0));
   }
 
 
@@ -79,6 +106,24 @@ function player(mod, win, order, gameState, camera) {
   }
 
 
+  function rotateY(rad) {
+    mat4.rotateY(this.objTr, this.objTr, rad);
+    angle += rad;
+
+    if (angle < 0) {
+      angle = PI2 + angle;
+    } else if (angle > PI2) {
+      angle = angle - PI2;
+    }
+  }
+
+
+  // 角度总是在 0~2PI 之间
+  function getAngle() {
+    return angle;
+  }
+
+
   function bind_ctrl(bind) {
     const i = win.input();
     i.onKey(bind.right, gl.GLFW_PRESS, 0, function() {
@@ -90,7 +135,9 @@ function player(mod, win, order, gameState, camera) {
     });
   
     i.onKey(bind.up, gl.GLFW_PRESS, 0, function() {
-      move(one_step, -1);
+      one_step = WALK;
+      dir = -1;
+      move();
     });
   
     i.pressOnce(bind.up, null, function() {
@@ -98,7 +145,9 @@ function player(mod, win, order, gameState, camera) {
     });
 
     i.onKey(bind.down, gl.GLFW_PRESS, 0, function() {
-      move(-one_step, 1);
+      one_step = -WALK;
+      dir = 1;
+      move();
     });
 
     i.pressOnce(bind.down, null, function() {
@@ -113,12 +162,13 @@ function player(mod, win, order, gameState, camera) {
     });
 
     i.pressOnce(bind.run, function() {
-      one_step = 6 *WALK;
-      mod.setDir(-3);
+      if (one_step < 0) return;
+      run = 3 *WALK;
+      dir = -3;
+      // TODO: 切换到跑步动画
       // mod.setAnim(1, 0);
     }, function() {
-      one_step = WALK;
-      mod.setDir(-1);
+      run = 0;
       // mod.setAnim(0, 0);
     });
   }
@@ -156,7 +206,7 @@ function Base(mod, win, order, ext) {
   thiz.ms = model_trans;
   thiz.swap = swap; // 使用的元素必须完全清空
 
-  return Object.assign(thiz, Tran);
+  return Object.assign(thiz, Tran, ext);
 
   
   function draw(u, t) {
@@ -192,5 +242,18 @@ function Base(mod, win, order, ext) {
     swap[1] = y;
     swap[2] = z;
     return swap;
+  }
+}
+
+
+function check_collision(c, target) {
+  const w = target.where();
+  const p = new Point2(w[0], w[2]);
+
+  switch (c.shape) {
+    case 0: {// 长方形
+      c.py.in(w[0], w[2], target);
+    }
+    break;
   }
 }

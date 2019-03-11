@@ -152,6 +152,7 @@ function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
 
   let out = [0, 0, 0, 1];
 
+  // TODO: 深度不正确
   function chipz(depth) {
     const cp = camera.pos();
     out[0] = cp[0];
@@ -176,7 +177,7 @@ function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
     hh = m[i].h;
     z = chipz(m[i].depth);// * 0.00033890505414608147;
 
-    console.log(i, m[i].depth, z);
+    // console.log(i, m[i].depth, z);
 
     bi = i * BUFLEN * 4;
     buf[bi + 0] =  dx        / rw -1;

@@ -4,13 +4,14 @@ layout (location = 1) in vec3 iNormal;
 layout (location = 2) in vec2 iTexCoord;
 
 uniform mat4 model;
-uniform mat4 bone_rotate;
 uniform mat4 camera;
 uniform mat4 projection;
 uniform int  draw_type;
 
 uniform vec4 bind_bones[20*8/4];
 uniform int  bind_len;
+uniform mat4 bone_rotate;
+uniform vec4 anim_offset;
 
 out vec2 oTexCoord;
 out vec4 oColor;
@@ -69,7 +70,7 @@ void draw_living() {
     mpos += off;
   }
 
-  vec4 modelPos = camera * model * mpos;
+  vec4 modelPos = camera * model * (mpos + anim_offset);
   gl_Position = projection * modelPos;
   
   oTexCoord = iTexCoord;

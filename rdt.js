@@ -7,6 +7,7 @@ import Tim    from './tim.js'
 import File   from './file.js'
 import Tool   from './tool.js'
 import Node   from '../boot/node.js'
+import { CollisionRectangle } from './tool.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4, vec2} = matrix;
 
@@ -134,61 +135,126 @@ function readSpace(buf, offobj, obj) {
 
   const cx = v.getInt16(collision, true);
   const cz = v.getInt16(collision+2, true);
-  const d0 = v.getUint32(collision+4, true);
+  const d0 = v.getUint32(collision+4, true)-1;
   const d1 = v.getUint32(collision+8, true);
   const d2 = v.getUint32(collision+12, true);
-  const d3 = v.getUint32(collision+16, true);
-  const d4 = v.getUint32(collision+20, true);
-  debug(". Collision", cx, cz, d0, d1, d2, d3, d4);
+  debug(". Collision", cx, cz, d0, d1.toString(16), d2.toString(16));
 
   const carr = obj.collision = [];
-  off = collision + 24;
+  off = collision + 16;
   for (let i=0; i<d0; ++i) {
     let c = {};
-    c.w = v.getUint16(off, true);
-    c.d = v.getUint16(off+2, true);
-    c.x = v.getInt16(off+4, true);
-    c.y = v.getInt16(off+6, true);
+    c.x = v.getInt16(off, true);
+    c.y = v.getInt16(off+2, true);
+    c.w = v.getUint16(off+4, true);
+    c.d = v.getUint16(off+6, true);
+
     let id = v.getUint16(off+8, true);
     c.shape     = id & 0x000F;
-    c.weapon_on = (id >> 4) & 0x08;
-    c.floor_on  = (id >> 8) & 1;
+    c.weapon_on = (id >>  4) & 0x08;
+    c.floor_on  = (id >>  8) & 1;
     c.enemy_on  = (id >> 10) & 1;
     c.bullet_on = (id >> 13) & 1;
     c.obj_on    = (id >> 14) & 1;
     c.play_on   = (id >> 15) & 1;
-    c.type      = v.getUint16(off+10, true);
+    
+    let type = v.getUint16(off+10, true);
+    // 宽度乘数X / W（0-3）
+    c.xw     = type & 3; 
+    // 深度倍增器Z / D（0-3）
+    c.yd     = (type >>  2) & 3; 
+    // type: 楼梯/斜坡/平台访问
+    // 00爬升/上升/从Z轴向下跳跃
+    // 01从Z轴上升/上升/跳起
+    // 02爬升/上升/从X轴向下跳跃
+    // 03爬升/上升/从X轴上跳
+    c.type   = (type >>  4) & 3;
+    // 高度乘数（0-9）
+    // 此值确定阴影和
+    // 子弹偏转高度
+    c.floor  = (type >>  6) & 0x3F;
+    // c.nine   = (type >> 12) & 0xF;
+    setShapeType(c);
     carr.push(c);
-    off += 12;
-    debug('\t', c, shapeName(c.shape));
+
+    off += 16;
+    if ((type >> 12) & 0xF != 9) {
+      console.error("flag fail", c);
+    }
+    debug('\t', c);
   }
 }
 
 
-function shapeName(s) {
-  switch(s) {
-    case  0: return 'Rectangle';
-    case  1: return 'Right Triangle x--	z--';
-    case  2: return 'Right Triangle x++	z--';
-    case  3: return 'Right Triangle x--	z++';
-    case  4: return 'Right Triangle x++	z++';
-    case  5: return 'Rhombus |x/w| + |z/d| = 1';
-    case  6: return 'Circle';
+function setShapeType(c) {
+  switch(c.shape) {
+    case  0: 
+      c.name = 'Rectangle';
+      c.py = new CollisionRectangle(c);
+      break;
+
+    case  1: 
+      c.name = 'Right Triangle x--	z--';
+      break;
+
+    case  2: 
+      c.name = 'Right Triangle x++	z--';
+      break;
+
+    case  3: 
+      c.name = 'Right Triangle x--	z++';
+      break;
+
+    case  4: 
+      c.name = 'Right Triangle x++	z++';
+      break;
+
+    case  5: 
+      c.name = 'Rhombus |x/w| + |z/d| = 1';
+      break;
+
+    case  6: 
+      c.name = 'Circle';
+      break;
+
     // Ellipse, Rectangle w/Rounded corners on X-Axis'
-    case  7: return 'Oval x=(-x,0), z=(z,0)';
+    case  7: 
+      c.name = 'Oval x=(-x,0), z=(z,0)';
+      break;
+
     // Ellipse, Rectangle w/Rounded corners on Z-Axis
-    case  8: return 'Oval x=(x,0), z=(-z,0)';
+    case  8: 
+      c.name = 'Oval x=(x,0), z=(-z,0)';
+      break;
+
     // Found in 304
-    case  9: return 'Rectangle Climb Up'; 
+    case  9: 
+      c.name = 'Rectangle Climb Up'; 
+      break;
+
     // Found in 304
-    case 10: return 'Rectangle Jump Down';
+    case 10: 
+      c.name = 'Rectangle Jump Down';
+      break;
+
     // Found in 200
-    case 11: return 'Reflex Angle';
+    case 11: 
+      c.name = 'Reflex Angle';
+      break;
+
     // Found in 200
-    case 12: return 'Rectangle Stairs';
-    // // found in 40B and 40F
-    case 13: return 'Cylinder';
-    default: return 'Unknow shape '+s;
+    case 12: 
+      c.name = 'Rectangle Stairs';
+      break;
+
+    // found in 40B and 40F
+    case 13: 
+      c.name = 'Cylinder';
+      break;
+
+    default: 
+      c.name = 'Unknow shape '+s;
+      break;
   }
 }
 
@@ -350,7 +416,7 @@ function readCameraPos(filebuf, off, ret, count) {
       to_z   : v.getInt32(24 +vi, true),
     };
     let mask_off = v.getUint32(28 +vi, true);
-    debug("camera", i, J(c));
+    // debug("camera", i, J(c));
     if (mask_off != 0xffffffff) {
       c.mask = readMask(filebuf, mask_off);
     }
@@ -392,7 +458,7 @@ function readMask(filebuf, off) {
   const ret = [];
   for (let i=0; i<c_offset; ++i) {
     const mask = offset_obj[i];
-    debug('Mask info', mask.count, J(mask));
+    // debug('Mask info', mask.count, J(mask));
 
     for (let j=0; j<mask.count; ++j) {
       const chip = {};
@@ -418,9 +484,9 @@ function readMask(filebuf, off) {
         off += 8;
       }
       if (chip.dst_x + chip.w > 320 || chip.dst_y + chip.h >240) {
-        console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        console.error("bad size")
       }
-      debug("Mask chip", J(chip));
+      // debug("Mask chip", J(chip));
     }
   }
   return ret;
@@ -500,8 +566,7 @@ function readCameraSwitch(filebuf, off, ret) {
     }
     cameras.push(cam);
 
-    debug("Camera Switch", c++);
-    debug(J(cam));
+    // debug("Camera Switch", c++, cam);
   }
 }
 

@@ -193,6 +193,7 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
   const skdata = { angle: [] };
   const PI2 = 2 * Math.PI;
   const angle_fn = degrees; // radian & degrees
+  const OFF_MASK = 0x7ff;
   let curr_sk_idx = -1;
 
   if (angle_size <= 0) {
@@ -211,12 +212,12 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
   return function get_frame_data(sk_index) {
     // 没有改变骨骼索引直接返回最后的数据
     if (curr_sk_idx === sk_index) return skdata;
-    // 整体位置偏移量
+    // 整体位置偏移量, 一个半字节有效
     let xy_off = anim_offset + data_size * sk_index;
-    skdata.x = buf.short(xy_off);
-    skdata.y = buf.short();
-    skdata.z = buf.short();
-    // 动画
+    skdata.x = buf.ushort(xy_off) & OFF_MASK;
+    skdata.y = buf.ushort() & OFF_MASK;
+    skdata.z = buf.ushort() & OFF_MASK;
+    // 动画速度?
     skdata.spx = buf.short();
     skdata.spy = buf.short();
     skdata.spz = buf.short();

@@ -20,6 +20,8 @@ export default {
   bindBoneOffset,
   // 使用投影矩阵变换顶点
   transformProjection,
+  // 设置骨骼动画偏移
+  setAnimOffset,
 };
 
 import Draw from '../boot/draw.js'
@@ -41,6 +43,7 @@ let model;
 let bind_bones;
 let bind_len;
 let rgb;
+let anim_offset;
 
 
 function init(window) {
@@ -64,6 +67,7 @@ function init(window) {
   bind_bones  = sp.getUniform('bind_bones');
   bind_len    = sp.getUniform('bind_len');
   rgb         = sp.getUniform('rgb');
+  anim_offset = sp.getUniform('anim_offset');
 
   program = sp;
   return sp;
@@ -147,4 +151,9 @@ function bindBoneOffset(vec4arr, len) {
 
 function radians(degress) {
   return degress * Math.PI/180;
+}
+
+
+function setAnimOffset(x, y, z) {
+  anim_offset.setUniform4f(x, y, z, 0);
 }

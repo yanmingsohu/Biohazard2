@@ -38,6 +38,8 @@ const object_arr = [];
 const killed = [];
 // 角色的活动范围.
 const play_range = [];
+// 地图上的障碍物
+const collisions = [];
 // 当玩家进入范围, 时间被触发, 调用 act()
 const touch = [];
 // 地图上的可调查对象, 当玩家在范围内调查时, 事件被触发, 调用 act()
@@ -53,15 +55,20 @@ let p1;
 
 
 const gameState = {
+  // 属性
   survey,
   touch,
   play_range,
+  collisions,
+  script_running : false,
+
+  // js 脚本函数
   switch_camera,
   next_frame,
   reverse,
   setDoor,
-  script_running : false,
 
+  // bio 脚本函数
   aot_set,
   addEnemy,
   setGameVar,
@@ -141,6 +148,7 @@ function free_map() {
   play_range.length = 0;
   survey.length = 0;
   touch.length = 0;
+  collisions.length = 0;
 }
 
 
@@ -149,18 +157,20 @@ function load_map() {
   map_data = Rdt.from(stage, room_nm, player);
   room_script = map_data.room_script;
 
+  for (let i=0; i<map_data.collision.length; ++i) {
+    let c = map_data.collision[i];
+    collisions.push(c);
+    // 显示碰撞体
+    const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
+    free_objects.push(Tool.showCollision(c, window, color2));
+  }
+
   const color = new Float32Array([0.9, 0.1, 0.3]);
   for (let i=map_data.block.length-1; i>=0; --i) {
     let b = map_data.block[i];
     play_range.push(b);
     // 调试 block
-    free_objects.push(Tool.showRange(b, window, color));
-  }
-
-  // 显示碰撞体
-  for (let i=0; i<map_data.collision.length; ++i) {
-    let c = map_data.collision[i];
-    
+    // free_objects.push(Tool.showRange(b, window, color));
   }
 
   try {
@@ -314,7 +324,7 @@ function aot_set(npo) {
       throw new Error("unknow aot", type);
   }
   object_arr[npo.id] = npo;
-  free_objects.push(Tool.showRange(npo, window));
+  // free_objects.push(Tool.showRange(npo, window));
 }
 
 
