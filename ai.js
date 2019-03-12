@@ -5,7 +5,7 @@ import Node   from '../boot/node.js'
 import { Point2, Triangle2 } from './tool.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec4, mat4} = matrix;
-const PI2 = Math.PI * 2;
+const PI_360 = Math.PI * 2;
 
 // 按键绑定
 const defaultKeyBind = {
@@ -36,15 +36,12 @@ function player(mod, win, order, gameState, camera) {
   const collisions = gameState.collisions;
   const thiz       = Base(mod, win, order, {
     back,
-    rotateY,
-    getAngle,
     traverse,
   });
 
   let one_step = WALK;
   let run = 0;
   let dir = -1;
-  let angle = 0;
 
   mod.setAnim(0, 0);
   mod.setSpeed(WALK_SPEED);
@@ -67,11 +64,16 @@ function player(mod, win, order, gameState, camera) {
       let t = touch[ti];
       t.act();
     }
-
+    
+    const w = thiz.where();
+    const p = new Point2(w[0], w[2]);
+    
     for (let i=0, l=collisions.length; i<l; ++i) {
       let c = collisions[i];
-      if (c.play_on) {
-        check_collision(c, thiz);
+      if (c.play_on && c.py) {
+        p.x = w[0];
+        p.y = w[2];
+        c.py.in(p, thiz);
       }
     }
     // console.line(thiz.where());
@@ -103,24 +105,6 @@ function player(mod, win, order, gameState, camera) {
     out[2] /= out[3];
     out[3] /= out[3];
     return out;
-  }
-
-
-  function rotateY(rad) {
-    mat4.rotateY(this.objTr, this.objTr, rad);
-    angle += rad;
-
-    if (angle < 0) {
-      angle = PI2 + angle;
-    } else if (angle > PI2) {
-      angle = angle - PI2;
-    }
-  }
-
-
-  // 角度总是在 0~2PI 之间
-  function getAngle() {
-    return angle;
   }
 
 
@@ -187,26 +171,40 @@ function zombie(mod, win, order) {
 
 
 function Base(mod, win, order, ext) {
-  // matrix.mat4.translate(tmat, tmat, [0, -4, 0]);
-  // matrix.mat4.rotateZ(tmat, tmat, Math.PI);
   const thiz = {
     setDirection,
     setPos,
     draw, 
     free,
     wrap0,
+    rotateY,
+    getAngle,
   };
 
-  // win.add(thiz);
   order.addMod(thiz);
   const Tran = Game.Transformation(thiz);
   const model_trans = Tran.objTr;
   const swap = new Array(3);
+  let angle = 0;
 
   thiz.ms = model_trans;
   thiz.swap = swap; // 使用的元素必须完全清空
 
-  return Object.assign(thiz, Tran, ext);
+  return Object.assign(Tran, thiz, ext);
+
+
+  function rotateY(rad) {
+    mat4.rotateY(this.objTr, this.objTr, rad);
+    angle += rad;
+    if (angle > PI_360) angle = angle - PI_360;
+    else if (angle < 0) angle = PI_360 + angle;
+  }
+
+
+  // 角度可以大于 2PI 小于 0
+  function getAngle() {
+    return angle;
+  }
 
   
   function draw(u, t) {
@@ -242,18 +240,5 @@ function Base(mod, win, order, ext) {
     swap[1] = y;
     swap[2] = z;
     return swap;
-  }
-}
-
-
-function check_collision(c, target) {
-  const w = target.where();
-  const p = new Point2(w[0], w[2]);
-
-  switch (c.shape) {
-    case 0: {// 长方形
-      c.py.in(w[0], w[2], target);
-    }
-    break;
   }
 }

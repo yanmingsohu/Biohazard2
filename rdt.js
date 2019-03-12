@@ -7,7 +7,7 @@ import Tim    from './tim.js'
 import File   from './file.js'
 import Tool   from './tool.js'
 import Node   from '../boot/node.js'
-import { CollisionRectangle } from './tool.js'
+import Coll   from './collision.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4, vec2} = matrix;
 
@@ -174,87 +174,15 @@ function readSpace(buf, offobj, obj) {
     // 子弹偏转高度
     c.floor  = (type >>  6) & 0x3F;
     // c.nine   = (type >> 12) & 0xF;
-    setShapeType(c);
+    Coll.installCollision(c);
     carr.push(c);
 
     off += 16;
-    if ((type >> 12) & 0xF != 9) {
-      console.error("flag fail", c);
+    if (((type >> 12) & 0xF) != 9) {
+      console.error("flag fail 0x09 !=", c);
     }
-    debug('\t', c);
-  }
-}
-
-
-function setShapeType(c) {
-  switch(c.shape) {
-    case  0: 
-      c.name = 'Rectangle';
-      c.py = new CollisionRectangle(c);
-      break;
-
-    case  1: 
-      c.name = 'Right Triangle x--	z--';
-      break;
-
-    case  2: 
-      c.name = 'Right Triangle x++	z--';
-      break;
-
-    case  3: 
-      c.name = 'Right Triangle x--	z++';
-      break;
-
-    case  4: 
-      c.name = 'Right Triangle x++	z++';
-      break;
-
-    case  5: 
-      c.name = 'Rhombus |x/w| + |z/d| = 1';
-      break;
-
-    case  6: 
-      c.name = 'Circle';
-      break;
-
-    // Ellipse, Rectangle w/Rounded corners on X-Axis'
-    case  7: 
-      c.name = 'Oval x=(-x,0), z=(z,0)';
-      break;
-
-    // Ellipse, Rectangle w/Rounded corners on Z-Axis
-    case  8: 
-      c.name = 'Oval x=(x,0), z=(-z,0)';
-      break;
-
-    // Found in 304
-    case  9: 
-      c.name = 'Rectangle Climb Up'; 
-      break;
-
-    // Found in 304
-    case 10: 
-      c.name = 'Rectangle Jump Down';
-      break;
-
-    // Found in 200
-    case 11: 
-      c.name = 'Reflex Angle';
-      break;
-
-    // Found in 200
-    case 12: 
-      c.name = 'Rectangle Stairs';
-      break;
-
-    // found in 40B and 40F
-    case 13: 
-      c.name = 'Cylinder';
-      break;
-
-    default: 
-      c.name = 'Unknow shape '+s;
-      break;
+    debug('\t', c.name, 'x,y=', c.x, c.y, 
+      'w,d=', c.w, c.d, 'x/w', c.xw, 'z/d', c.yd);
   }
 }
 

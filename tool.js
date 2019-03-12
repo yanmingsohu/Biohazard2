@@ -1,9 +1,9 @@
 import Shader from './shader.js'
 
-const PI_H = Math.PI / 2;
-const PI_U = Math.PI * 1.5;
-const PI_D = Math.PI * 2;
-const PI   = Math.PI;
+const PI_90  = Math.PI / 2;
+const PI_270 = Math.PI * 1.5;
+const PI_360 = Math.PI * 2;
+const PI     = Math.PI;
 
 export default {
   inRanges,
@@ -324,6 +324,10 @@ export class Point2 {
   angle(p) {
     return Math.acos(this.cross(p) / (this.len() * p.len()));
   }
+
+  toString() {
+    return '('+ this.x +','+ this.y +')';
+  }
 }
 
 
@@ -353,50 +357,5 @@ export class Rectangle2 {
     this.p2 = p2;
     this.p3 = p3;
     this.p4 = p4;
-  }
-}
-
-
-export class CollisionRectangle {
-  constructor(c) {
-    let p1 = new Point2(c.x, c.y);
-    let p2 = new Point2(c.x, c.y + c.d);
-    let p3 = new Point2(c.x + c.w, c.y + c.d);
-    let p4 = new Point2(c.x + c.w, c.y);
-    let pc = this.pc = new Point2(c.x + c.w/2, c.y + c.d/2);
-    this.t1 = new Triangle2(p1, p2, pc);
-    this.t2 = new Triangle2(p2, p3, pc);
-    this.t3 = new Triangle2(p3, p4, pc);
-    this.t4 = new Triangle2(p4, p1, pc);
-    this.tmp = new Point2(0, 0);
-  }
-
-  in(x, y, target) {
-    let p = this.tmp;
-    p.x = x; p.y = y;
-    let t = 0;
-    const a = target.getAngle();
-
-    if (this.t1.in(p)) {
-      if (a < PI) {
-        t = 0 - a;
-      } else {
-        t = PI_D - a;
-      }
-      console.log('t1', a, t)
-    } else if (this.t2.in(p)) {
-      t = PI_H - a;
-    } else if (this.t3.in(p)) {
-      t = PI - a;
-    } else if (this.t4.in(p)) {
-      t = PI_U - a;
-    }
-
-    if (t != 0) {
-      // 直接进行角色方向的平移会产生锯齿路线, 抖动
-      console.log(a, t);
-      target.back();
-      target.traverse(t);
-    }
   }
 }
