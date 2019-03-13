@@ -40,6 +40,28 @@ class Rectangle {
 }
 
 
+class Circle {
+  constructor(c) {
+    let r = this.r = c.w/2;
+    this.ct = new Point2(c.x + r, c.y + r);
+    this.r2 = this.r * this.r;
+  }
+
+  in(p, target) {
+    let t = p.minus(this.ct);
+    if (t.len() <= this.r) {
+      let d = new Point2(t.x, t.y);
+      d.y = Math.sqrt(this.r2 - t.x * t.x);
+      if (t.y < 0) {
+        d.y = -d.y;
+      }
+      target.objTr[X] = d.x + this.ct.x;
+      target.objTr[Y] = d.y + this.ct.y;
+    }
+  }
+}
+
+
 class Oval {
   constructor(c, isXaxis) {
     let a = c.w /2;
@@ -51,6 +73,7 @@ class Oval {
     this.a  = a;
     this.b  = b;
     this.rt = a/b;
+    this.xa = isXaxis;
   }
 
   in(p, target) {
@@ -59,39 +82,23 @@ class Oval {
     let y2 = t.y * t.y;
 
     if ((x2 / this.a2 + y2 / this.b2) <= 1) {
-      const ta = Math.atan(t.x / t.y);
-      const tb = target.getAngle();
-      const tc = Math.asin(t.y / Math.sqrt(x2 + y2));
+      const d = new Point2(t.x, t.y);
 
-      // console.log(r(ta), r(tb), r(tc));
-
-      if (t.x >= 0 && t.y >= 0) {
-        if (tb > PI_90) {
-          console.log('+1');
-          t.y = (this.b* Math.sqrt(this.a2 - x2))/ this.a;
-        } else {
-          console.log('-1', this.rt);
-          if (this.rt > 1) {
-            let y = (this.b* Math.sqrt(this.a2 - x2))/ this.a;
-            t.y = t.y + (y - t.y)*(1 - 1/this.rt);
-            y2 = t.y * t.y;
-          }
-          t.x = (this.a* Math.sqrt(this.b2 - y2))/ this.b;
-        }
-      } 
-      else if (t.x >= 0 && t.y < 0) {
-        console.log('2');
-      }
-      else if (t.x < 0 && t.y < 0) {
-        console.log('3');
-      }
-      else {
-        console.log('4');
+      if (this.xa) {
+        d.y = (this.b* Math.sqrt(this.a2 - x2))/ this.a;
+      } else {
+        d.x = (this.a* Math.sqrt(this.b2 - y2))/ this.b;
       }
 
-      target.objTr[X] = t.x + this.ct.x;
-      target.objTr[Y] = t.y + this.ct.y;
-      // target.back();
+      if (t.y < 0 && this.xa) {
+        d.y = -d.y;
+      }
+      if (t.x < 0 && !this.xa) {
+        d.x = -d.x;
+      }
+
+      target.objTr[X] = d.x + this.ct.x;
+      target.objTr[Y] = d.y + this.ct.y;
     }
   }
 }
@@ -131,17 +138,18 @@ function installCollision(c) {
 
     case  6: 
       c.name = 'Circle';
+      c.py = new Circle(c);
       break;
 
     // Ellipse, Rectangle w/Rounded corners on X-Axis'
     case  7: 
-      c.name = 'Oval x=(-x,0), z=(z,0)';
+      c.name = 'Oval X-Axis';
       c.py = new Oval(c, true);
       break;
 
     // Ellipse, Rectangle w/Rounded corners on Z-Axis
     case  8: 
-      c.name = 'Oval x=(x,0), z=(-z,0)';
+      c.name = 'Oval Z-Axis';
       c.py = new Oval(c, false);
       break;
 
@@ -150,17 +158,18 @@ function installCollision(c) {
       c.name = 'Rectangle Climb Up'; 
       break;
 
+    // x,y= -22927 -14663 w,d= 2390 4290 x/w= 2 z/d= 2 type= 0 floor= 3 sw= 0
     // Found in 304
     case 10: 
       c.name = 'Rectangle Jump Down';
       break;
 
-    // Found in 200
+    // Found in 200, 可能是斜坡
     case 11: 
       c.name = 'Reflex Angle';
       break;
 
-    // Found in 200
+    // Found in 200, 楼梯
     case 12: 
       c.name = 'Rectangle Stairs';
       break;

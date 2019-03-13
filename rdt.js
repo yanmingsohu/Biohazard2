@@ -182,7 +182,8 @@ function readSpace(buf, offobj, obj) {
       console.error("flag fail 0x09 !=", c);
     }
     debug('\t', c.name, 'x,y=', c.x, c.y, 
-      'w,d=', c.w, c.d, 'x/w', c.xw, 'z/d', c.yd);
+      'w,d=', c.w, c.d, 'x/w=', c.xw, 'z/d=', c.yd, 
+      'type=', c.type, 'floor=', c.floor, 'sw=', c.play_on);
   }
 }
 

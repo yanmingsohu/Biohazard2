@@ -65,18 +65,20 @@ function player(mod, win, order, gameState, camera) {
       t.act();
     }
     
+    // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.
     const w = thiz.where();
     const p = new Point2(w[0], w[2]);
     
     for (let i=0, l=collisions.length; i<l; ++i) {
       let c = collisions[i];
       if (c.play_on && c.py) {
+        thiz.where();
         p.x = w[0];
         p.y = w[2];
         c.py.in(p, thiz);
       }
     }
-    // console.line(thiz.where());
+    console.line('player:', w);
   }
 
 
