@@ -102,6 +102,7 @@ function switch_camera() {
   camera.lookAt(cd.to_x, cd.to_y, cd.to_z);
   Room.switchWith(stage, room_nm, camera_nm, cd.mask);
   game_var[V_CAMERA] = camera_nm;
+  Shader.setFov(cd.fov);
 
   for (let i=touch.length-1; i>=0; --i) {
     if (touch[i].cam1 >= 0) {
@@ -110,12 +111,11 @@ function switch_camera() {
   }
 
   find_camera_switcher();
+  Tool.debug("Current Camera", camera_nm, 'fov', cd.fov);
 }
 
 
 function find_camera_switcher() {
-  Tool.debug("Current Camera", camera_nm);
-
   for (let i = map_data.cameras_sw.length-1; i>=0; --i) {
     let sw = map_data.cameras_sw[i];
     if (sw.cam0 == camera_nm && sw.cam0 != sw.cam1) {
@@ -182,6 +182,25 @@ function load_map() {
 }
 
 
+function test_pos() {
+  // 警署大厅
+  p1.setPos(-12780.552734375, 0, -20381.51953125);
+  stage = 0x2; room_nm = 0; camera_nm = 10;
+
+  // 有楼梯的城市一角
+  // p1.setPos(-9874.8447265625,0,3555.011962890625);
+  // stage = 1; room_nm = 0x18; camera_nm = 0;
+
+  // 图书馆 ROOM1120.RDT
+  // p1.setPos(-15589.3955078125,0,-26244.947265625);
+  // stage = 1; room_nm = 0x12, camera_nm = 6;
+
+  // 下水道1
+  // p1.setPos(-7114.603515625,0,-3748.042724609375);
+  // stage = 3; room_nm = 0x7, camera_nm = 3;
+}
+
+
 function begin_level() {
   // 游戏参数初始化
   // 难度
@@ -196,13 +215,15 @@ function begin_level() {
   // TODO: 加载玩家角色模型
   let mod = Liv.fromEmd(player, 0x50);
   p1 = Ai.player(mod, window, draw_order, gameState, camera);
+  // LEON A 初始位置
   p1.setPos(19771.0371, 0, -2603.186);
   p1.rotateY(Math.PI);
-
   // 首先改变这些参数, 再调用 load_map/switch_camera
   stage = 1;
   room_nm = 0;
   camera_nm = 0;
+
+  test_pos();
 
   while (window.notClosed()) {
     load_map();

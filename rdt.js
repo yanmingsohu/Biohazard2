@@ -149,14 +149,14 @@ function readSpace(buf, offobj, obj) {
     c.w = v.getUint16(off+4, true);
     c.d = v.getUint16(off+6, true);
 
-    let id = v.getUint16(off+8, true);
-    c.shape     = id & 0x000F;
-    c.weapon_on = (id >>  4) & 0x08;
-    c.floor_on  = (id >>  8) & 1;
-    c.enemy_on  = (id >> 10) & 1;
-    c.bullet_on = (id >> 13) & 1;
-    c.obj_on    = (id >> 14) & 1;
-    c.play_on   = (id >> 15) & 1;
+    let flag = v.getUint16(off+8, true);
+    c.shape     = flag & 0x000F;
+    c.weapon_on = (flag >>  4) & 0x08;
+    c.floor_on  = (flag >>  8) & 1;
+    c.enemy_on  = (flag >> 10) & 1;
+    c.bullet_on = (flag >> 13) & 1;
+    c.obj_on    = (flag >> 14) & 1;
+    c.play_on   = (flag >> 15) & 1;
     
     let type = v.getUint16(off+10, true);
     // 宽度乘数X / W（0-3）
@@ -181,9 +181,11 @@ function readSpace(buf, offobj, obj) {
     if (((type >> 12) & 0xF) != 9) {
       console.error("flag fail 0x09 !=", c);
     }
+    let f = (flag & 0xff00) >> 8;
     debug('\t', c.name, 'x,y=', c.x, c.y, 
       'w,d=', c.w, c.d, 'x/w=', c.xw, 'z/d=', c.yd, 
-      'type=', c.type, 'floor=', c.floor, 'sw=', c.play_on);
+      'type=', c.type, 'floor=', c.floor, 
+      'f=', f.toString(2), '?=', type & 0x1F);
   }
 }
 
@@ -335,8 +337,10 @@ function readCameraPos(filebuf, off, ret, count) {
     let vi = len * i;
     // let v = new DataView(filebuf, off.cam_pos + len*i, len);
     let c = {
-      unknow : v.getUint16(0 +vi, true),
-      const0 : v.getUint16(2 +vi, true),
+      unk0   : v.getUint16(0 +vi, true),
+      // const0 : v.getUint16(2 +vi, true),
+      fov    : v.getUint8(2) & 0x7F,
+      unk1   : v.getUint8(3),
       from_x : v.getInt32(4 +vi, true),
       from_y : v.getInt32(8 +vi, true),
       from_z : v.getInt32(12 +vi, true),

@@ -22,6 +22,8 @@ export default {
   transformProjection,
   // 设置骨骼动画偏移
   setAnimOffset,
+  // 更新摄像机视野
+  setFov,
 };
 
 import Draw from '../boot/draw.js'
@@ -44,13 +46,14 @@ let bind_bones;
 let bind_len;
 let rgb;
 let anim_offset;
+let n = NEAR, r = FOVY, f = FAR;
 
 
 function init(window) {
   if (!window) throw new Error("window object not ready");
   if (program) throw new Error("cannot init repeat");
 
-  const sp = Draw.createProgram();
+  const sp = program = Draw.createProgram();
   sp.readVertexShader("bio2/bio2.vert");
   // sp.readGeoShader("bio2/bio2.geo");
   sp.readFragShader("bio2/bio2.frag");
@@ -69,7 +72,6 @@ function init(window) {
   rgb         = sp.getUniform('rgb');
   anim_offset = sp.getUniform('anim_offset');
 
-  program = sp;
   return sp;
 }
 
@@ -81,7 +83,7 @@ function transformProjection(outvec4, srcvec4) {
 
 function test(sp, w) {
   const i = w.input();
-  let n = NEAR, r = FOVY, f = FAR;
+  console.log("Fov +/-, Near 7/8, Far 9/0");
 
   i.pressOnce(gl.GLFW_KEY_0, function() {
     f += 1; setp();
@@ -99,10 +101,31 @@ function test(sp, w) {
     r -= 1; setp();
   });
 
+  i.pressOnce(gl.GLFW_KEY_8, function() {
+    n += 1; setp();
+  });
+
+  i.pressOnce(gl.GLFW_KEY_7, function() {
+    n -= 1; setp();
+  });
+
   function setp() {
-    sp.setProjection(radians(r), 4/3, n, f);
+    updateProjection();
     console.line("Fov", r, "near", n, 'far', f);
   }
+}
+
+
+function setFov(fov) {
+  if (fov > 0) {
+    r = radians(fov);
+    updateProjection();
+  }
+}
+
+
+function updateProjection() {
+  program.setProjection(r, 4/3, n, f);
 }
 
 

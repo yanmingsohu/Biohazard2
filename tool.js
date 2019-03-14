@@ -191,7 +191,7 @@ function showCollision(c, win, color) {
   switch(c.shape) {
     default:
       var r = xywd2range(c);
-      return showRange(r, win, color, 10);
+      return showRange(r, win, color, c.floor * -1800);
   }
 }
 
@@ -348,6 +348,10 @@ export class Triangle2 {
     let t3 = pc.cross(pa);
     return (t1 * t2 >= 0) && (t1 * t3 >= 0);
   }
+
+  toString() {
+    return '{'+ this.p1 + this.p2 + this.p3 + '}';
+  }
 }
 
 
@@ -357,5 +361,24 @@ export class Rectangle2 {
     this.p2 = p2;
     this.p3 = p3;
     this.p4 = p4;
+  }
+
+  in(p) {
+    const x = p.x, y = p.y;
+    const rx1 = this.p1.x, ry1 = this.p1.y;
+    const rx2 = this.p2.x, ry2 = this.p2.y;
+    const rx3 = this.p3.x, ry3 = this.p3.y;
+    const rx4 = this.p4.x, ry4 = this.p4.y;
+    let a, b, c, d;
+  
+    a = (rx2 - rx1)*(y - ry1) - (ry2 - ry1)*(x - rx1);
+    b = (rx3 - rx2)*(y - ry2) - (ry3 - ry2)*(x - rx2);
+    c = (rx4 - rx3)*(y - ry3) - (ry4 - ry3)*(x - rx3);
+    d = (rx1 - rx4)*(y - ry4) - (ry1 - ry4)*(x - rx4);
+  
+    if ((a > 0 && b > 0 && c > 0 && d > 0) ||
+        (a < 0 && b < 0 && c < 0 && d < 0)) {
+      return true;
+    }
   }
 }

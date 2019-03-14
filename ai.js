@@ -72,13 +72,13 @@ function player(mod, win, order, gameState, camera) {
     for (let i=0, l=collisions.length; i<l; ++i) {
       let c = collisions[i];
       if (c.play_on && c.py) {
+        c.py.in(p, thiz);
         thiz.where();
         p.x = w[0];
         p.y = w[2];
-        c.py.in(p, thiz);
       }
     }
-    console.line('player:', w);
+    // console.line('player:', thiz.where());
   }
 
 
@@ -145,6 +145,7 @@ function player(mod, win, order, gameState, camera) {
       if (si >= 0) {
         survey[si].act();
       }
+      console.line('player:', thiz.where());
     });
 
     i.pressOnce(bind.run, function() {

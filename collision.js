@@ -1,11 +1,14 @@
-import {Triangle2, Point2} from './tool.js'
+import {Triangle2, Point2, Rectangle2} from './tool.js'
+import Tool from './tool.js'
 
 const X = 12;
-const Y = 14;
+const Y = 14; // 逻辑 Y 轴, 纵深
+const Z = 13; // 逻辑 Z 轴, 上下
 const PI_90  = Math.PI * 0.5;
 const PI_180 = Math.PI;
 const PI_270 = Math.PI * 1.5;
 const PI_360 = Math.PI * 2;
+const FLOOR_PER_PIXEL = 1800;
 
 
 class Rectangle {
@@ -19,9 +22,17 @@ class Rectangle {
     this.t2 = new Triangle2(p2, p3, pc);
     this.t3 = new Triangle2(p3, p4, pc);
     this.t4 = new Triangle2(p4, p1, pc);
+    // this.msg = 'x:'+ c.x +' y:'+c.y +' w:'+c.w +' d:'+c.d
+    //          + ' xw:'+c.xw +' yd:'+ c.yd;
+    // this.w = c.w * c.xw;
+    // this.d = c.d * c.yd;
   }
 
   in(p, target) {
+    // if (p.x >= this.w || p.y >= this.d) {
+    //   Tool.debug('Rectangle', this.msg, p);
+    //   return;
+    // }
     if (this.t1.in(p)) {
       target.objTr[X] += this.t1.p1.x - p.x;
     }
@@ -104,12 +115,150 @@ class Oval {
 }
 
 
+class Triangle {
+  constructor(p1, p2, p3) {
+    this.t  = new Triangle2(p1, p2, p3);
+    let ct  = this.ct = new Point2((p1.x+p2.x+p3.x)/3, (p1.y+p2.y+p3.y)/3);
+    this.t1 = new Triangle2(p1, p2, ct);
+    this.t2 = new Triangle2(p2, p3, ct);
+    this.t3 = new Triangle2(p3, p1, ct);
+  }
+
+  in(p, target) {
+    if (this.t.in(p)) {
+      let cp, tp;
+      if (this.t1.in(p)) {
+        cp = this.t1.p2;
+        tp = this.t1.p1;
+      } 
+      else if (this.t2.in(p)) {
+        cp = this.t2.p2;
+        tp = this.t2.p1;
+      } 
+      else if (this.t3.in(p)) {
+        cp = this.t3.p2;
+        tp = this.t3.p1;
+      } 
+      else {
+        target.back();
+        return;
+      }
+
+      const pt = p.minus(cp);
+      const ct = tp.minus(cp);
+      const a = PI_90 - pt.angle(ct);
+      let sa = Math.sin(a);
+      let ca = Math.cos(a);
+      pt.x = pt.x * ca - pt.y * sa;
+      pt.y = pt.x * sa + pt.y * ca;
+      target.objTr[X] = pt.x + cp.x;
+      target.objTr[Y] = pt.y + cp.y;
+    }
+  }
+}
+
+
+class Stairs {
+  constructor(c) {
+    let p1 = new Point2(c.x, c.y);
+    let p2 = new Point2(c.x, c.y + c.d);
+    let p3 = new Point2(c.x + c.w, c.y + c.d);
+    let p4 = new Point2(c.x + c.w, c.y);
+    this.rect = new Rectangle2(p1, p2, p3, p4);
+    this.type = c.type;
+    this.yslope = (c.floor * FLOOR_PER_PIXEL) / c.d;
+    this.xslope = (c.floor * FLOOR_PER_PIXEL) / c.w;
+    this.x = c.x;
+    this.y = c.y;
+    this.w = c.w;
+    this.d = c.d;
+  }
+
+  // TODO: 上楼动画
+  in(p, target) {
+    if (this.rect.in(p)) {
+      switch (this.type) {
+        case 3:
+          target.objTr[Z] = (p.y - (this.y + this.d)) * this.yslope;
+          break;
+        
+        case 0:
+          target.objTr[Z] = (this.x - p.x) * this.xslope;
+          break;
+
+        case 1: // ???
+          target.objTr[Z] = (p.x - (this.x + this.w)) * this.xslope;
+          break;
+        
+        default:
+          target.back();
+          console.log('stairs', this.type);
+      }
+    }
+  }
+}
+
+
+class ReflexAngle {
+  constructor(c) {
+    let p1 = new Point2(c.x, c.y);
+    let p2 = new Point2(c.x, c.y + c.d);
+    let p3 = new Point2(c.x + c.w, c.y + c.d);
+    let p4 = new Point2(c.x + c.w, c.y);
+    this.rect = new Rectangle2(p1, p2, p3, p4);
+    this.x = c.x;
+    this.y = c.y;
+    this.w = c.w;
+    this.d = c.d;
+    this.yslope = (c.floor * FLOOR_PER_PIXEL) / c.d;
+    this.xslope = (c.floor * FLOOR_PER_PIXEL) / c.w;
+    this.type = c.type;
+
+    switch (c.type) {
+      case 2:
+        this.slope = (c.floor * FLOOR_PER_PIXEL) / c.d;
+        break;
+      
+      default:
+        this.slope = 0;
+    }
+  }
+
+  in(p, target) {
+    if (this.rect.in(p)) {
+      switch (this.type) {
+        case 0:
+          target.objTr[Z] = (this.x - p.x) * this.xslope;
+          break;
+
+        case 1:
+          target.objTr[Z] = (p.x - (this.x + this.w)) * this.xslope;
+          break;
+
+        case 2:
+          target.objTr[Z] = (this.y - p.y) * this.yslope;
+          break;
+          
+        case 3:
+          target.objTr[Z] = (p.y - (this.y + this.d)) * this.yslope;
+          break;
+        
+        default:
+          target.back();
+          console.log('ReflexAngle', this.type);
+      }
+    }
+  }
+}
+
+
 function r(a) {
   return a * 180 / Math.PI;
 }
 
 
 function installCollision(c) {
+  let p1, p2, p3;
   switch(c.shape) {
     case  0: 
       c.name = 'Rectangle';
@@ -117,19 +266,35 @@ function installCollision(c) {
       break;
 
     case  1: 
-      c.name = 'Right Triangle x-- z-- \\|';
+      c.name = 'Triangle \\|';
+      p1 = new Point2(c.x,       c.y + c.d);
+      p2 = new Point2(c.x + c.w, c.y + c.d);
+      p3 = new Point2(c.x + c.w, c.y);
+      c.py = new Triangle(p1, p2, p3);
       break;
 
     case  2: 
-      c.name = 'Right Triangle x++ z-- |/';
+      c.name = 'Triangle |/';
+      p1 = new Point2(c.x,       c.y);
+      p2 = new Point2(c.x,       c.y + c.d);
+      p3 = new Point2(c.x + c.w, c.y + c.d);
+      c.py = new Triangle(p1, p2, p3);
       break;
 
     case  3: 
-      c.name = 'Right Triangle x-- z++ /|';
+      c.name = 'Triangle /|';
+      p1 = new Point2(c.x,       c.y);
+      p2 = new Point2(c.x + c.w, c.y + c.d);
+      p3 = new Point2(c.x + c.w, c.y);
+      c.py = new Triangle(p1, p2, p3);
       break;
 
     case  4: 
-      c.name = 'Right Triangle x++ z++ |\\';
+      c.name = 'Triangle |\\';
+      p1 = new Point2(c.x,       c.y);
+      p2 = new Point2(c.x,       c.y + c.d);
+      p3 = new Point2(c.x + c.w, c.y);
+      c.py = new Triangle(p1, p2, p3);
       break;
 
     case  5: 
@@ -164,24 +329,26 @@ function installCollision(c) {
       c.name = 'Rectangle Jump Down';
       break;
 
-    // Found in 200, 可能是斜坡
+    // Found in 200, 斜坡
     case 11: 
       c.name = 'Reflex Angle';
+      c.py = new ReflexAngle(c);
       break;
 
     // Found in 200, 楼梯
     case 12: 
       c.name = 'Rectangle Stairs';
+      c.py = new Stairs(c);
       break;
 
     // found in 40B and 40F
     case 13: 
       c.name = 'Cylinder';
+      c.py = new Circle(c);
       break;
 
     default: 
-      c.name = 'Unknow shape '+s;
-      break;
+      throw new Error('Unknow shape '+s);
   }
 }
 
