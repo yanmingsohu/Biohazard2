@@ -99,7 +99,7 @@ function player(mod, win, order, gameState, camera) {
     let out = [pos[0], pos[1]+2100, pos[2], 1];
     // vec4.transformMat4(out, out, thiz.objTr);
     camera.transform(out, out);
-    out[3] = 1000;
+    out[3] = 1;
     Shader.transformProjection(out, out);
     // vec4.normalize(out, out);
     out[0] /= out[3];
@@ -154,6 +154,7 @@ function player(mod, win, order, gameState, camera) {
       dir = -3;
       // TODO: 切换到跑步动画
       // mod.setAnim(1, 0);
+      console.line('screen-z:', screenPos()[2]);
     }, function() {
       run = 0;
       // mod.setAnim(0, 0);

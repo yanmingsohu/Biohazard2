@@ -24,6 +24,12 @@ export default {
   setAnimOffset,
   // 更新摄像机视野
   setFov,
+  // 设置环境光颜色
+  setEnvLight,
+  // 设置三个灯光
+  setLights,
+  // 返回蒙版深度对应的 z 值
+  maskDepth,
 };
 
 import Draw from '../boot/draw.js'
@@ -31,10 +37,12 @@ import Node from '../boot/node.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec4, mat4} = matrix;
 
+const MASK_DEPTH_X = 0x1E0;
 const FOVY = 60;
 const NEAR = 16;
 const FAR  = 45000;
 const DEF_RGB = new Float32Array([0.5, 0.5, 0.5]);
+const COLOR_DIV = 0xFF;
 //
 // 单例模式, 任何模块都引用同一个着色器程序
 // 并且只能初始化一次
@@ -46,7 +54,21 @@ let bind_bones;
 let bind_len;
 let rgb;
 let anim_offset;
+let env_light;
+let lights;
+let view_pos;
 let n = NEAR, r = FOVY, f = FAR;
+
+
+class UiLight {
+  constructor(sp, i) {
+    const pri   = 'lights['+ i +']';
+    this.type   = sp.getUniform(pri +'.type', true);
+    this.color  = sp.getUniform(pri +'.color', true);
+    this.pos    = sp.getUniform(pri +'.pos', true);
+    this.bright = sp.getUniform(pri +'.bright', true);
+  }
+}
 
 
 function init(window) {
@@ -71,7 +93,11 @@ function init(window) {
   bind_len    = sp.getUniform('bind_len');
   rgb         = sp.getUniform('rgb');
   anim_offset = sp.getUniform('anim_offset');
-
+  env_light   = sp.getUniform('env_light');
+  view_pos    = sp.getUniform('view_pos');
+  lights      = [ new UiLight(sp, 0), 
+                  new UiLight(sp, 1), 
+                  new UiLight(sp, 2) ];
   return sp;
 }
 
@@ -87,10 +113,12 @@ function test(sp, w) {
 
   i.pressOnce(gl.GLFW_KEY_0, function() {
     f += 1; setp();
+    // console.log(--MASK_DEPTH_X);
   });
 
   i.pressOnce(gl.GLFW_KEY_9, function() {
     f -= 1; setp();
+    // console.log(++MASK_DEPTH_X);
   });
 
   i.pressOnce(gl.GLFW_KEY_EQUAL, function() {
@@ -116,9 +144,9 @@ function test(sp, w) {
 }
 
 
-function setFov(fov) {
-  if (fov > 0) {
-    r = radians(fov);
+function setFov(_fov) {
+  if (_fov > 0) {
+    r = radians(_fov);
     updateProjection();
   }
 }
@@ -179,4 +207,35 @@ function radians(degress) {
 
 function setAnimOffset(x, y, z) {
   anim_offset.setUniform4f(x, y, z, 0);
+}
+
+
+function setEnvLight(color) {
+  env_light.setUniform3f(
+    color.r/COLOR_DIV, color.g/COLOR_DIV, color.b/COLOR_DIV);
+}
+
+
+function setLights(camera, def, l1, l2) {
+  set(lights[0], def);
+  set(lights[1], l1);
+  set(lights[2], l2);
+
+  const cpos = camera.pos();
+  view_pos.setUniform4f(cpos[0], cpos[1], cpos[2], 1);
+
+  function set(u, l) {
+    u.type.setUniform1i(l.type);
+    u.color.setUniform3f(l.color.r, l.color.g, l.color.b);
+    u.pos.setUniform4f(l.pos.x, l.pos.y, l.pos.z, 1);
+    u.bright.setUniform1f(l.bright);
+  }
+}
+
+
+function maskDepth(d) {
+  // TODO: 深度值需要进一步精确
+  // d = MASK_DEPTH_X - d;
+  // return (1/d - 1/NEAR) / (1/FAR - 1/NEAR);
+  return 1- (MASK_DEPTH_X - d - NEAR) / (FAR - NEAR);
 }

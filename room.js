@@ -128,6 +128,7 @@ function showPic(file) {
 // bg部分- 背景图像缓冲区
 //
 function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
+  // 删除之前的蒙版数据
   if (mask) {
     draw_order.setMask(null);
     mask.free();
@@ -150,22 +151,6 @@ function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
   let rw = ow/2;
   let rh = oh/2;
 
-  let out = [0, 0, 0, 1];
-
-  // TODO: 深度不正确
-  function chipz(depth) {
-    const cp = camera.pos();
-    out[0] = cp[0];
-    out[1] = cp[1];
-    out[2] = cp[2];
-    out[3] = 1000;
-    // TODO: depth 作为长度在摄像机方向延伸
-    camera.transform(out, out);
-    out[3] = 1000;
-    Shader.transformProjection(out, out);
-    return out[2] / out[3];
-  }
-
   // {"src_x":8,"src_y":48,"dst_x":80,"dst_y":0,"depth":86,
   //  "x":232,"y":120,"width":8,"height":8}
   for (let i=0, len=m.length; i < len; ++i) {
@@ -175,9 +160,8 @@ function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
     sy = m[i].src_y;
     ww = m[i].w;
     hh = m[i].h;
-    z = chipz(m[i].depth);// * 0.00033890505414608147;
-
-    // console.log(i, m[i].depth, z);
+    z = Shader.maskDepth(m[i].depth);
+    console.log(i, m[i].depth, z, 1-z, z-1);
 
     bi = i * BUFLEN * 4;
     buf[bi + 0] =  dx        / rw -1;

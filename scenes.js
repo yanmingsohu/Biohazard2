@@ -103,6 +103,7 @@ function switch_camera() {
   Room.switchWith(stage, room_nm, camera_nm, cd.mask);
   game_var[V_CAMERA] = camera_nm;
   Shader.setFov(cd.fov);
+  setup_lights(cd);
 
   for (let i=touch.length-1; i>=0; --i) {
     if (touch[i].cam1 >= 0) {
@@ -139,6 +140,16 @@ function find_camera_switcher() {
 }
 
 
+function setup_lights(cr) {
+  Tool.debug("Env:", cr.env_color);
+  Tool.debug(" l0:", cr.light0);
+  Tool.debug(" l1:", cr.light1);
+  Tool.debug(" l2:", cr.light2);
+  Shader.setEnvLight(cr.env_color);
+  Shader.setLights(camera, cr.light0, cr.light1, cr.light2);
+}
+
+
 function free_map() {
   for (let i = free_objects.length-1; i>=0; --i) {
     free_objects[i].free();
@@ -161,8 +172,8 @@ function load_map() {
     let c = map_data.collision[i];
     collisions.push(c);
     // 显示碰撞体
-    const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
-    free_objects.push(Tool.showCollision(c, window, color2));
+    // const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
+    // free_objects.push(Tool.showCollision(c, window, color2));
   }
 
   const color = new Float32Array([0.9, 0.1, 0.3]);
@@ -182,22 +193,33 @@ function load_map() {
 }
 
 
-function test_pos() {
-  // 警署大厅
-  p1.setPos(-12780.552734375, 0, -20381.51953125);
-  stage = 0x2; room_nm = 0; camera_nm = 10;
+function test_pos(t) {
+  switch (t) {
+    case 1: // 警署大厅
+      p1.setPos(-12780.552734375, 0, -20381.51953125);
+      stage = 0x2; room_nm = 0; camera_nm = 10;
+      break;
 
-  // 有楼梯的城市一角
-  // p1.setPos(-9874.8447265625,0,3555.011962890625);
-  // stage = 1; room_nm = 0x18; camera_nm = 0;
+    case 2: // 有楼梯的城市一角
+      p1.setPos(-9874.8447265625,0,3555.011962890625);
+      stage = 1; room_nm = 0x18; camera_nm = 0;
+      break;
 
-  // 图书馆 ROOM1120.RDT
-  // p1.setPos(-15589.3955078125,0,-26244.947265625);
-  // stage = 1; room_nm = 0x12, camera_nm = 6;
+    case 3: // 图书馆 ROOM1120.RDT
+      p1.setPos(-15589.3955078125,0,-26244.947265625);
+      stage = 1; room_nm = 0x12, camera_nm = 6;
+      break;
 
-  // 下水道1
-  // p1.setPos(-7114.603515625,0,-3748.042724609375);
-  // stage = 3; room_nm = 0x7, camera_nm = 3;
+    case 4: // 下水道1
+      p1.setPos(-7114.603515625,0,-3748.042724609375);
+      stage = 3; room_nm = 0x7, camera_nm = 3;
+      break;
+
+    case 5: // 火炬谜题房间 ROOM20d0.RDT, 椭圆碰撞反馈优化
+      p1.setPos(-24400.1015625,0,-10989.9453125);
+      stage = 2; room_nm = 0xd, camera_nm = 7;
+      break;
+  }
 }
 
 
@@ -223,12 +245,13 @@ function begin_level() {
   room_nm = 0;
   camera_nm = 0;
 
-  test_pos();
+  // test_pos(5);
 
   while (window.notClosed()) {
     load_map();
     switch_camera();
     run_room_script();
+    // vm.gc();
 
     // TODO: 这里是补丁, 房间脚本应该不会退出?
     while (gameState.script_running && window.notClosed()) {

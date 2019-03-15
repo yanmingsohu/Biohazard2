@@ -429,7 +429,7 @@ function readMask(filebuf, off) {
 function readLight(filebuf, off, ret) {
   const cameras = ret.cameras;
   const len = 2*2 + 3*3 + 3 + 3*6 + 3*2;
-  let v;
+  let v, c;
 
   function rcolor(i) {
     return {
@@ -449,31 +449,33 @@ function readLight(filebuf, off, ret) {
 
   for (let i=0; i<cameras.length; ++i) {
     v = new DataView(filebuf, off.lights + len*i, len);
-    let light0 = {
+    c = cameras[i];
+    c.light1 = {
       type   : v.getUint16(0, true),
       color  : rcolor(4),
       pos    : rpos(16),
       bright : v.getUint16(34, true),
     };
-    let light1 = {
+    c.light2 = {
       type   : v.getUint16(2, true),
       color  : rcolor(7),
       pos    : rpos(22),
       bright : v.getUint16(36, true),
     };
-    let lightdef = {
+    // 0 号灯作为编程灯光
+    c.light0 = {
       type   : 0,
       color  : rcolor(10),
       pos    : rpos(28),
       bright : v.getUint16(38, true),
     };
-    cameras.light0 = light0;
-    cameras.light1 = light1;
-    cameras.lightdef = lightdef;
-    cameras.env_color = rcolor(13);
+    c.env_color = rcolor(13);
 
-    debug("light", i, new Uint8Array(filebuf, off.lights + len*i, len));
-    debug(J({light0, light1, lightdef}), cameras.env_color);
+    debug("light", i, c.env_color);
+    /*, new Uint8Array(filebuf, off.lights + len*i, len)*/
+    // debug('  0:', c.light0);
+    // debug('  1:', c.light1);
+    // debug('  2:', c.light2);
   }
 }
 

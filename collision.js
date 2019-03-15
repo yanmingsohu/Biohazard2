@@ -13,19 +13,23 @@ const FLOOR_PER_PIXEL = 1800;
 
 class Rectangle {
   constructor(c) {
+    let d = c.d;
+    let w = c.w;
+    // if (c.xw > 0) w /= c.xw;
+    // if (c.yd > 0) d /= c.yd;
     let p1 = new Point2(c.x, c.y);
-    let p2 = new Point2(c.x, c.y + c.d);
-    let p3 = new Point2(c.x + c.w, c.y + c.d);
-    let p4 = new Point2(c.x + c.w, c.y);
-    let pc = this.pc = new Point2(c.x + c.w/2, c.y + c.d/2);
+    let p2 = new Point2(c.x, c.y + d);
+    let p3 = new Point2(c.x + w, c.y + d);
+    let p4 = new Point2(c.x + w, c.y);
+    let pc = this.pc = new Point2(c.x + w/2, c.y + d/2);
     this.t1 = new Triangle2(p1, p2, pc);
     this.t2 = new Triangle2(p2, p3, pc);
     this.t3 = new Triangle2(p3, p4, pc);
     this.t4 = new Triangle2(p4, p1, pc);
-    // this.msg = 'x:'+ c.x +' y:'+c.y +' w:'+c.w +' d:'+c.d
+    // this.msg = 'x:'+ c.x +' y:'+c.y +' w:'+w +' d:'+d
     //          + ' xw:'+c.xw +' yd:'+ c.yd;
-    // this.w = c.w * c.xw;
-    // this.d = c.d * c.yd;
+    // this.w = w * c.xw;
+    // this.d = d * c.yd;
   }
 
   in(p, target) {

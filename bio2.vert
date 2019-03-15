@@ -3,6 +3,15 @@ layout (location = 0) in vec3 pos;
 layout (location = 1) in vec3 iNormal;
 layout (location = 2) in vec2 iTexCoord;
 
+struct Light {
+  vec3 color;
+  vec4 pos;
+  vec4 ldir;
+  vec4 vdir;
+  int type;
+  float bright;
+};
+
 uniform mat4 model;
 uniform mat4 camera;
 uniform mat4 projection;
@@ -12,10 +21,13 @@ uniform vec4 bind_bones[20*8/4];
 uniform int  bind_len;
 uniform mat4 bone_rotate;
 uniform vec4 anim_offset;
+uniform Light lights[3];
+uniform vec4 view_pos;
 
 out vec2 oTexCoord;
 out vec4 oColor;
 out vec3 oNormal;
+flat out Light f_lights[3];
 
 
 vec4 rotateX(vec4 p, float x) {
@@ -59,6 +71,17 @@ vec4 rotate_vertex_position(vec4 position, vec4 quat) {
 }
 
 
+void compute_light(int i, vec4 modPos) {
+  vec4 pos = camera * lights[i].pos;
+  f_lights[i].ldir   = normalize(pos - modPos);
+  f_lights[i].vdir   = normalize(view_pos - modPos);
+  f_lights[i].pos    = pos;
+  f_lights[i].color  = lights[i].color / 0xFF;
+  f_lights[i].type   = lights[i].type;
+  f_lights[i].bright = lights[i].bright / 0x7FFF;
+}
+
+
 void draw_living() {
   vec4 mpos = bone_rotate * vec4(pos, 1);
   int i;
@@ -70,11 +93,16 @@ void draw_living() {
     mpos += off;
   }
 
-  vec4 modelPos = camera * model * (mpos + anim_offset);
-  gl_Position = projection * modelPos;
+  vec4 modPos = model * (mpos + anim_offset);
+  gl_Position = projection * camera * modPos;
   
   oTexCoord = iTexCoord;
-  oNormal = iNormal;
+  // oNormal = iNormal;
+  oNormal = mat3(transpose(inverse(model))) * iNormal;
+
+  compute_light(0, modPos);
+  compute_light(1, modPos);
+  compute_light(2, modPos);
 }
 
 

@@ -275,8 +275,8 @@ function createDrawOrder(shader) {
     }
 
     if (mask) {
-      // shader.draw_mask();
-      // mask.draw(u, t);
+      shader.draw_mask();
+      mask.draw(u, t);
     }
   }
 }
