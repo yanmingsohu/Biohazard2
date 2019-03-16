@@ -57,7 +57,7 @@ let anim_offset;
 let env_light;
 let lights;
 let view_pos;
-let n = NEAR, r = FOVY, f = FAR;
+let n = NEAR, fov = FOVY, f = FAR;
 
 
 class UiLight {
@@ -112,48 +112,48 @@ function test(sp, w) {
   console.log("Fov +/-, Near 7/8, Far 9/0");
 
   i.pressOnce(gl.GLFW_KEY_0, function() {
-    f += 1; setp();
+    f += (f/20); setp();
     // console.log(--MASK_DEPTH_X);
   });
 
   i.pressOnce(gl.GLFW_KEY_9, function() {
-    f -= 1; setp();
+    f -= (f/20); setp();
     // console.log(++MASK_DEPTH_X);
   });
 
   i.pressOnce(gl.GLFW_KEY_EQUAL, function() {
-    r += 1; setp();
+    fov += 1; setp();
   });
 
   i.pressOnce(gl.GLFW_KEY_MINUS, function() {
-    r -= 1; setp();
+    fov -= 1; setp();
   });
 
   i.pressOnce(gl.GLFW_KEY_8, function() {
-    n += 1; setp();
+    n += (n/20); setp();
   });
 
   i.pressOnce(gl.GLFW_KEY_7, function() {
-    n -= 1; setp();
+    n -= (n/20); setp();
   });
 
   function setp() {
     updateProjection();
-    console.line("Fov", r, "near", n, 'far', f);
+    console.line("Fov", fov, "near", n, 'far', f);
   }
 }
 
 
 function setFov(_fov) {
   if (_fov > 0) {
-    r = radians(_fov);
+    fov = _fov;
     updateProjection();
   }
 }
 
 
 function updateProjection() {
-  program.setProjection(r, 4/3, n, f);
+  program.setProjection(radians(fov), 4/3, n, f);
 }
 
 
@@ -235,7 +235,9 @@ function setLights(camera, def, l1, l2) {
 
 function maskDepth(d) {
   // TODO: 深度值需要进一步精确
-  // d = MASK_DEPTH_X - d;
   // return (1/d - 1/NEAR) / (1/FAR - 1/NEAR);
-  return 1- (MASK_DEPTH_X - d - NEAR) / (FAR - NEAR);
+  return (1- (1023 - d - NEAR) / (FAR - NEAR)) * 1.0136;
+  // return 1 - ((NEAR+d)/FAR) - (1023 - d - NEAR) / (FAR - NEAR);
+  // let z = f - (1023 - d);
+  // return (z - n) / (f - n);
 }

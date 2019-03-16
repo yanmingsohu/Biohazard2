@@ -96,7 +96,7 @@ function xywh2range(n) {
     y2: n.y + n.h,
     x3: n.x,
     y3: n.y,
-    x4: n.x + n.h,
+    x4: n.x + n.w,
     y4: n.y,
   };
 }

@@ -441,9 +441,9 @@ function readLight(filebuf, off, ret) {
 
   function rpos(i) {
     return {
-      x: v.getUint16(i, true),
-      y: v.getUint16(i+2, true),
-      z: v.getUint16(i+4, true),
+      x: v.getInt16(i, true),
+      y: v.getInt16(i+2, true),
+      z: v.getInt16(i+4, true),
     };
   }
 

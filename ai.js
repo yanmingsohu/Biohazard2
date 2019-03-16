@@ -154,7 +154,8 @@ function player(mod, win, order, gameState, camera) {
       dir = -3;
       // TODO: 切换到跑步动画
       // mod.setAnim(1, 0);
-      console.line('screen-z:', screenPos()[2]);
+      let z = screenPos()[2];
+      console.line('screen-z:', z, (45000-16)* z + 16);
     }, function() {
       run = 0;
       // mod.setAnim(0, 0);

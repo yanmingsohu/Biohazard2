@@ -72,13 +72,19 @@ vec4 rotate_vertex_position(vec4 position, vec4 quat) {
 
 
 void compute_light(int i, vec4 modPos) {
-  vec4 pos = camera * lights[i].pos;
+  // 位置
+  vec4 pos = lights[i].pos;
+  // 距离
+  float d = length(pos - modPos) / 50000;
+  // 衰减
+  float attenuation  = 1.0 / (1 + 0.09 * d + 0.032 * (d * d));    
+
   f_lights[i].ldir   = normalize(pos - modPos);
   f_lights[i].vdir   = normalize(view_pos - modPos);
   f_lights[i].pos    = pos;
   f_lights[i].color  = lights[i].color / 0xFF;
   f_lights[i].type   = lights[i].type;
-  f_lights[i].bright = lights[i].bright / 0x7FFF;
+  f_lights[i].bright = lights[i].bright / 24000 * attenuation;
 }
 
 
@@ -97,7 +103,6 @@ void draw_living() {
   gl_Position = projection * camera * modPos;
   
   oTexCoord = iTexCoord;
-  // oNormal = iNormal;
   oNormal = mat3(transpose(inverse(model))) * iNormal;
 
   compute_light(0, modPos);

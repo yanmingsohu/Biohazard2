@@ -172,8 +172,8 @@ function load_map() {
     let c = map_data.collision[i];
     collisions.push(c);
     // 显示碰撞体
-    // const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
-    // free_objects.push(Tool.showCollision(c, window, color2));
+    const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
+    free_objects.push(Tool.showCollision(c, window, color2));
   }
 
   const color = new Float32Array([0.9, 0.1, 0.3]);
@@ -368,7 +368,7 @@ function aot_set(npo) {
       throw new Error("unknow aot", type);
   }
   object_arr[npo.id] = npo;
-  // free_objects.push(Tool.showRange(npo, window));
+  free_objects.push(Tool.showRange(npo, window));
 }
 
 
@@ -388,6 +388,7 @@ function setDoor(d) {
   };
 
   _test_bind_key_sw_room(d.id, range.act);
+  free_objects.push(Tool.showRange(range, window));
 }
 
 

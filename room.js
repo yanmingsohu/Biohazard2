@@ -161,7 +161,7 @@ function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
     ww = m[i].w;
     hh = m[i].h;
     z = Shader.maskDepth(m[i].depth);
-    console.log(i, m[i].depth, z, 1-z, z-1);
+    // console.log(i, m[i].depth, z, 1-z, z-1);
 
     bi = i * BUFLEN * 4;
     buf[bi + 0] =  dx        / rw -1;

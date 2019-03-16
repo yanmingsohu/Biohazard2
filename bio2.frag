@@ -24,7 +24,6 @@ const float opacity = 1/255;
 
 vec3 illuminate(in Light li) {
   vec3 ldir = vec3(li.ldir);
-  vec3 vdir = vec3(li.vdir);
   vec3 norm = normalize(oNormal);
   float diff = max(dot(norm, ldir), 0.0);
   
@@ -32,6 +31,7 @@ vec3 illuminate(in Light li) {
     return diff * li.color * li.bright;
   }
 
+  vec3 vdir = vec3(li.vdir);
   vec3 reflectDir = reflect(-ldir, norm);  
   float spec = pow(max(dot(vdir, reflectDir), 0.0), 8);
 
@@ -54,7 +54,7 @@ void draw_living()
     z = gl_FragCoord.z;
   }
 
-  vec3 lightC = env_light * 1.5
+  vec3 lightC = env_light * 0.7
               + illuminate(f_lights[0]) 
               + illuminate(f_lights[1]) 
               + illuminate(f_lights[2]);
