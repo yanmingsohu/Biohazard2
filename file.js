@@ -118,10 +118,11 @@ function open_pic(name_from_pic_map) {
 }
 
 
-function open(file) {
-  const size = fs.fileSize(pwd + file);
+function open(file, isAbsolute) {
+  if (!isAbsolute) file = pwd + file;
+  const size = fs.fileSize(file);
   const buf = new ArrayBuffer(size);
-  let fd = fs.open(pwd + file, 'rb');
+  let fd = fs.open(file, 'rb');
   fs.read(fd, buf, 0, size, 0);
   fs.close(fd);
   

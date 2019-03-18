@@ -332,7 +332,7 @@ function compile(arrbuf) {
         mem.s(1);
         var offset = mem.short();
         debug(Ifel_ctr, Loop_ctr, offset);
-        mem._pc = oppc + offset;
+        // mem._pc = oppc + offset;
         break;
 
       case 0x18:
@@ -450,7 +450,7 @@ function compile(arrbuf) {
 
       case 0x29:
         debug("Cut_chg");
-        mem.byte();
+        game.cut_chg(mem.byte());
         break;
 
       case 0x2A:
@@ -518,7 +518,11 @@ function compile(arrbuf) {
 
       case 0x32:
         debug("Pos_set");
-        mem.s(7);
+        mem.s(1);
+        var x = mem.short();
+        var y = mem.short();
+        var z = mem.short();
+        debug(x, y, z);
         break;
 
       case 0x33:
@@ -542,7 +546,14 @@ function compile(arrbuf) {
 
       case 0x36:
         debug("Se_on");
-        mem.s(11);
+        var se = {};
+        se.vab = mem.byte();
+        se.edt = mem.short();
+        se.data = mem.short();
+        se.x = mem.short();
+        se.y = mem.short();
+        se.z = mem.short();
+        debug(se);
         break;
 
       case 0x37:
@@ -887,7 +898,7 @@ function compile(arrbuf) {
         break;
 
       case 0x67:
-        debug("Aot_set_4p, 用4个点定义一个范围, 玩家不能离开");
+        debug("Aot_set_4p"); // 用4个点定义一个范围, 玩家不能离开?
         var wall = {};
         wall.id = mem.byte();
         wall.sce = mem.byte(); // sce 就是 type
@@ -1052,25 +1063,25 @@ function compile(arrbuf) {
         break;
 
       case 0x81:
-        debug("?x81!!!!!!!!");
+        debug("Sce_Item_cmp");
         break;
 
       case 0x82:
-        debug("?x82");
+        debug("Sce_espr_task");
         mem.s(2);
         break;
 
       case 0x83:
-        debug("?x83");
+        debug("Plc_heal");
         break;
 
       case 0x84:
-        debug("?x84");
+        debug("St_map_hint");
         mem.s(1);
         break;
 
       case 0x85:
-        debug("?x85");
+        debug("Sce_em_pos_ck");
         mem.s(5);
         break;
 
@@ -1088,27 +1099,30 @@ function compile(arrbuf) {
         break;
 
       case 0x89:
-        debug('?x89');
+        debug('Evt_next2');
         break;
 
       case 0x8A:
+        debug('Vib_set0');
+        break;
+
       case 0x8B:
-        debug("NOP6");
+        debug("Vib_set1");
         mem.s(5);
         break;
 
       case 0x8C:
-        debug("NOP8");
+        debug("Vib_fade_set");
         mem.s(7);
         break;
 
       case 0x8D:
-        debug("?x8D");
+        debug("Item_aot_set2");
         mem.s(23);
         break;
       
       case 0x8E:
-        debug("?x8E");
+        debug("Sce_em_set2");
         mem.s(23);
         break;
     }
@@ -1116,7 +1130,7 @@ function compile(arrbuf) {
 }
 
 
-function debug() {return;
+function debug() {
   let a = [addr, '#', indentation];
   for (let i=0; i<arguments.length; ++i) a.push(arguments[i]);
   Tool.debug.apply(null, a);

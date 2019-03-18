@@ -60,7 +60,7 @@ function load(file) {
   readCameraPos(filebuf, off, obj, camera_count);
   readCameraSwitch(filebuf, off, obj);
   readLight(filebuf, off, obj);
-  readVAB(filebuf, off, obj);
+  readSound(filebuf, off, obj);
   readSpritesAnim(filebuf, off, obj);
   readSpritesTim(filebuf, off, obj);
   readSpace(filebuf, off, obj);
@@ -198,11 +198,20 @@ function readScript(filebuf, off) {
 }
 
 
-function readVAB(filebuf, off, ret) {
-  // debug("VAB", vab);
-  let buf = new Uint8Array(filebuf, off, 333);
-  debug("VAB",);
-  // hex.printHex(buf);
+function readSound(filebuf, off, ret) {
+  let v = File.dataViewExt(new DataView(filebuf));
+  debug("VAB Edt0", off.offset0);
+  debug("VAB Vh0",  off.vab);
+  debug("VAB Vb0",  off.offset2);
+  debug("VAB Edt1", off.offset3);
+  debug("VAB Vh1",  off.offset4);
+  debug("VAB Vb1",  off.offset5);
+  v.print(off.offset0, 10);
+  v.print(off.vab, 200);
+  v.print(off.offset2, 10);
+  v.print(off.offset3, 10);
+  v.print(off.offset4, 10);
+  v.print(off.offset5, 10);
 }
 
 

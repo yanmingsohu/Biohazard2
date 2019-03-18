@@ -69,6 +69,7 @@ const gameState = {
   setDoor,
 
   // bio 脚本函数
+  cut_chg,
   aot_set,
   addEnemy,
   setGameVar,
@@ -93,6 +94,12 @@ function start_game() {
   // logo();
   // game_select();
   begin_level();
+}
+
+
+function cut_chg(c) {
+  camera_nm = c;
+  switch_camera();
 }
 
 
