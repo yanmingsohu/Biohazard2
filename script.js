@@ -85,11 +85,16 @@ class Mem {
     this._pc = this.pop();
   }
 
-  // 返回栈顶的值但不弹出
-  top() {
-    if (this._stack.length <= 0) 
-        throw new Error("TOP empty stack");
-    return this._stack[this._stack.length-1];
+  // 返回栈顶的值但不弹出, i 是栈顶向栈底的偏移
+  top(i) {
+    if (this._stack.length <= 0)  {
+      throw new Error("TOP empty stack");
+    }
+    let off = this._stack.length - 1 - (i || 0);
+    if (off < 0) {
+      throw new Error("stack index out bound");
+    }
+    return this._stack[off];
   }
 
   is_stack_non() {
@@ -135,6 +140,9 @@ function compile(arrbuf) {
     while (game.script_running && game.func_ret === undefined) {
       // 指向当前指令的地址
       pc = mem._pc;
+      if (isNaN(pc)) {
+        throw new Error("script error");
+      }
       _do(game, mem.byte(), mem, pc);
     }
     debug("EXIT:", game.func_ret);
@@ -235,8 +243,9 @@ function compile(arrbuf) {
 
       case 0x0A:
         var sleeping = mem.byte();
-        var count = mem.byte();
-        debug("sleep", sleeping, count);
+        // var count = mem.byte();
+        debug("sleep", sleeping);
+        thread.sleep(sleeping);
         break;
 
       case 0x0B:
@@ -252,14 +261,26 @@ function compile(arrbuf) {
         mem.s(1);
         var size = mem.ushort();
         var count = mem.ushort();
-        mem.push(size + mem._pc);
+        if (count == 0) {
+          // 直接跳到 for 循环结束指令的下一条指令
+          mem._pc = size + mem._pc;
+        } else {
+          mem.push(mem._pc);
+          mem.push(count);
+        }
         debug("size", size, 'count', count);
         break;
 
       case 0x0E:
         debug("FOR }");
         mem.s(1);
-        mem.pop();
+        var count = mem.pop();
+        if (--count <= 0) {
+          mem.pop();
+        } else {
+          mem._pc = mem.top();
+          mem.push(count);
+        }
         break;
 
       case 0x0F:
@@ -369,9 +390,10 @@ function compile(arrbuf) {
 
       case 0x1D:
         debug("Work_copy");
-        mem.byte();
-        mem.byte();
-        mem.byte();
+        var src = mem.byte();
+        var dst = mem.byte();
+        var type = mem.byte();
+        debug(src, dst, type ? 'short': 'byte');
         break;
 
       case 0x21:
@@ -399,26 +421,30 @@ function compile(arrbuf) {
           case 0x01: game.set_bitarr(arr, num, 1); break;
           case 0x07: game.reverse(arr, num); break;
         }
-        console.log(arr, num, opchg);
+        debug(arr, num, opchg);
         break;
 
       case 0x23:
         debug("Compare");
-        mem.byte();
-        mem.byte();
-        mem.byte();
+        mem.s(1);
+        var flag = mem.byte();
+        var op = mem.byte();
+        var v = mem.short();
+        debug(flag, op, v);
         break;
 
       case 0x24:
         debug("Save");
-        mem.byte();
-        mem.short();
+        var dst = mem.byte();
+        var src = mem.short();
+        debug(dst, src);
         break;
 
       case 0x25:
         debug("Copy");
-        mem.byte();
-        mem.byte();
+        var dst = mem.byte();
+        var src = mem.byte();
+        debug(dst, src);
         break;
 
       case 0x26:
@@ -445,7 +471,7 @@ function compile(arrbuf) {
         break;
 
       case 0x28:
-        debug("Sce_rnd");
+        debug("rnd");
         break;
 
       case 0x29:
@@ -498,8 +524,7 @@ function compile(arrbuf) {
         var type = mem.byte();
         var aot = mem.char();
         debug(type, aot);
-        game.work = game.object_arr[aot];
-        game.worktype = type;
+        game.work = game.get_game_object(type, aot);
         break;
 
       case 0x2F:
@@ -523,6 +548,7 @@ function compile(arrbuf) {
         var y = mem.short();
         var z = mem.short();
         debug(x, y, z);
+        game.pos_set(x, y, z);
         break;
 
       case 0x33:
@@ -553,7 +579,7 @@ function compile(arrbuf) {
         se.x = mem.short();
         se.y = mem.short();
         se.z = mem.short();
-        debug(se);
+        debug(se, '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
         break;
 
       case 0x37:
@@ -562,7 +588,7 @@ function compile(arrbuf) {
         break;
 
       case 0x38:
-        debug("Sca_id_set");
+        debug("floor_flag_set");
         var id = mem.byte();
         var flag = mem.byte();
         debug(id, flag);
@@ -574,7 +600,7 @@ function compile(arrbuf) {
         break;
 
       case 0x3A:
-        debug("Sce_espr_on");
+        debug("espr_on");
         mem.s(15);
         break;
 
@@ -653,7 +679,7 @@ function compile(arrbuf) {
         break;
 
       case 0x44:
-        debug("Sce_em_set 设置一个敌人");
+        debug("em_set 设置一个敌人");
         mem.s(1);
         var zb = {};
         // entity index in internal array
@@ -724,7 +750,7 @@ function compile(arrbuf) {
         break;
 
       case 0x4C:
-        debug("Sce_espr_kill");
+        debug("espr_kill");
         mem.s(4);
         break;
 
@@ -761,17 +787,17 @@ function compile(arrbuf) {
         break;
 
       case 0x4F:
-        debug("Sce_key_ck");
+        debug("key_ck");
         mem.s(3);
         break;
 
       case 0x50:
-        debug("Sce_trg_ck");
+        debug("trg_ck");
         mem.s(3);
         break;
 
       case 0x51:
-        debug("Sce_bgm_control");
+        debug("bgm_control");
         var bgm = {};
         // 0:Main, 1:sub0, 2:sub1
         bgm.id = mem.byte();
@@ -781,21 +807,21 @@ function compile(arrbuf) {
         bgm.type = mem.byte();
         bgm.l = mem.byte();
         bgm.r = mem.byte();
-        debug(bgm);
+        debug(bgm, '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
         break;
 
       case 0x52:
-        debug("Sce_espr_control");
+        debug("espr_control ???????????????????????????????????????????????");
         mem.s(5);
         break;
 
       case 0x53:
-        debug("Sce_fade_set");
+        debug("fade_set");
         mem.s(5);
         break;
 
       case 0x54:
-        debug("Sce_espr3d_on");
+        debug("espr3d_on");
         mem.s(21);
         break;
 
@@ -810,8 +836,14 @@ function compile(arrbuf) {
         break;
 
       case 0x57:
-        debug("Sce_bgmtbl_set");
-        mem.s(7);
+        debug("bgmtbl_set");
+        mem.s(1);
+        var bgm = {};
+        bgm.state = mem.byte();
+        bgm.room = mem.byte();
+        bgm.d1 = mem.ushort();
+        bgm.d2 = mem.ushort();
+        debug(bgm,'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
         break;
 
       case 0x58:
@@ -835,7 +867,7 @@ function compile(arrbuf) {
         break;
     
       case 0x5C:
-        debug("Sce_shake_on")
+        debug("shake_on")
         mem.s(2);
         break;
 
@@ -875,7 +907,7 @@ function compile(arrbuf) {
         break;
 
       case 0x62:
-        debug("Sce_Item_lost");
+        debug("Item_lost");
         var item = mem.byte();
         break;
 
@@ -884,12 +916,12 @@ function compile(arrbuf) {
         break;
 
       case 0x64:
-        debug("Sce_espr_on2");
+        debug("espr_on2");
         mem.s(15);
         break;
 
       case 0x65:
-        debug("Sce_espr_kill2");
+        debug("espr_kill2");
         mem.s(1);
         break;
 
@@ -950,14 +982,19 @@ function compile(arrbuf) {
         break;
 
       case 0x6D:
-        debug("Sce_scr_move");
+        debug("scr_move");
         mem.s(1);
         var y = mem.short();
+        debug(y);
         break;
 
       case 0x6E:
         debug("Parts_set");
-        mem.s(5);
+        mem.s(1);
+        var id = mem.char();
+        var type = mem.char();
+        var value = mem.short();
+        debug(id, type, value);
         break;
 
       case 0x6F:
@@ -984,42 +1021,42 @@ function compile(arrbuf) {
         break;
 
       case 0x74:
-        debug("Sce_fade_adjust");
+        debug("fade_adjust");
         mem.s(4);
         break;
 
       case 0x75:
-        debug("Sce_espr3d_on2");
+        debug("espr3d_on2");
         mem.s(21);
         break;
 
       case 0x76:
-        debug("Sce_Item_get");
+        debug("Item_get");
         var id = mem.byte(); //Number of gitemXX.adt file to load
         var amount = mem.byte();
         break;
 
       case 0x77:
-        debug("Sce_line_start");
+        debug("line_start");
         mem.s(3);
         break;
 
       case 0x78:
-        debug('Sce_line_main');
+        debug('line_main');
         mem.s(5);
         break;
 
       case 0x79:
-        debug('Sce_line_end');
+        debug('line_end');
         break;
 
       case 0x7A:
-        debug('Sce_parts_bomb');
+        debug('parts_bomb');
         mem.s(15);
         break;
 
       case 0x7B:
-        debug('Sce_parts_down');
+        debug('parts_down');
         mem.s(15);
         break;
 
@@ -1060,14 +1097,15 @@ function compile(arrbuf) {
       case 0x80:
         debug('Se_vol');
         var v = mem.byte();
+        debug(v, '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
         break;
 
       case 0x81:
-        debug("Sce_Item_cmp");
+        debug("Item_cmp");
         break;
 
       case 0x82:
-        debug("Sce_espr_task");
+        debug("espr_task");
         mem.s(2);
         break;
 
@@ -1081,7 +1119,7 @@ function compile(arrbuf) {
         break;
 
       case 0x85:
-        debug("Sce_em_pos_ck");
+        debug("em_pos_ck");
         mem.s(5);
         break;
 
@@ -1094,7 +1132,7 @@ function compile(arrbuf) {
         break;
 
       case 0x88:
-        debug('Sce_Item_ck_Lost');
+        debug('Item_ck_Lost');
         mem.s(2);
         break;
 
@@ -1122,7 +1160,7 @@ function compile(arrbuf) {
         break;
       
       case 0x8E:
-        debug("Sce_em_set2");
+        debug("em_set2");
         mem.s(23);
         break;
     }

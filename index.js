@@ -10,6 +10,7 @@ import Liv    from './living.js'
 import Tool   from './tool.js'
 import Node   from '../boot/node.js'
 import Sound  from './sound.js'
+import Tbl    from './init-tbl.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4} = matrix;
 
@@ -30,6 +31,7 @@ window.add(order);
 camera.lookAt(0, 0, -1);
 vec3.set(camera.up(), 0, -1, 0);
 
+Tbl.init();
 Sound.init(window);
 Room.init(window, order, camera);
 Scenes.init(window, camera, sp, order);

@@ -352,7 +352,7 @@ function installCollision(c) {
       break;
 
     default: 
-      throw new Error('Unknow shape '+s);
+      throw new Error('Unknow shape '+ c.shape);
   }
 }
 

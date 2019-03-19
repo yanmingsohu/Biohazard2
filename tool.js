@@ -17,7 +17,17 @@ export default {
   bindWindow,
   createDrawOrder,
   debug,
+  b2,
 };
+
+
+function b2(a) {
+  if (a < 0x10) {
+    return '0'+ a.toString(16);
+  } else {
+    return a.toString(16);
+  }
+}
 
 
 function debug() {

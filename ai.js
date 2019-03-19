@@ -71,7 +71,7 @@ function player(mod, win, order, gameState, camera) {
     
     for (let i=0, l=collisions.length; i<l; ++i) {
       let c = collisions[i];
-      if (c.play_on && c.py) {
+      if (c.play_on && c.block && c.py) {
         c.py.in(p, thiz);
         thiz.where();
         p.x = w[0];
@@ -227,14 +227,23 @@ function Base(mod, win, order, ext) {
 
   
   function setPos(x, y, z) {
-    mat4.fromTranslation(model_trans, wrap0(x, y, z));
+    model_trans[12] = x;
+    model_trans[13] = y;
+    model_trans[14] = z;
+    // mat4.fromTranslation(model_trans, wrap0(x, y, z));
   }
 
 
   // d 是游戏角度参数 (0-4096)
   function setDirection(d) {
     let r = d/0x0FFF * Math.PI * 2;
-    mat4.rotateY(model_trans, model_trans, r);
+    // mat4.rotateY(model_trans, model_trans, r);
+    let s = Math.sin(r);
+    let c = Math.cos(r);
+    model_trans[0] = c;
+    model_trans[2] = -s;
+    model_trans[8] = s;
+    model_trans[10] = c;
   }
 
   

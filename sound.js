@@ -1,5 +1,6 @@
 import File   from './file.js'
 import Sound  from '../boot/Sound.js'
+import * as Adpcm from '../boot/imaadpcm.js'
 
 const SOUND = 'COMMON/Sound/'
 // 背景音乐, sub01 里昂第一个场景音乐
@@ -16,22 +17,60 @@ const ENEMY = SOUND +'enemy/';
 const CORE  = SOUND +'core/';
 
 let core;
-let background;
+let main;
+let sub;
 
 
 export default {
   init,
   bgm,
+  vab,
 };
 
 
-function bgm(file) {
-  let f = File.open(BGM_DIR + file);
-  if (background) {
-    background.free();
-    background = null;
+// 暂时不用
+function vab(buf, rate, ch) {
+  let wavbuf = new Int16Array(Adpcm.decode(buf, 16));
+  console.log(buf.length, wavbuf.length);
+  let wav = new Sound.Wav(core);
+  wav.rawBuffer(wavbuf, rate || 44100, ch || 1);
+  wav.play();
+  wav.loop(true);
+  return wav;
+}
+
+
+function bgm(mainid, subid) {
+  try {
+    if (mainid) {
+      if (!main) {
+        loadMain();
+      } else if (main.id != mainid) {
+        main.free();
+        loadMain();
+      }
+    } else {
+      main.free();
+    }
+  } catch(e) {
+    console.error('Main', e.stack);
   }
-  background = sap(f.buf, true, true);
+
+  try {
+    if (sub) sub.free();
+    if (subid) {
+      let f = File.open(BGM +'sub'+ subid +'.sap');
+      sub = sap(f.buf, false, true);
+    }
+  } catch(e) {
+    console.error('Sub', e.stack);
+  }
+
+  function loadMain() {
+    let f = File.open(BGM +'main'+ mainid +'.sap');
+    main = sap(f.buf, true, true);
+    main.id = mainid;
+  }
 }
 
 
@@ -54,15 +93,16 @@ function test(dir, win) {
   let bg = File.read_dir(dir);
   let arr = [];
   let wav = new Sound.Wav(core);
-  let i = 61;
+  let i = 0; //61; 初始场景音乐
 
   bg.forEach(function(f) {
-    if (f.endsWith('.sap')) {
+    let n = f.toLowerCase();
+    if (n.endsWith('.sap')) {
       arr.push(f);
     }
   });
 
-  play();
+  // play();
 
   let it = win.input();
   it.pressOnce(gl.GLFW_KEY_U, function() {

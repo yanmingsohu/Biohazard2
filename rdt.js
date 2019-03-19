@@ -8,6 +8,7 @@ import File   from './file.js'
 import Tool   from './tool.js'
 import Node   from '../boot/node.js'
 import Coll   from './collision.js'
+import Sound  from './sound.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4, vec2} = matrix;
 
@@ -30,7 +31,7 @@ function from(stage, room, player) {
 
   let file = [
     'Pl', player, '/Rdt/ROOM', 
-    stage.toString(16), r, player, '.RDT'
+    stage.toString(17), r, player, '.RDT'
   ].join('');
 
   return load(file);
@@ -177,6 +178,9 @@ function readSpace(buf, offobj, obj) {
     Coll.installCollision(c);
     carr.push(c);
 
+    let flag2 = v.getUint8(off+12);
+    c.block = flag2 & 0x1;
+
     off += 16;
     if (((type >> 12) & 0xF) != 9) {
       console.error("flag fail 0x09 !=", c);
@@ -185,7 +189,7 @@ function readSpace(buf, offobj, obj) {
     debug('\t', c.name, 'x,y=', c.x, c.y, 
       'w,d=', c.w, c.d, 'x/w=', c.xw, 'z/d=', c.yd, 
       'type=', c.type, 'floor=', c.floor, 
-      'f=', f.toString(2), '?=', type & 0x1F);
+      /*'f=', f.toString(2), '?=', type & 0x1F,*/ flag2.toString(2));
   }
 }
 
@@ -199,19 +203,72 @@ function readScript(filebuf, off) {
 
 
 function readSound(filebuf, off, ret) {
+  return;
   let v = File.dataViewExt(new DataView(filebuf));
-  debug("VAB Edt0", off.offset0);
+  debug("VAB Edt0/SND?", off.offset0);
   debug("VAB Vh0",  off.vab);
   debug("VAB Vb0",  off.offset2);
-  debug("VAB Edt1", off.offset3);
-  debug("VAB Vh1",  off.offset4);
-  debug("VAB Vb1",  off.offset5);
-  v.print(off.offset0, 10);
-  v.print(off.vab, 200);
-  v.print(off.offset2, 10);
-  v.print(off.offset3, 10);
-  v.print(off.offset4, 10);
-  v.print(off.offset5, 10);
+  debug("VAB Vh1",  off.offset3);
+  debug("VAB Vb1",  off.offset4);
+
+  let x = off.offset0;
+  // ret.snd = [];
+  for (let i=0; i<48; ++i) {
+    let snd = { c: i };
+    snd.id = v.byte(x);
+    snd.pan = v.byte(x + 1);
+    snd.tone = v.byte(x + 2);
+    snd.mono = v.byte(x + 3);
+    // ret.snd.push(snd);
+    x += 4;
+    debug("SND", snd);
+  }
+
+  x = off.vab;
+  let vh = {};
+  vh.magic            = v.ulong(x); 
+  vh.version          = v.ulong(x+4);
+  vh.id               = v.ulong(x+8);   // vab id
+  vh.size             = v.ulong(x+12);  // waveform size in bytes
+  vh.reserved_0       = v.ushort(x+16);
+  vh.programs         = v.ushort(x+18); // total number of programs used
+  vh.tones            = v.ushort(x+20); // total number of tones used
+  vh.vag_count        = v.ushort(x+22); // total number of .vag files used
+  vh.master_volume    = v.byte(x+24);
+  vh.master_pan       = v.byte(x+25);
+  vh.bank_attribute_1 = v.byte(x+26);
+  vh.bank_attribute_2 = v.byte(x+27);
+  vh.reserved_1       = v.ulong(x+28);
+  x += 32;
+
+  debug("VH header", vh);
+  if (vh.magic != 1447117424) {
+    throw new Error("bad VH header format");
+  }
+
+  for (let i=0; i<16; ++i) {
+    debug("Program attr", i);
+    // v.print(x, 128);
+    x += 128;
+  }
+
+  for (let i=0; i<vh.programs; ++i) {
+    debug("Tone", i);
+    // v.print(x, 32*16);
+    x += 32*16;
+  }
+  x += 2; // 0x0000 ?
+
+  let y = off.offset2;
+  for (let i=0; i<vh.vag_count; ++i) {
+    let t = v.ushort(x) << 3;
+    x += 2;
+    debug("VAG", i, 'len', t);
+    // v.print(y, t);
+    // if (i==2) 
+    //   Sound.vab(new Uint8Array(filebuf, y, t), 44100/4, 1);
+    y += t;
+  }
 }
 
 

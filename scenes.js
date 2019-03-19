@@ -5,6 +5,8 @@ import Rdt    from './rdt.js'
 import Liv    from './living.js'
 import Ai     from './ai.js'
 import Tool   from './tool.js'
+import Tbl    from './init-tbl.js'
+import Sound  from './sound.js';
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4} = matrix;
 
@@ -16,6 +18,8 @@ export default {
 let window, camera, draw_order;
 const LEON = 0;
 const CLAIRE = 1;
+const DISK_A = 0;
+const DISK_B = 1;
 const HARD = 2;
 const NORMAL = 1;
 const EASY = 0;
@@ -51,6 +55,7 @@ let stage = 1;
 let room_nm = 0;
 let camera_nm = -1;
 let player = LEON;
+let ab = DISK_A;
 let p1;
 
 
@@ -77,7 +82,8 @@ const gameState = {
   get_bitarr,
   set_bitarr,
   calc,
-  object_arr,
+  pos_set,
+  get_game_object,
 };
 
 
@@ -94,12 +100,6 @@ function start_game() {
   // logo();
   // game_select();
   begin_level();
-}
-
-
-function cut_chg(c) {
-  camera_nm = c;
-  switch_camera();
 }
 
 
@@ -148,10 +148,10 @@ function find_camera_switcher() {
 
 
 function setup_lights(cr) {
-  Tool.debug("Env:", cr.env_color);
-  Tool.debug(" l0:", cr.light0);
-  Tool.debug(" l1:", cr.light1);
-  Tool.debug(" l2:", cr.light2);
+  // Tool.debug("Env:", cr.env_color);
+  // Tool.debug(" l0:", cr.light0);
+  // Tool.debug(" l1:", cr.light1);
+  // Tool.debug(" l2:", cr.light2);
   Shader.setEnvLight(cr.env_color);
   Shader.setLights(camera, cr.light0, cr.light1, cr.light2);
 }
@@ -174,6 +174,7 @@ function load_map() {
   free_map();
   map_data = Rdt.from(stage, room_nm, player);
   room_script = map_data.room_script;
+  load_bgm();
 
   for (let i=0; i<map_data.collision.length; ++i) {
     let c = map_data.collision[i];
@@ -192,16 +193,40 @@ function load_map() {
   }
 
   try {
+    Tool.debug("0----------------------- Start init script");
     gameState.script_running = true;
     map_data.init_script.run(gameState);
+    Tool.debug("0----------------------- script end");
   } catch(e) {
     console.error(e.stack);
   }
 }
 
 
-function test_pos(t) {
+function load_bgm() {
+  let cfg = Tbl.get(stage, room_nm, player, ab);
+  let m = cfg.main != 0xFF && cfg.main;
+  let s = cfg.sub  != 0xFF && cfg.sub;
+  if (m == 0x0B) {
+    m = '00_1';
+  } else {
+    m = Tool.b2(m);
+  }
+  s = Tool.b2(s & 0x3F);
+  Sound.bgm(m, s);
+  Tool.debug("BGM", cfg, m, s);
+}
+
+
+function init_pos(t) {
   switch (t) {
+    case 0: // LEON A 初始位置
+      p1.setPos(19771.0371, 0, -2603.186);
+      p1.rotateY(Math.PI);
+      // 首先改变这些参数, 再调用 load_map/switch_camera
+      stage = 1; room_nm = 0; camera_nm = 0;
+      break;
+
     case 1: // 警署大厅
       p1.setPos(-12780.552734375, 0, -20381.51953125);
       stage = 0x2; room_nm = 0; camera_nm = 10;
@@ -226,6 +251,11 @@ function test_pos(t) {
       p1.setPos(-24400.1015625,0,-10989.9453125);
       stage = 2; room_nm = 0xd, camera_nm = 7;
       break;
+
+    case 6: // 下水道, 脚本死循环 ROOM4020.RDT
+      p1.setPos(-16256.4697265625,0,-25555.30078125);
+      stage = 4; room_nm = 0x2, camera_nm = 0;
+      break;
   }
 }
 
@@ -237,22 +267,15 @@ function begin_level() {
   // 角色类型
   set_bitarr(1, 0x00, player);
   // 二周目 0:A, 1:B
-  set_bitarr(1, 0x01, 0);
+  set_bitarr(1, 0x01, ab);
   // 游戏模式 0:Leon/Claire, 1:Hunk/Tofu, or vice versa
   set_bitarr(1, 0x06, 0);
 
   // TODO: 加载玩家角色模型
   let mod = Liv.fromEmd(player, 0x50);
   p1 = Ai.player(mod, window, draw_order, gameState, camera);
-  // LEON A 初始位置
-  p1.setPos(19771.0371, 0, -2603.186);
-  p1.rotateY(Math.PI);
-  // 首先改变这些参数, 再调用 load_map/switch_camera
-  stage = 1;
-  room_nm = 0;
-  camera_nm = 0;
 
-  // test_pos(5);
+  init_pos(0);
 
   while (window.notClosed()) {
     load_map();
@@ -272,9 +295,9 @@ function run_room_script() {
   // TODO: 脚本不应该出错, 调试结束后无需 try/cache
   try {
     gameState.script_running = true;
-    console.debug("---------- Start room script");
+    console.debug("1---------- Start room script");
     room_script.run(gameState);
-    console.debug('----------------- script exit');
+    console.debug('1----------------- script exit');
   } catch(e) {
     console.error(e.stack);
   }
@@ -434,7 +457,6 @@ function calc(op, a, b) {
 }
 
 
-
 function _test() {
   // 测试用
   window.input().pressOnce(gl.GLFW_KEY_F, function() {
@@ -467,4 +489,30 @@ function _test_bind_key_sw_room(door_id, act) {
       ip.unbind(gl.GLFW_KEY_1 + door_id);
     }
   });
+}
+
+
+function cut_chg(c) {
+  camera_nm = c;
+  switch_camera();
+}
+
+
+function pos_set(x, y, z) {
+  if (this.work && this.work.setPos) {
+    this.work.setPos(x, y, z);
+  } else {
+    console.error("canot set pos", this.work);
+  }
+}
+
+
+function get_game_object(type, id) {
+  switch (type) {
+    case 0x01: // player
+      return p1;
+    
+    default:
+      return object_arr[id];
+  }
 }
