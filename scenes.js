@@ -32,12 +32,17 @@ const V_CAMERA = 26;
 // 在整个游戏过程中保存变量
 // 26: 当前摄像机号码
 const game_var = [];
-// CK? 变量
+// CK? 变量, 
+//  0:游戏状态,  1:场景设置,  4:事件id
+//  5:?, 6:实体被杀身份, 7:与实体健康状况有关
+//  8:项目抓取状态, 0B:1F玩家回答问题（0 =是，1 =否）
+//  1D:游戏状态，通过几次重播保持?
 const ck_flag = [];
 // 当前地图上的所有需要释放资源的对象
 const free_objects = [];
 // 当前地图上的对象, 用于 bio2 脚本
 const object_arr = [];
+const enemy = [];
 // 被杀死的敌人
 const killed = [];
 // 角色的活动范围.
@@ -84,6 +89,8 @@ const gameState = {
   calc,
   pos_set,
   get_game_object,
+  play_se,
+  play_voice,
 };
 
 
@@ -167,6 +174,7 @@ function free_map() {
   survey.length = 0;
   touch.length = 0;
   collisions.length = 0;
+  enemy.length = 0;
 }
 
 
@@ -181,7 +189,7 @@ function load_map() {
     collisions.push(c);
     // 显示碰撞体
     const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
-    // free_objects.push(Tool.showCollision(c, window, color2));
+    free_objects.push(Tool.showCollision(c, window, color2));
   }
 
   const color = new Float32Array([0.9, 0.1, 0.3]);
@@ -189,7 +197,7 @@ function load_map() {
     let b = map_data.block[i];
     play_range.push(b);
     // 调试 block
-    // free_objects.push(Tool.showRange(b, window, color));
+    free_objects.push(Tool.showRange(b, window, color));
   }
 
   try {
@@ -204,17 +212,34 @@ function load_map() {
 
 
 function load_bgm() {
+  const STOP_FLAG = 0x40;
+  const UK_FLAG = 0xC0;
+
   let cfg = Tbl.get(stage, room_nm, player, ab);
-  let m = cfg.main != 0xFF && cfg.main;
-  let s = cfg.sub  != 0xFF && cfg.sub;
-  if (m == 0x0B) {
-    m = '00_1';
-  } else {
-    m = Tool.b2(m);
+  let m   = cfg.main != 0xFF ? cfg.main : -1;
+  let s   = cfg.sub  != 0xFF ? cfg.sub  : -1;
+  let mid, sid;
+
+  if (m >= 0) {
+    if (m == 0x0B) {
+      mid = '00_1';
+    } else {
+      mid = Tool.b2(m & 0x3F);
+    }
   }
-  s = Tool.b2(s & 0x3F);
-  Sound.bgm(m, s);
-  Tool.debug("BGM", cfg, m, s);
+  if (s >= 0) {
+    sid = Tool.b2(s & 0x3F);
+  }
+  
+  Sound.bgm(mid, sid);
+  Tool.debug("BGM", cfg, mid, sid);
+
+  if (m>=0 && (m & STOP_FLAG) == 0) {
+    Sound.getBgm(0).play();
+  }
+  if (s>=0 && (s & STOP_FLAG) == 0) {
+    Sound.getBgm(1).play();
+  }
 }
 
 
@@ -254,8 +279,12 @@ function init_pos(t) {
 
     case 6: // 下水道, 脚本死循环 ROOM4020.RDT
       p1.setPos(-16256.4697265625,0,-25555.30078125);
-      stage = 4; room_nm = 0x2, camera_nm = 0;
+      stage = 4; room_nm = 0x2; camera_nm = 0;
       break;
+
+    case 7: // 监狱, 大量对话和过场剧情 ROOM3010.RDT
+      p1.setPos(-25099.73046875,0,-15760);
+      stage = 3; room_nm = 0x1; camera_nm = 0;
   }
 }
 
@@ -272,7 +301,8 @@ function begin_level() {
   set_bitarr(1, 0x06, 0);
 
   // TODO: 加载玩家角色模型
-  let mod = Liv.fromEmd(player, 0x50);
+  // let mod = Liv.fromEmd(player, 0x50);
+  let mod = Liv.fromPld(player);
   p1 = Ai.player(mod, window, draw_order, gameState, camera);
 
   init_pos(0);
@@ -340,7 +370,7 @@ function reverse(a, n) {
 
 
 function addEnemy(zb) {
-  if (killed[zb.killed_id]) 
+  if (get_bitarr(6, zb.killed_id))
     return;
 
   let mod = Liv.fromEmd(player, zb.model);
@@ -348,7 +378,37 @@ function addEnemy(zb) {
   free_objects.push(ai);
   ai.setPos(zb.x, zb.y, zb.z);
   ai.setDirection(zb.dir);
-  object_arr[zb.id] = ai;
+  enemy[zb.id] = ai;
+}
+
+
+function createTrigger(obj) {
+  let td = false;
+  obj.act = function() {
+    if (td) return;
+    td = true;
+    Tool.debug('!!!!!!!!!!!!!!!!!!!! Trigger +++', obj)
+    room_script.run(gameState, obj.id);
+  };
+  obj.leave = function() {
+    td = false;
+  };
+  touch.push(obj);
+}
+
+
+function createAuto(obj, msg) {
+  obj.act = function() {
+    for (let i=0; i<touch.length; ++i) {
+      if (touch[i] == obj) {
+        touch.splice(i, 1);
+        break;
+      }
+    }
+    Tool.debug('!!!!!!!!!!!!!!!!!!!!', msg, obj)
+    room_script.run(gameState, obj.id);
+  };
+  touch.push(obj);
 }
 
 
@@ -358,9 +418,9 @@ function addEnemy(zb) {
 function aot_set(npo) {
   const type = isNaN(npo.type) ? npo.sce : npo.type;
   switch (type) {
-    case 3:  // 长方形地板, 转为可移动空间??
-      Tool.debug("地板");
-      // play_range.push(npo);
+    case 3:  // NORMAL 设置事件触发器
+      Tool.debug("触发器");
+      createTrigger(npo);
       break;
 
     case 2: // item
@@ -370,14 +430,21 @@ function aot_set(npo) {
 
     case 11: // 燃烧的火, 走进后被灼伤
       Tool.debug("伤害"); break;
-    case 0: // auto?
-      Tool.debug("自动?"); break;
+
+    case 0: // auto? 
+      Tool.debug("自动?"); 
+      // createAuto(npo, '自动?');
+      break;
+
+    case 5: // event?
+      Tool.debug("事件"); 
+      createAuto(npo, "事件");
+      break;
+
     case 1: // door
       Tool.debug("门"); break;
     case 4: // message
       Tool.debug("信息"); break;
-    case 5: // event?
-      Tool.debug("事件"); break;
     case 6: // flag_chg
       Tool.debug("flag_chg"); break;
     case 7: // water
@@ -510,9 +577,62 @@ function pos_set(x, y, z) {
 function get_game_object(type, id) {
   switch (type) {
     case 0x01: // player
+      Tool.debug("get player");
       return p1;
+
+    case 0x02: // SPLAYER
+      Tool.debug("get splayer");
+      return object_arr[id];
+
+    case 0x03: // ENEMY
+      Tool.debug("get enemy");
+      return enemy[id];
+
+    case 0x04: // OBJECT
+      Tool.debug("get object");
+      return object_arr[id];
+
+    case 0x05: // DOOR
+      Tool.debug("get door");
+      return object_arr[id];
+
+    case 0x06: // ALL?
+      Tool.debug("get all?");
+      return object_arr[id];
+
+    case 0x80: // PL_PARTS
+      Tool.debug("get pl_parts");
+      return object_arr[id];
+
+    case 0xA0: // SPL_PARTS
+      Tool.debug("get spl_parts");
+      return object_arr[id];
+
+    case 0xC0: // EM_PARTS
+      Tool.debug("get em_parts");
+      return object_arr[id];
+
+    case 0xE0: // OM_PARTS
+      Tool.debug("get om_parts");
+      return object_arr[id];
     
     default:
-      return object_arr[id];
+      throw new Error("invaild type "+ type);
+  }
+}
+
+
+function play_se(id) {
+  let se = Sound.playSE(stage, id);
+  if (se) {
+    free_objects.push(se);
+  }
+}
+
+
+function play_voice(id, rl) {
+  let v = Sound.playVoice(player, stage, id);
+  if (v) {
+    free_objects.push(v);
   }
 }

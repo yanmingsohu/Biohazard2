@@ -142,13 +142,15 @@ function readSpace(buf, offobj, obj) {
   debug(". Collision", cx, cz, d0, d1.toString(16), d2.toString(16));
 
   const carr = obj.collision = [];
+  const GAP = 400;
   off = collision + 16;
   for (let i=0; i<d0; ++i) {
     let c = {};
-    c.x = v.getInt16(off, true);
-    c.y = v.getInt16(off+2, true);
-    c.w = v.getUint16(off+4, true);
-    c.d = v.getUint16(off+6, true);
+    // 障碍加大一圈
+    c.x = v.getInt16(off, true) - GAP;
+    c.y = v.getInt16(off+2, true) - GAP;
+    c.w = v.getUint16(off+4, true) + GAP+GAP;
+    c.d = v.getUint16(off+6, true) + GAP+GAP;
 
     let flag = v.getUint16(off+8, true);
     c.shape     = flag & 0x000F;

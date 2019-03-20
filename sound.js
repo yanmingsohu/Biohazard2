@@ -1,5 +1,6 @@
 import File   from './file.js'
 import Sound  from '../boot/Sound.js'
+import Tool   from './tool.js'
 import * as Adpcm from '../boot/imaadpcm.js'
 
 const SOUND = 'COMMON/Sound/'
@@ -18,13 +19,17 @@ const CORE  = SOUND +'core/';
 
 let core;
 let main;
-let sub;
+let sub0;
+let sub1;
 
 
 export default {
   init,
   bgm,
   vab,
+  getBgm,
+  playSE,
+  playVoice,
 };
 
 
@@ -40,36 +45,76 @@ function vab(buf, rate, ch) {
 }
 
 
-function bgm(mainid, subid) {
+function playSE(stage, se) {
+  let name = ROOM +'room'+ stage + Tool.b2(se) +'.sap';
   try {
-    if (mainid) {
-      if (!main) {
-        loadMain();
-      } else if (main.id != mainid) {
-        main.free();
-        loadMain();
-      }
-    } else {
-      main.free();
-    }
+    let f = File.open(name);
+    return sap(f.buf, true, false);
   } catch(e) {
-    console.error('Main', e.stack);
+    console.error("Play SE", name, "fail:", e);
+  }
+}
+
+
+function playVoice(playerid, stage, id) {
+  let name = 'Pl'+ playerid +'/VOICE/stage'+ stage +'/v' + Tool.d3(id) +'.sap';
+  try {
+    let f = File.open(name);
+    return sap(f.buf, true, false);
+  } catch(e) {
+    console.error("Play voice", name, 'fail:', e);
+  }
+}
+
+
+function getBgm(id) {
+  switch (id) {
+    case 0:
+      return main;
+    case 1:
+      return sub0;
+    case 2:
+      return sub1;
+    default:
+      throw new Error("bad id "+ id);
+  }
+}
+
+
+function bgm(mainid, sub0id, sub1id) {
+  if (mainid) {
+    if (!main) {
+      loadMain();
+    } else if (main.id != mainid) {
+      main.free();
+      loadMain();
+    }
+  } else {
+    main.free();
   }
 
-  try {
-    if (sub) sub.free();
-    if (subid) {
-      let f = File.open(BGM +'sub'+ subid +'.sap');
-      sub = sap(f.buf, false, true);
-    }
-  } catch(e) {
-    console.error('Sub', e.stack);
-  }
+  if (sub0) sub0.free();
+  if (sub1) sub1.free();
+  if (sub0id) sub0 = loadSub(sub0id);
+  if (sub1id) sub1 = loadSub(sub1id);
 
   function loadMain() {
-    let f = File.open(BGM +'main'+ mainid +'.sap');
-    main = sap(f.buf, true, true);
-    main.id = mainid;
+    try {
+      let f = File.open(BGM +'main'+ mainid +'.sap');
+      main = sap(f.buf, false, true);
+      main.id = mainid;
+    } catch(e) {
+      console.error("Load Main sound", e.stack);
+    }
+  }
+
+  function loadSub(subid) {
+    try {
+      let f = File.open(BGM +'sub'+ subid +'.sap');
+      return sap(f.buf, false, true);
+    } catch(e) {
+      console.error('Load Sub sound', e.stack);
+    }
   }
 }
 
@@ -85,7 +130,7 @@ function sap(arraybuf, play, loop) {
 
 function init(win) {
   core = new Sound.Core();
-  test(BGM, win);
+  // test(BGM, win);
 }
 
 

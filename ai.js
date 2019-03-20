@@ -26,7 +26,7 @@ export default {
 
 // TODO: 模型的移动需要与动画参数偏移数据同步
 function player(mod, win, order, gameState, camera) {
-  const WALK       = 15;
+  const WALK       = 13;
   const ROT        = 0.015;
   const WALK_SPEED = 30 / 1000;
 
@@ -59,10 +59,13 @@ function player(mod, win, order, gameState, camera) {
       back();
     }
 
-    let ti = Tool.inRanges(touch, thiz);
-    if (ti >= 0) {
-      let t = touch[ti];
-      t.act();
+    for (let i=0; i<touch.length; ++i) {
+      let t = touch[i];
+      if (Tool.inRange(touch[i], thiz)) {
+        t.act();
+      } else if (t.leave) {
+        t.leave();
+      }
     }
     
     // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.

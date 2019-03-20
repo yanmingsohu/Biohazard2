@@ -181,16 +181,16 @@ function compile(arrbuf) {
 
       case 0x02:
         debug("Evt_next"); // wait input?
-        if (!game.next_frame()) {
-          game.func_ret = 0;
-        }
+        game.next_frame();
+        // if (!game.next_frame()) {
+        //   game.func_ret = 0;
+        // }
         break;
 
       case 0x03:
         debug("Evt_chain");
-        mem.byte();
-        mem.byte();
-        mem.byte();
+        var id = mem.byte();
+        debug(id);
         break;
 
       case 0x04:
@@ -239,10 +239,11 @@ function compile(arrbuf) {
 
       case 0x09:
         debug("pre sleep");
+        game.next_frame();
         break;
 
       case 0x0A:
-        var sleeping = mem.byte();
+        var sleeping = mem.byte() * 50;
         // var count = mem.byte();
         debug("sleep", sleeping);
         thread.sleep(sleeping);
@@ -352,7 +353,7 @@ function compile(arrbuf) {
         var Loop_ctr = mem.byte();
         mem.s(1);
         var offset = mem.short();
-        debug(Ifel_ctr, Loop_ctr, offset);
+        debug(Ifel_ctr, Loop_ctr, offset, oppc + offset);
         // mem._pc = oppc + offset;
         break;
 
@@ -477,6 +478,7 @@ function compile(arrbuf) {
       case 0x29:
         debug("Cut_chg");
         game.cut_chg(mem.byte());
+        game.next_frame();
         break;
 
       case 0x2A:
@@ -498,9 +500,9 @@ function compile(arrbuf) {
         var npo = {};
         npo.id = mem.byte();
         npo.type = mem.byte();
-        npo.u0 = mem.byte();
-        npo.u1 = mem.byte();
-        npo.u2 = mem.byte();
+        npo.sat = mem.byte();
+        npo.nfloor = mem.byte();
+        npo.super = mem.byte();
         npo.x = mem.short();
         npo.y = mem.short();
         npo.w = mem.short();
@@ -579,7 +581,14 @@ function compile(arrbuf) {
         se.x = mem.short();
         se.y = mem.short();
         se.z = mem.short();
-        debug(se, '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        debug(se);
+        game.play_se(se.edt & 0xFF);
+        if (se.data) {
+          game.play_se(se.data & 0xFF);
+        }
+        if (se.vab) {
+          game.play_se(se.vab & 0xFF);
+        }
         break;
 
       case 0x37:
@@ -807,11 +816,11 @@ function compile(arrbuf) {
         bgm.type = mem.byte();
         bgm.l = mem.byte();
         bgm.r = mem.byte();
-        debug(bgm, '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        debug(bgm);
         break;
 
       case 0x52:
-        debug("espr_control ???????????????????????????????????????????????");
+        debug("espr_control");
         mem.s(5);
         break;
 
@@ -843,7 +852,7 @@ function compile(arrbuf) {
         bgm.room = mem.byte();
         bgm.d1 = mem.ushort();
         bgm.d2 = mem.ushort();
-        debug(bgm,'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        debug(bgm,'');
         break;
 
       case 0x58:
@@ -853,7 +862,11 @@ function compile(arrbuf) {
 
       case 0x59:
         debug("Xa_on");
-        mem.s(3);
+        mem.s(1);
+        var se = mem.byte();
+        var rl = mem.byte();
+        debug(se, rl);
+        game.play_voice(se, rl);
         break;
 
       case 0x5A:
@@ -930,7 +943,7 @@ function compile(arrbuf) {
         break;
 
       case 0x67:
-        debug("Aot_set_4p"); // 用4个点定义一个范围, 玩家不能离开?
+        debug("Aot_set_4p"); 
         var wall = {};
         wall.id = mem.byte();
         wall.sce = mem.byte(); // sce 就是 type
@@ -1097,7 +1110,7 @@ function compile(arrbuf) {
       case 0x80:
         debug('Se_vol');
         var v = mem.byte();
-        debug(v, '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        debug(v);
         break;
 
       case 0x81:

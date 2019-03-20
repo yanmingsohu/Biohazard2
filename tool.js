@@ -18,6 +18,7 @@ export default {
   createDrawOrder,
   debug,
   b2,
+  d3,
 };
 
 
@@ -27,6 +28,13 @@ function b2(a) {
   } else {
     return a.toString(16);
   }
+}
+
+
+function d3(a) {
+  if (a < 10)  return '00'+ a;
+  if (a < 100) return '0'+ a;
+  return ''+ a;
 }
 
 

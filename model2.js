@@ -2,17 +2,10 @@ import File from './file.js'
 import H    from '../boot/hex.js'
 import node from '../boot/node.js'
 import Shader from './shader.js'
+import Tim  from './tim.js'
 
 const matrix = node.load('boot/gl-matrix.js');
 const {vec3, mat4} = matrix;
-
-const IDX_MESH = 7;
-const IDX_SK_1 = 2;
-const IDX_SK_2 = 4;
-const IDX_SK_3 = 6;
-const IDX_ANIM_1 = 1;
-const IDX_ANIM_2 = 3;
-const IDX_ANIM_3 = 5;
 
 const VERTEX_LEN = 2 * 4; 
 const NORMAL_LEN = VERTEX_LEN;
@@ -23,24 +16,17 @@ const QUA_TEX_LEN = (1+1+2) * 4;
 
 export default {
   emd,
+  pld,
 };
 
 
-function emd(file) {
+function _open(file) {
   const buf = File.dataViewExt(File.openDataView(file));
   const h_dir_offset = buf.ulong();
   const h_dir_count = buf.ulong();
-  const obj = {};
-
-  obj.mesh = mesh(buf, _offset(IDX_MESH));
-  obj.sk1  = skeleton(buf, _offset(IDX_SK_1));
-  obj.am1  = animation(buf, _offset(IDX_ANIM_1));
-  obj.sk2  = skeleton(buf, _offset(IDX_SK_2));
-  obj.am2  = animation(buf, _offset(IDX_ANIM_2));
-  obj.sk3  = skeleton(buf, _offset(IDX_SK_3));
-  obj.am3  = animation(buf, _offset(IDX_ANIM_3));
-
-  return obj;
+  buf._offset = _offset;
+  console.log(file, "DIR", h_dir_count, h_dir_offset);
+  return buf;
 
   function _offset(typeIdx) {
     let r = buf.ulong(h_dir_offset + typeIdx * 4);
@@ -50,24 +36,59 @@ function emd(file) {
 }
 
 
-function animation(buf, am_off) {
-  // console.log("Anim", '['+ am_off +']');
-  const count = buf.ushort(am_off);
-  const ret = [];
+function emd(file) {
+  const buf = _open(file);
+  const obj = {};
 
-  for (let i=0; i<count; i += 4) {
-    let ec = buf.ushort(am_off + i);
+  obj.mesh = mesh(buf, buf._offset(7));
+  obj.sk1  = skeleton(buf,  buf._offset(2));
+  obj.am1  = animation(buf, buf._offset(1));
+  obj.sk2  = skeleton(buf,  buf._offset(4));
+  obj.am2  = animation(buf, buf._offset(3));
+  obj.sk3  = skeleton(buf,  buf._offset(6));
+  obj.am3  = animation(buf, buf._offset(5));
+
+  return obj;
+}
+
+
+function pld(file) {
+  const buf = _open(file);
+  const h_dir_offset = buf.ulong();
+  const obj = {};
+
+  obj.am1  = animation(buf, buf._offset(0));
+  obj.sk1  = skeleton(buf, buf._offset(1));
+  obj.mesh = mesh(buf, buf._offset(2));
+
+  let timbuf = new DataView(buf.buffer, buf._offset(3));
+  obj.tex = Tim.parseStream(timbuf);
+  return obj;
+}
+
+
+function animation(buf, am_off) {
+  // 从第一个元素计算数量
+  // const count = buf.ushort(am_off);
+  const aoff  = buf.ushort(am_off+2);
+  const total = aoff >> 2;
+  const ret = [];
+  console.log("Anim", am_off, total);
+  if (total <= 0) return;
+
+  for (let i=0; i<total; ++i) {
+    let ec = buf.ushort(am_off + i*4);
     let offset = buf.ushort();
-    let group = ret[i/4] = [];
+    let group = ret[i] = [];
     buf.setpos(am_off + offset);
 
     for (let j=0; j<ec; ++j) {
       let t = buf.ulong();
       group[j] = {
-        flag: (t & 0xFFFFF000) >> 11,
-        sk_idx: (t & 0xFFF),
+        flag   : (t & 0xFFFFF800) >> 11,
+        sk_idx : (t &      0x7FF),
       };
-      // console.log('  -', group[j].f, group[j].d);
+      // console.log('  -', i, j, group[j].flag, group[j].sk_idx, t);
     }
     // console.log(' >', i/4, group.length);
   }
@@ -119,22 +140,23 @@ class SkeletonBone {
 function skeleton(buf, sk_offset) {
   // console.log("\nSK");
   // buf.print(sk_offset, 500);
-  const ref_val = buf.ushort(sk_offset);
-  const anim_val = buf.ushort();
-  const ref_offset = ref_val + sk_offset;
+  const ref_val     = buf.ushort(sk_offset);
+  const anim_val    = buf.ushort();
+  const count       = buf.ushort();
+  const size        = buf.ushort();
+  const ref_offset  = ref_val + sk_offset;
   const anim_offset = anim_val + sk_offset;
-  const count = buf.ushort();
-  const size = buf.ushort();
-  const xyoff = sk_offset + 8;
-  const bind = {};
-  const bone = [];
+  const bind        = {};
+  const bone        = [];
+  let   xyoff       = sk_offset + 8;
 
   if (ref_val > 0) {
     for (let i=0; i<count; ++i) {
       let sk = { child: [] };
-      sk.x = buf.short(xyoff + 6*i);
+      sk.x = buf.short(xyoff);
       sk.y = buf.short();
       sk.z = buf.short();
+      xyoff += 6;
 
       // 子节点的数量
       let num_mesh = buf.ushort(ref_offset + 4*i);
@@ -186,15 +208,15 @@ function skeleton(buf, sk_offset) {
 // <防止闭包引用过多变量>
 //
 function create_anim_frame_data(buf, anim_offset, data_size) {
-  const xy_size = 2*6;
+  const xy_size    = 2*6;
   const angle_size = data_size - xy_size;
-  const MAX_ANGLE = 0x0FFF;
-  const RLEN = parseInt(angle_size/9*2);
-  const skdata = { angle: [] };
-  const PI2 = 2 * Math.PI;
-  const angle_fn = degrees; // radian & degrees
-  const OFF_MASK = 0x7ff;
-  let curr_sk_idx = -1;
+  const MAX_ANGLE  = 0x0FFF;
+  const RLEN       = parseInt(angle_size/9*2);
+  const skdata     = { angle: [] };
+  const PI2        = 2 * Math.PI;
+  const angle_fn   = degrees; // radian & degrees
+  const OFF_MASK   = 0x7ff;
+  let curr_sk_idx  = -1;
 
   if (angle_size <= 0) {
     console.warn("NO more anim frame data");
@@ -214,9 +236,9 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     if (curr_sk_idx === sk_index) return skdata;
     // 整体位置偏移量, 一个半字节有效
     let xy_off = anim_offset + data_size * sk_index;
-    skdata.x = buf.ushort(xy_off) & OFF_MASK;
-    skdata.y = buf.ushort() & OFF_MASK;
-    skdata.z = buf.ushort() & OFF_MASK;
+    skdata.x = buf.short(xy_off)// & OFF_MASK;
+    skdata.y = buf.short()// & OFF_MASK;
+    skdata.z = buf.short()// & OFF_MASK;
     // 动画速度?
     skdata.spx = buf.short();
     skdata.spy = buf.short();
@@ -278,7 +300,7 @@ function mesh(buf, offset) {
   const obj_count = buf.ulong(offset + 8) >> 1;
   const meshObj = [];
   const beginAt = buf.getpos();
-  // console.log('beginAt', beginAt.toString(16), 'count', obj_count);
+  // console.log('beginAt', beginAt.toString(16), offset, 'count', obj_count);
 
   let o, c;
 

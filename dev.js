@@ -127,6 +127,7 @@ function enemyBrowse(Liv, window, Room, camera) {
   matrix.mat4.translate(tmat, tmat, [0, -300, -3500]);
   // matrix.mat4.rotateZ(tmat, tmat, Math.PI);
   Shader.setModelTrans(tmat);
+  Shader.setEnvLight({r:255, g:255, b:255});
   switchMod(0);
 
   window.onKey(gl.GLFW_KEY_D, gl.GLFW_PRESS, 0, function() {
@@ -164,6 +165,11 @@ function enemyBrowse(Liv, window, Room, camera) {
         anim_idx = 0;
       }
     }
+  });
+
+  let skgrp = 0
+  window.input().pressOnce(gl.GLFW_KEY_E, function() {
+    mod.setSkGrp(skgrp++);
   });
 
   window.input().pressOnce(gl.GLFW_KEY_1, function() {

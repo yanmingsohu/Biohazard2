@@ -6,6 +6,7 @@ export default {
   loadEmd,
   // 用游戏内部编号读取模型
   fromEmd,
+  fromPld,
 };
 
 import Mod2   from './model2.js'
@@ -87,9 +88,6 @@ class AngleLinearFrame {
       this.z = a[2];
       this.w = a[3];
     }
-    // this.x = this.curr[boneIdx].x;
-    // this.y = this.curr[boneIdx].y;
-    // this.z = this.curr[boneIdx].z;
   }
 };
 
@@ -102,6 +100,15 @@ function fromEmd(playId, emdId) {
 }
 
 
+//TODO: 与武器绑定
+function fromPld(playId) {
+  let file = 'PL'+ playId +'/PLD/PL00.PLD'; // PL00CH.PLD PL00.PLD
+  let mod = Mod2.pld(file);
+  console.debug("Load PLD", file);
+  return Living(mod, mod.tex);
+}
+
+
 //
 // 读取并解析敌人文件, 返回可绘制对象
 // playId - 0 里昂, 1 克莱尔
@@ -109,14 +116,27 @@ function fromEmd(playId, emdId) {
 //
 function loadEmd(playId, emdId) {
   const key = `pl${playId}/emd${playId}/EM${playId}${emdId}`;
-  const emdfile = key +'.emd';
-  const texfile = key +'.tim';
-  const components = [];
-  const alf = new AngleLinearFrame();
-  const bind_bone = new Float32Array(20*8);
-  const liner_pos = {x:0, y:0, z:0};
-  const liner_pos_tr = Game.Pos3Transition(liner_pos, 0);
-  const skeletonBind = [];
+  const emdfile       = key +'.emd';
+  const texfile       = key +'.tim';
+  
+  console.debug("Load EMD", emdfile, '-', texfile);
+  const mod = Mod2.emd(emdfile);
+  const tex = Tim.parseStream(File.openDataView(texfile));
+
+  const thiz = Living(mod, tex);
+  thiz.texfile = texfile;
+  return thiz;
+}
+
+
+function Living(mod, tex) {
+  const components    = [];
+  const alf           = new AngleLinearFrame();
+  const bind_bone     = new Float32Array(20*8);
+  const liner_pos     = {x:0, y:0, z:0};
+  const liner_pos_tr  = Game.Pos3Transition(liner_pos, 0);
+  const skeletonBind  = [];
+  const DEF_SPEED     = 30/1000;
   // const anim_offset = [];
 
   let comp_len = 0;
@@ -130,14 +150,13 @@ function loadEmd(playId, emdId) {
   let anim_dir = 0;
   let frame_data;
   let a = 0;
-  let speed = 50 /1000;
+  let speed = DEF_SPEED;
 
   init();
   setSkGrp(0);
   setAnim(0, 0);
 
   return {
-    texfile,
     draw,
     free,
     // 设置动画片段
@@ -213,17 +232,16 @@ function loadEmd(playId, emdId) {
     
     // console.log(a/speed);
     alf.setPercentage(a / speed);
+    liner_pos_tr.line(a, frame_data);
 
-    liner_pos_tr.line(u, frame_data);
-    let p = liner_pos_tr.pos();
-    // anim_offset[0] = p.x;
-    // anim_offset[1] = p.y;
-    // anim_offset[2] = p.z;
-    Shader.setAnimOffset(p.x, p.y, p.z);
+    // TODO: 搞清楚偏移的意义
+    // console.line(liner_pos.y);
+    Shader.setAnimOffset(liner_pos.x, liner_pos.y + 2048, liner_pos.z);
     currentSk[0].transform2(bind_bone, alf, components, 0);
     
     if (a >= speed) {
       a = 0;
+      speed = DEF_SPEED + frame_data.spz/3000;
       setAnim(anim_idx, anim_frame + anim_dir);
       liner_pos_tr.speed(speed);
     }
@@ -246,10 +264,6 @@ function loadEmd(playId, emdId) {
 
 
   function init() {
-    console.debug("Load EMD", emdfile, '-', texfile);
-    const mod = Mod2.emd(emdfile);
-    const tex = Tim.parseStream(File.openDataView(texfile));
-
     putSkAm(mod.sk1, mod.am1);
     putSkAm(mod.sk2, mod.am2);
     putSkAm(mod.sk3, mod.am3);
