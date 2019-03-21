@@ -112,8 +112,10 @@ function dataDirBrowse(Room, window) {
 
 function enemyBrowse(Liv, window, Room, camera) {
   let mods = [];
-  // 39:艾达, 51:里昂, 94:机械臂, 91:食人花, 71:鳄鱼
-  let mindex = 51;
+  // 46: 枪店老板
+  // 动画不正常: 51:里昂, 94:机械臂, 91:食人花, 70:舔舐者, 71:鳄鱼
+  // 模型不正常: 39:艾达, 20:暴君
+  let mindex = 46;
   _dir('Pl0/emd0');
   _dir('pl1/emd1');
 
@@ -165,11 +167,7 @@ function enemyBrowse(Liv, window, Room, camera) {
         anim_idx = 0;
       }
     }
-  });
-
-  let skgrp = 0
-  window.input().pressOnce(gl.GLFW_KEY_E, function() {
-    mod.setSkGrp(skgrp++);
+    console.log("POSE", anim_idx);
   });
 
   window.input().pressOnce(gl.GLFW_KEY_1, function() {
@@ -209,6 +207,7 @@ function enemyBrowse(Liv, window, Room, camera) {
 
     let info = mods[mindex];
     mod = Liv.loadEmd(info.player, info.id);
+    // mod = Liv.fromPld(info.player);
     window.add(mod);
     camera.lookAtSprite(mod);
     // 切换模型的同时, 用模型纹理做背景

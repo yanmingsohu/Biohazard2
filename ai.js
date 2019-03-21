@@ -26,9 +26,10 @@ export default {
 
 // TODO: 模型的移动需要与动画参数偏移数据同步
 function player(mod, win, order, gameState, camera) {
-  const WALK       = 13;
-  const ROT        = 0.015;
-  const WALK_SPEED = 30 / 1000;
+  const RUN_SP     = 27;
+  const WALK       = 15;
+  const ROT        = 0.018;
+  const WALK_SPEED = 30;
 
   const play_range = gameState.play_range;
   const touch      = gameState.touch;
@@ -37,23 +38,73 @@ function player(mod, win, order, gameState, camera) {
   const thiz       = Base(mod, win, order, {
     back,
     traverse,
+    draw,
   });
 
   let one_step = WALK;
+  // 前进
+  let forward;
+  // 跑步
   let run = 0;
   let dir = -1;
+  // 后退
+  let goback = 0;
+  // 左转/右转
+  let gleft, gright;
+  let currpose;
 
-  mod.setAnim(0, 0);
   mod.setSpeed(WALK_SPEED);
-  // mod.setDir(-1);
   bind_ctrl(defaultKeyBind);
+  changePose(12);
+  mod.setDir(1);
 
   return thiz;
 
 
+  function changePose(id) {
+    if (id != currpose) {
+      currpose = id;
+      mod.setAnim(id, 0);
+      mod.setDir(dir);
+    }
+  }
+
+
+  function draw(u) {
+    let stand;
+    if (forward) {
+      one_step = WALK;
+      if (run) {
+        dir = 1;
+        changePose(11);
+      } else {
+        dir = -1;
+        changePose(0);
+      }
+      move();
+    } else if (goback) {
+      dir = 1;
+      one_step = -WALK;
+      changePose(0);
+      move();
+    } else {
+      stand = true;
+    }
+    
+    if (gleft) {
+      thiz.rotateY(-ROT);
+      stand && changePose(0);
+    } else if (gright) {
+      thiz.rotateY(ROT);
+      stand && changePose(0);
+    } else if (stand) {
+      changePose(12);
+    }
+  }
+
+
   function move() {
     thiz.translate(thiz.wrap0(one_step + run, 0, 0));
-    mod.setDir(dir);
   
     if (undefined === Tool.inRanges(play_range, thiz)) {
       back();
@@ -99,7 +150,7 @@ function player(mod, win, order, gameState, camera) {
   // 返回角色在屏幕上的坐标(测试用)
   function screenPos() {
     let pos = thiz.where();
-    let out = [pos[0], pos[1]+2100, pos[2], 1];
+    let out = [pos[0], pos[1], pos[2], 1];
     // vec4.transformMat4(out, out, thiz.objTr);
     camera.transform(out, out);
     out[3] = 1;
@@ -115,53 +166,19 @@ function player(mod, win, order, gameState, camera) {
 
   function bind_ctrl(bind) {
     const i = win.input();
-    i.onKey(bind.right, gl.GLFW_PRESS, 0, function() {
-      thiz.rotateY(ROT);
-    });
-  
-    i.onKey(bind.left, gl.GLFW_PRESS, 0, function() {
-      thiz.rotateY(-ROT);
-    });
-  
-    i.onKey(bind.up, gl.GLFW_PRESS, 0, function() {
-      one_step = WALK;
-      dir = -1;
-      move();
-    });
-  
-    i.pressOnce(bind.up, null, function() {
-      mod.setDir(0);
-    });
 
-    i.onKey(bind.down, gl.GLFW_PRESS, 0, function() {
-      one_step = -WALK;
-      dir = 1;
-      move();
-    });
-
-    i.pressOnce(bind.down, null, function() {
-      mod.setDir(0);
-    });
+    i.pressOnce(bind.left,  ()=>{ gleft = 1     }, ()=>{ gleft = 0   });
+    i.pressOnce(bind.right, ()=>{ gright = 1    }, ()=>{ gright = 0  });
+    i.pressOnce(bind.up,    ()=>{ forward = 1   }, ()=>{ forward = 0 });
+    i.pressOnce(bind.down,  ()=>{ goback = 1    }, ()=>{ goback = 0; });
+    i.pressOnce(bind.run,   ()=>{ run = RUN_SP; }, ()=>{ run = 0;    });
 
     i.pressOnce(bind.act, function() {
       let si = Tool.inRanges(survey, thiz);
       if (si >= 0) {
         survey[si].act();
       }
-      console.line('player:', thiz.where());
-    });
-
-    i.pressOnce(bind.run, function() {
-      if (one_step < 0) return;
-      run = 3 *WALK;
-      dir = -3;
-      // TODO: 切换到跑步动画
-      // mod.setAnim(1, 0);
-      let z = screenPos()[2];
-      console.line('screen-z:', z, (45000-16)* z + 16);
-    }, function() {
-      run = 0;
-      // mod.setAnim(0, 0);
+      // console.line('player:', thiz.where());
     });
   }
 }
@@ -187,6 +204,7 @@ function Base(mod, win, order, ext) {
     wrap0,
     rotateY,
     getAngle,
+    setAnim,
   };
 
   order.addMod(thiz);
@@ -199,6 +217,16 @@ function Base(mod, win, order, ext) {
   thiz.swap = swap; // 使用的元素必须完全清空
 
   return Object.assign(Tran, thiz, ext);
+
+
+  //
+  // 动作说明, 0,1:步行, 2:后退, 3:倒下, 4,6:被攻击后倾, 5:被攻击前倾
+  // 7:蹲下, 8,9:不明, 10:步行, 11:跑动, 12:原地站立, 13:受伤步行
+  // 14: 受伤跑步, 15:原地站立叉腰?, 16-26:迷
+  //
+  function setAnim(a, b) {
+    mod.setAnim(a, 0, 0);
+  }
 
 
   function rotateY(rad) {
@@ -216,6 +244,7 @@ function Base(mod, win, order, ext) {
 
   
   function draw(u, t) {
+    ext.draw && ext.draw(u, t);
     Shader.setModelTrans(model_trans);
     mod.draw(u, t);
   }

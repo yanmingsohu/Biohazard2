@@ -54,7 +54,9 @@ const touch = [];
 // 地图上的可调查对象, 当玩家在范围内调查时, 事件被触发, 调用 act()
 const survey = [];
 
-let room_script;
+// 当前房间脚本上下文
+let script_context;
+let goto_next_door;
 let map_data;
 let stage = 1;
 let room_nm = 0;
@@ -79,6 +81,7 @@ const gameState = {
   setDoor,
 
   // bio 脚本函数
+  waittime:0,
   cut_chg,
   aot_set,
   addEnemy,
@@ -181,15 +184,13 @@ function free_map() {
 function load_map() {
   free_map();
   map_data = Rdt.from(stage, room_nm, player);
-  room_script = map_data.room_script;
-  load_bgm();
 
   for (let i=0; i<map_data.collision.length; ++i) {
     let c = map_data.collision[i];
     collisions.push(c);
     // 显示碰撞体
     const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
-    free_objects.push(Tool.showCollision(c, window, color2));
+    // free_objects.push(Tool.showCollision(c, window, color2));
   }
 
   const color = new Float32Array([0.9, 0.1, 0.3]);
@@ -197,7 +198,7 @@ function load_map() {
     let b = map_data.block[i];
     play_range.push(b);
     // 调试 block
-    free_objects.push(Tool.showRange(b, window, color));
+    // free_objects.push(Tool.showRange(b, window, color));
   }
 
   try {
@@ -300,36 +301,30 @@ function begin_level() {
   // 游戏模式 0:Leon/Claire, 1:Hunk/Tofu, or vice versa
   set_bitarr(1, 0x06, 0);
 
-  // TODO: 加载玩家角色模型
-  // let mod = Liv.fromEmd(player, 0x50);
-  let mod = Liv.fromPld(player);
+  // TODO: 加载玩家角色模型, pld 没有 emd 动作多?
+  let mod = Liv.fromEmd(player, 0x50);
+  // let mod = Liv.fromPld(player);
   p1 = Ai.player(mod, window, draw_order, gameState, camera);
 
   init_pos(0);
 
   while (window.notClosed()) {
+    goto_next_door = false;
     load_map();
+    load_bgm();
     switch_camera();
-    run_room_script();
+    script_context = map_data.room_script.createContext(gameState, 0);
     // vm.gc();
 
     // TODO: 这里是补丁, 房间脚本应该不会退出?
-    while (gameState.script_running && window.notClosed()) {
+    while (!goto_next_door && window.notClosed()) {
       window.nextFrame();
+      for (let i=0; i<100; ++i) {
+        if (script_context.frame(window.usedTime()) == 1) {
+          break;
+        }
+      }
     }
-  }
-}
-
-
-function run_room_script() {
-  // TODO: 脚本不应该出错, 调试结束后无需 try/cache
-  try {
-    gameState.script_running = true;
-    console.debug("1---------- Start room script");
-    room_script.run(gameState);
-    console.debug('1----------------- script exit');
-  } catch(e) {
-    console.error(e.stack);
   }
 }
 
@@ -382,22 +377,23 @@ function addEnemy(zb) {
 }
 
 
-function createTrigger(obj) {
+// 进入后触发一次, 直到离开后再次进入触发
+function LeaveTrigger(obj, callback) {
   let td = false;
   obj.act = function() {
     if (td) return;
     td = true;
-    Tool.debug('!!!!!!!!!!!!!!!!!!!! Trigger +++', obj)
-    room_script.run(gameState, obj.id);
+    Tool.debug('!!!!!!!!!!!!!!!!!!!! LeaveTrigger +++', obj)
+    callback();
   };
   obj.leave = function() {
     td = false;
   };
-  touch.push(obj);
 }
 
 
-function createAuto(obj, msg) {
+// 只触发一次
+function OnceTrigger(obj, callback) {
   obj.act = function() {
     for (let i=0; i<touch.length; ++i) {
       if (touch[i] == obj) {
@@ -405,10 +401,36 @@ function createAuto(obj, msg) {
         break;
       }
     }
-    Tool.debug('!!!!!!!!!!!!!!!!!!!!', msg, obj)
-    room_script.run(gameState, obj.id);
+    Tool.debug('!!!!!!!!!!!!!!!!!!!! OnceTrigger', obj)
+    callback();
   };
-  touch.push(obj);
+}
+
+
+function createTriggerType(obj, cb) {
+  const sat = obj.sat;
+  // 由谁触发
+  let _player  = sat & 1;
+  let _enemy   = sat & (1<<1);
+  let _splayer = sat & (1<<2);
+  let _obj     = sat & (1<<3);
+  // 如何触发
+  let _manual  = sat & (1<<4);
+  let _front   = sat & (1<<5);
+  let _under   = sat & (1<<6);
+  let _uk      = sat & (1<<7);
+
+  if (_player) {
+    if (_manual) {
+      obj.act = cb;
+      survey.push(obj);
+    } else if (_under || _front) {
+      OnceTrigger(obj, cb);
+      touch.push(obj);
+    }
+  } else {
+    console.warn("Unsupport trigger "+ Tool.b2(sat));
+  }
 }
 
 
@@ -419,8 +441,9 @@ function aot_set(npo) {
   const type = isNaN(npo.type) ? npo.sce : npo.type;
   switch (type) {
     case 3:  // NORMAL 设置事件触发器
+
       Tool.debug("触发器");
-      createTrigger(npo);
+      // createTrigger(npo);
       break;
 
     case 2: // item
@@ -429,7 +452,8 @@ function aot_set(npo) {
       break;
 
     case 11: // 燃烧的火, 走进后被灼伤
-      Tool.debug("伤害"); break;
+      Tool.debug("伤害"); 
+      break;
 
     case 0: // auto? 
       Tool.debug("自动?"); 
@@ -438,7 +462,9 @@ function aot_set(npo) {
 
     case 5: // event?
       Tool.debug("事件"); 
-      createAuto(npo, "事件");
+      createTriggerType(npo, function() {
+        script_context.callSub(npo.d3);
+      });
       break;
 
     case 1: // door
@@ -481,7 +507,7 @@ function setDoor(d) {
     stage = d.stage + 1;
     room_nm = d.room;
     camera_nm = d.camera;
-    gameState.script_running = false;
+    goto_next_door = true;
   };
 
   _test_bind_key_sw_room(d.id, range.act);
@@ -582,7 +608,7 @@ function get_game_object(type, id) {
 
     case 0x02: // SPLAYER
       Tool.debug("get splayer");
-      return object_arr[id];
+      return enemy[255];
 
     case 0x03: // ENEMY
       Tool.debug("get enemy");

@@ -120,6 +120,8 @@ function compile(arrbuf) {
   return {
     // 启动一个脚本
     run,
+    // 创建一个脚本上下文, 用于单步执行脚本
+    createContext,
     // 脚本数量
     count : fun_point.length,
   };
@@ -146,6 +148,45 @@ function compile(arrbuf) {
       _do(game, mem.byte(), mem, pc);
     }
     debug("EXIT:", game.func_ret);
+  }
+
+
+  //
+  // 单步运行脚本, 返回一个运行函数
+  //
+  function createContext(game, sub_num = 0) {
+    let mem = new Mem(arrbuf, fun_point[sub_num]);
+    mem.funcid = sub_num;
+    let pc = 0;
+    game.func_ret = undefined;
+    indentation = EMPTY;
+
+    const context = {
+      frame,
+      callSub,
+    };
+    return context;
+
+
+    function frame(u) {
+      if (game.func_ret !== undefined) {
+        return 1;
+      }
+      if (game.waittime - u > 0) {
+        game.waittime -= u;
+        return 1;
+      }
+      pc = mem._pc;
+      _do(game, mem.byte(), mem, pc);
+      return 2;
+    };
+
+
+    function callSub(subnum) {
+      if (!mem.is_stack_non()) mem.push(mem._pc);
+      mem._pc = fun_point[subnum];
+      game.func_ret = undefined;
+    }
   }
 
 
@@ -181,10 +222,6 @@ function compile(arrbuf) {
 
       case 0x02:
         debug("Evt_next"); // wait input?
-        game.next_frame();
-        // if (!game.next_frame()) {
-        //   game.func_ret = 0;
-        // }
         break;
 
       case 0x03:
@@ -239,14 +276,14 @@ function compile(arrbuf) {
 
       case 0x09:
         debug("pre sleep");
-        game.next_frame();
+        game.waittime = 0;
+        // mem.s(1);
         break;
 
       case 0x0A:
-        var sleeping = mem.byte() * 50;
-        // var count = mem.byte();
+        var sleeping = mem.byte();
         debug("sleep", sleeping);
-        thread.sleep(sleeping);
+        game.waittime = sleeping / 30;
         break;
 
       case 0x0B:
@@ -255,6 +292,7 @@ function compile(arrbuf) {
 
       case 0x0C:
         debug("Wsleeping");
+        game.waittime = 1.5;
         break;
 
       case 0x0D:
@@ -355,6 +393,7 @@ function compile(arrbuf) {
         var offset = mem.short();
         debug(Ifel_ctr, Loop_ctr, offset, oppc + offset);
         // mem._pc = oppc + offset;
+        // indentation = '';
         break;
 
       case 0x18:
@@ -478,7 +517,7 @@ function compile(arrbuf) {
       case 0x29:
         debug("Cut_chg");
         game.cut_chg(mem.byte());
-        game.next_frame();
+        // game.next_frame();
         break;
 
       case 0x2A:
@@ -507,9 +546,12 @@ function compile(arrbuf) {
         npo.y = mem.short();
         npo.w = mem.short();
         npo.h = mem.short();
-        npo.ua = mem.ushort();
-        npo.ub = mem.ushort();
-        npo.uc = mem.ushort();
+        npo.d0 = mem.byte();
+        npo.d1 = mem.byte();
+        npo.d2 = mem.byte();
+        npo.d3 = mem.byte();
+        npo.d4 = mem.byte();
+        npo.d5 = mem.byte();
         debug(npo);
         Tool.xywhBindRange(npo);
         game.aot_set(npo);
@@ -576,19 +618,15 @@ function compile(arrbuf) {
         debug("Se_on");
         var se = {};
         se.vab = mem.byte();
-        se.edt = mem.short();
-        se.data = mem.short();
+        se.edt0 = mem.byte();
+        se.edt1 = mem.byte();
+        se.data0 = mem.byte();
+        se.data1 = mem.byte();
         se.x = mem.short();
         se.y = mem.short();
         se.z = mem.short();
         debug(se);
-        game.play_se(se.edt & 0xFF);
-        if (se.data) {
-          game.play_se(se.data & 0xFF);
-        }
-        if (se.vab) {
-          game.play_se(se.vab & 0xFF);
-        }
+        game.play_se(se.edt0);
         break;
 
       case 0x37:
@@ -664,13 +702,27 @@ function compile(arrbuf) {
         break;
 
       case 0x3F:
-        debug('Plc_motion');
-        mem.s(3);
+        debug('Plc_motion -------------------------------------');
+        var anim = mem.byte();
+        var d0 = mem.byte();
+        var d1 = mem.byte();
+        debug(anim, d0, d1);
+        game.work.setAnim(d0, d1);
         break;
 
       case 0x40:
         debug('Plc_dest');
-        mem.s(7);
+        mem.s(1);
+        var flag = mem.byte();
+        var room = mem.byte();
+        var x = mem.short();
+        var z = mem.short();
+        debug(flag, room, "xz:", x, z);
+        if (flag & 0x10) { // 相对位置
+          // game.pos_set(x, 0, z);
+        } else {
+          game.pos_set(x, 0, z);
+        }
         break;
 
       case 0x41:

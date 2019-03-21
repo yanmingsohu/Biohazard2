@@ -60,10 +60,12 @@ vec4 rotateZ(vec4 p, float c) {
 
 
 vec4 rotate_vertex_position(vec4 position, vec4 quat) {
-  // quat 不是四元数而是欧拉角
-  // mpos = rotateX(mpos, rot.x);
-  // mpos = rotateY(mpos, rot.y);
-  // mpos = rotateZ(mpos, rot.z);
+  // quat 是欧拉角(测试用)
+  // position = rotateX(position, quat.x);
+  // position = rotateY(position, quat.y);
+  // position = rotateZ(position, quat.z);
+  // return position;
+  
   vec4 q = quat;
   vec3 v = position.xyz;
   vec3 r = v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
@@ -92,7 +94,7 @@ void draw_living() {
   vec4 mpos = bone_rotate * vec4(pos, 1);
   int i;
 
-  for (i=(bind_len-1)*2; i>=0; i-=2) {
+  for (i= bind_len<<1; i>=0; i-=2) {
     vec4 off = bind_bones[i];
     vec4 rot = bind_bones[i+1];
     mpos = rotate_vertex_position(mpos, rot);

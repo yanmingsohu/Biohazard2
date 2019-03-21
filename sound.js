@@ -47,6 +47,7 @@ function vab(buf, rate, ch) {
 
 function playSE(stage, se) {
   let name = ROOM +'room'+ stage + Tool.b2(se) +'.sap';
+  // let name = ROOM +'room'+ se +'.sap';
   try {
     let f = File.open(name);
     return sap(f.buf, true, false);
@@ -130,11 +131,11 @@ function sap(arraybuf, play, loop) {
 
 function init(win) {
   core = new Sound.Core();
-  // test(BGM, win);
+  // test(ROOM, win, false);
 }
 
 
-function test(dir, win) {
+function test(dir, win, loop) {
   let bg = File.read_dir(dir);
   let arr = [];
   let wav = new Sound.Wav(core);
@@ -171,7 +172,7 @@ function test(dir, win) {
       return;
     }
 
-    wav = sap(f.buf, true, true);
+    wav = sap(f.buf, true, loop);
     console.log('  length:', wav.length(), 's');
   }
 }

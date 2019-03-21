@@ -18,6 +18,7 @@ import H      from '../boot/hex.js'
 import Res    from '../boot/resource.js'
 import Game   from '../boot/game.js'
 import node   from '../boot/node.js'
+import Tool   from './tool.js'
 
 const matrix = node.load('boot/gl-matrix.js');
 const {quat} = matrix;
@@ -30,7 +31,6 @@ class AngleLinearFrame {
     this.curr = [];
     this.prev = [];
     this.time = 1;
-    this.state = 0;
     this.qa = quat.create();
     this.qb = quat.create();
     this.w = 1;
@@ -44,19 +44,22 @@ class AngleLinearFrame {
   }
 
   setCurrent(frame_data) {
-    this._copy(this.prev, this.curr);
     this._copy(this.curr, frame_data.angle);
-    this.state++;
   }
 
   reset() {
-    this.state = 0;
+    for (let i=this.prev.length; i>=0; --i) {
+      this.prev[i][0] = 0;
+      this.prev[i][1] = 0;
+      this.prev[i][2] = 0;
+      this.prev[i][3] = 0;
+    }
   }
 
   // Copy Ele b TO a
   _copy(a, b) {
     for (let i=0, len=b.length; i<len; ++i) {
-      if (!a[i]) a[i] = {x:0, y:0, z:0};
+      if (!a[i]) a[i] = {};
       a[i].x = b[i].x;
       a[i].y = b[i].y;
       a[i].z = b[i].z;
@@ -65,29 +68,25 @@ class AngleLinearFrame {
 
   // 获取 x,y,z 之前先调用
   index(boneIdx) {
-    if (this.state > 1) {
-      let a = this.qa;
-      let b = this.qb;
-      let p = this.prev[boneIdx];
-      let c = this.curr[boneIdx];
-      quat.fromEuler(a, p.x, p.y, p.z);
-      quat.fromEuler(b, c.x, c.y, c.z);
-      quat.slerp(a, a, b, this.time);
-      
-      this.x = a[0];
-      this.y = a[1];
-      this.z = a[2];
-      this.w = a[3];
-    } else {
-      let a = this.qa;
-      let p = this.curr[boneIdx];
-      quat.fromEuler(a, p.x, p.y, p.z);
-
-      this.x = a[0];
-      this.y = a[1];
-      this.z = a[2];
-      this.w = a[3];
+    let a = this.prev[boneIdx];
+    if (!a) {
+      a = this.prev[boneIdx] = [0,0,0,0];
     }
+    let b = this.qb;
+    let c = this.curr[boneIdx];
+    quat.fromEuler(b, c.x, c.y, c.z);
+    quat.slerp(a, a, b, this.time);
+    
+    this.x = a[0];
+    this.y = a[1];
+    this.z = a[2];
+    this.w = a[3];
+
+    // 欧拉角(测试用)
+    // this.x = this.curr[boneIdx].x * Math.PI / 180;
+    // this.y = this.curr[boneIdx].y * Math.PI / 180;
+    // this.z = this.curr[boneIdx].z * Math.PI / 180;
+    // this.w = 0;
   }
 };
 
@@ -132,47 +131,42 @@ function loadEmd(playId, emdId) {
 function Living(mod, tex) {
   const components    = [];
   const alf           = new AngleLinearFrame();
-  const bind_bone     = new Float32Array(20*8);
   const liner_pos     = {x:0, y:0, z:0};
   const liner_pos_tr  = Game.Pos3Transition(liner_pos, 0);
-  const skeletonBind  = [];
-  const DEF_SPEED     = 30/1000;
-  // const anim_offset = [];
+  let   DEF_SPEED     = 30;
 
   let comp_len = 0;
-  let currentSk;
-  let currentAnim;
   // 动画索引
   let anim_idx = 0;
   // 动画帧数
   let anim_frame = 0;
-  let anim_frame_length = 0;
   let anim_dir = 0;
   let frame_data;
   let a = 0;
   let speed = DEF_SPEED;
+  let pose;
+  let whenAnimEnd = 1;
+  let animCallBack;
 
   init();
-  setSkGrp(0);
   setAnim(0, 0);
+  _nextFrame(0);
 
   return {
     draw,
     free,
-    // 设置动画片段
+    // 设置动画片段,  动作: 11.跑动, 12.休息, 13.残疾, 14.残疾跑动
     setAnim,
     // 设置动画的播放方向, 1正向播放, -1反向播放, 0停止
     setDir,
-    // 设置骨骼绑定组, 默认 0, 0~3?
-    setSkGrp,
     where,
     setSpeed,
-    // anim_offset,
+    setAnimEndAct,
   };
 
 
   function setSpeed(s) {
-    speed = s;
+    DEF_SPEED = s;
   }
 
 
@@ -186,63 +180,103 @@ function Living(mod, tex) {
   }
 
 
-  function setSkGrp(i) {
-    let b = skeletonBind[i];
-    if (!b || !b.sk || !b.am) {
-      throw new Error("skeleton bind "+ i +' not exists');
-    }
-    console.debug('setSkGrp', i, skeletonBind.length);
-    currentSk = b.sk;
-    currentAnim = b.am;
-  }
+  function setAnim(idx, frame, end=1) {
+    whenAnimEnd = end;
 
-
-  function setAnim(idx, frame) {
-    anim_idx = idx % currentAnim.length;
-    let anim_frms = currentAnim[anim_idx];
-    anim_frame_length = anim_frms.length;
-    if (frame < 0) {
-      anim_frame = anim_frame_length-1;
-    } else {
-      anim_frame = frame % anim_frame_length;
-    }
-
-    let anim = anim_frms[anim_frame];
-    if (!anim) {
-      console.warn("No pose frame", anim_idx, '=>', anim_frame);
+    anim_idx = idx; // % mod.poseCount();
+    let tmp = mod.getPose(idx);
+    if (!tmp) {
+      console.warn("No POSE", idx);
       return false;
     }
-    frame_data = currentSk.get_frame_data(anim.sk_idx);
-    alf.setCurrent(frame_data);
-    liner_pos.x = frame_data.x;
-    liner_pos.y = frame_data.y;
-    liner_pos.z = frame_data.z;
-
-    // console.line("Anim", anim_idx, "Frame", anim_frame, 
-    //   "Speed:", frame_data.spx, frame_data.spy, frame_data.spz, 
-    //   "Offset", frame_data.x, frame_data.y, frame_data.z, "\t");
+    pose = tmp;
+    anim_frame = frame;
+    a = 0;
     return true;
   }
 
 
+  function show_info() {
+    console.line("Anim", anim_idx, "Frame", Tool.d4(anim_frame), 
+        "Speed:", Tool.d4(frame_data.spx), 
+        Tool.d4(frame_data.spy), Tool.d4(frame_data.spz), 
+        "Offset", Tool.d4(frame_data.x), 
+        Tool.d4(frame_data.y), Tool.d4(frame_data.z), "\t");
+  }
+
+
+  // 
+  // 动画到结尾后, 0 停止, 1 循环, 
+  //   2 停止并调用函数
+  //   3 循环并调用函数
+  //
+  function setAnimEndAct(id, func) {
+    whenAnimEnd = id;
+    animCallBack = func;
+  }
+
+
+  function _end() {
+    switch (whenAnimEnd) {
+      case 0:
+        return false;
+      case 1:
+        return true;
+      case 2:
+        animCallBack();
+        return false;
+      case 3:
+        animCallBack();
+        return true;
+    }
+  }
+
+
+  function _nextFrame(frame) {
+    if (frame < 0) {
+      if (!_end()) return false;
+      anim_frame = pose.length -1;
+    } else if (frame >= pose.length) {
+      if (!_end()) return false;
+      anim_frame = 0;
+    } else {
+      anim_frame = frame;
+    }
+
+    let frm = pose[anim_frame];
+    if (!frm) {
+      console.warn("No pose frame", anim_frame);
+      return false;
+    }
+
+    frame_data = pose.get_frame_data(frm.sk_idx);
+    alf.setPercentage(0);
+    alf.setCurrent(frame_data);
+    liner_pos.x = frame_data.x;
+    liner_pos.y = frame_data.y;
+    liner_pos.z = frame_data.z;
+    // show_info();
+    return true;
+  }
+
 
   function draw(u, t) {
-    Shader.draw_living();
+    u *= 1000;
     a += u;
+    Shader.draw_living();
     
-    // console.log(a/speed);
-    alf.setPercentage(a / speed);
+    // console.log(a/speed, '\t', a, '\t', speed);
+    alf.setPercentage(u/speed);
     liner_pos_tr.line(a, frame_data);
 
-    // TODO: 搞清楚偏移的意义
     // console.line(liner_pos.y);
-    Shader.setAnimOffset(liner_pos.x, liner_pos.y + 2048, liner_pos.z);
-    currentSk[0].transform2(bind_bone, alf, components, 0);
+    Shader.setAnimOffset(liner_pos.x, liner_pos.y, liner_pos.z);
+    mod.transformRoot(alf, components, 0);
     
     if (a >= speed) {
       a = 0;
-      speed = DEF_SPEED + frame_data.spz/3000;
-      setAnim(anim_idx, anim_frame + anim_dir);
+      if (!_nextFrame(anim_frame + anim_dir)) return;
+      speed = DEF_SPEED/* - frame_data.spx/200000*/;
       liner_pos_tr.speed(speed);
     }
   }
@@ -264,10 +298,6 @@ function Living(mod, tex) {
 
 
   function init() {
-    putSkAm(mod.sk1, mod.am1);
-    putSkAm(mod.sk2, mod.am2);
-    putSkAm(mod.sk3, mod.am3);
-  
     for (let i=0; i<mod.mesh.length; ++i) {
       let t = mergeTriVertexBuffer(mod.mesh[i].tri, tex);
       let q = mergeQuaVertexBuffer(mod.mesh[i].qua, tex);
@@ -275,20 +305,6 @@ function Living(mod, tex) {
       ++comp_len;
     }
     console.debug("MODEL has", comp_len, "components");
-  }
-
-
-  function putSkAm(sk, am) {
-    // 只有动画没有骨骼则使用默认骨骼
-    if (!sk || sk.length <= 0) {
-      sk = skeletonBind[0].sk;
-      console.debug("Use default sk");
-    }
-    if (am) {
-      skeletonBind.push({sk, am});
-    } else {
-      console.debug("Empty anim data");
-    }
   }
 }
 

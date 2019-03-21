@@ -17,11 +17,16 @@ export default {
   bindWindow,
   createDrawOrder,
   debug,
+  // 格式化2位16进制数字
   b2,
-  d3,
+  // 格式化3/4位10进制数字
+  d3, d4,
+  // 格式化4位16进制数字
+  h4,
 };
 
 
+// 格式不可动
 function b2(a) {
   if (a < 0x10) {
     return '0'+ a.toString(16);
@@ -31,10 +36,33 @@ function b2(a) {
 }
 
 
+// 格式不可动
 function d3(a) {
-  if (a < 10)  return '00'+ a;
+  if (a < 10) return '00'+ a;
   if (a < 100) return '0'+ a;
   return ''+ a;
+}
+
+
+function d4(a) {
+  if (a < 0) {
+    if (a > -10) return '-000'+ -a;
+    if (a > -100) return '-00'+ -a;
+    if (a > -1000) return '-0'+ -a;
+  } else {
+    if (a < 10) return '000'+ a;
+    if (a < 100) return '00'+ a;
+    if (a < 1000) return '0'+ a;
+  }
+  return ''+ a;
+}
+
+
+function h4(x) {
+  if (x < 0x10) return '0x000'+ x.toString(16);
+  if (x < 0x100) return '0x00'+ x.toString(16);
+  if (x < 0x1000) return '0x0'+ x.toString(16);
+  return '0x'+ x.toString(16);
 }
 
 
