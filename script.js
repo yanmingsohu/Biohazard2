@@ -184,6 +184,9 @@ function compile(arrbuf) {
 
     function callSub(subnum) {
       if (!mem.is_stack_non()) mem.push(mem._pc);
+      if (subnum < 0 || subnum >= fun_point.length || isNaN(subnum)) {
+        throw new Error("Outof bound sub array "+ subnum);
+      }
       mem._pc = fun_point[subnum];
       game.func_ret = undefined;
     }
@@ -522,15 +525,17 @@ function compile(arrbuf) {
 
       case 0x2A:
         debug("Cut_old");
+        game.cut_restore();
         break;
 
       case 0x2B:
         debug("Message_on");
         mem.s(1);
-        mem.byte();
-        mem.s(1);
-        mem.s(1);
-        mem.s(1);
+        var d0 = mem.byte();
+        var d1 = mem.byte();
+        var d2 = mem.ushort();
+        debug(d0, d1, d2);
+        game.show_message(d0, d1, d2);
         break;
 
       case 0x2C:
@@ -682,8 +687,9 @@ function compile(arrbuf) {
 
       case 0x3C:
         debug('Cut_auto');
-        var screen = mem.byte();
-        debug('screen', screen);
+        var on = mem.byte();
+        debug(on ? 'on': 'off');
+        game.cut_auto(on);
         break;
 
       case 0x3D:
@@ -718,7 +724,7 @@ function compile(arrbuf) {
         var x = mem.short();
         var z = mem.short();
         debug(flag, room, "xz:", x, z);
-        if (flag & 0x10) { // 相对位置
+        if ((flag & 0x10) || (flag & 0x08)) { // 相对位置 0x09
           // game.pos_set(x, 0, z);
         } else {
           game.pos_set(x, 0, z);
@@ -727,7 +733,15 @@ function compile(arrbuf) {
 
       case 0x41:
         debug("Plc_neck");
-        mem.s(9);
+        var neck = {};
+        neck.op = mem.byte();
+        neck.x = mem.short();
+        neck.y = mem.short();
+        neck.z = mem.short();
+        neck.spx = mem.byte();
+        neck.spz = mem.byte();
+        debug(neck);
+        game.work.lookAt(neck);
         break;
 
       case 0x42:
@@ -736,7 +750,9 @@ function compile(arrbuf) {
 
       case 0x43:
         debug("Plc_flg");
-        mem.s(3);
+        var type = mem.byte();
+        var flag = mem.ushort();
+        debug(type, flag);
         break;
 
       case 0x44:
@@ -996,25 +1012,28 @@ function compile(arrbuf) {
 
       case 0x67:
         debug("Aot_set_4p"); 
-        var wall = {};
-        wall.id = mem.byte();
-        wall.sce = mem.byte(); // sce 就是 type
-        wall.sat = mem.byte();
-        wall.floor = mem.byte();
-        wall.super = mem.byte();
-        wall.x1 = mem.short();
-        wall.y1 = mem.short();
-        wall.x2 = mem.short();
-        wall.y2 = mem.short();
-        wall.x3 = mem.short();
-        wall.y3 = mem.short();
-        wall.x4 = mem.short();
-        wall.y4 = mem.short();
-        wall.uk0 = mem.ushort();
-        wall.uk1 = mem.ushort();
-        wall.uk2 = mem.ushort();
-        debug("Wall", (wall));
-        game.aot_set(wall);
+        var aot = {};
+        aot.id = mem.byte();
+        aot.sce = mem.byte(); // sce 就是 type
+        aot.sat = mem.byte();
+        aot.floor = mem.byte();
+        aot.super = mem.byte();
+        aot.x1 = mem.short();
+        aot.y1 = mem.short();
+        aot.x2 = mem.short();
+        aot.y2 = mem.short();
+        aot.x3 = mem.short();
+        aot.y3 = mem.short();
+        aot.x4 = mem.short();
+        aot.y4 = mem.short();
+        aot.d0 = mem.byte();
+        aot.d1 = mem.byte();
+        aot.d2 = mem.byte();
+        aot.d3 = mem.byte();
+        aot.d4 = mem.byte();
+        aot.d5 = mem.byte();
+        debug(aot);
+        game.aot_set(aot);
         break;
 
       case 0x68:
@@ -1207,11 +1226,18 @@ function compile(arrbuf) {
 
       case 0x8A:
         debug('Vib_set0');
+        mem.s(1);
+        var d0 = mem.ushort();
+        var d1 = mem.ushort();
+        debug(d0, d1);
         break;
 
       case 0x8B:
         debug("Vib_set1");
-        mem.s(5);
+        var id = mem.byte();
+        var d0 = mem.ushort();
+        var d1 = mem.ushort();
+        debug(id, d0, d1);
         break;
 
       case 0x8C:

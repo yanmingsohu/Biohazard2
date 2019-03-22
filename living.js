@@ -147,6 +147,7 @@ function Living(mod, tex) {
   let pose;
   let whenAnimEnd = 1;
   let animCallBack;
+  let animSound;
 
   init();
   setAnim(0, 0);
@@ -162,7 +163,15 @@ function Living(mod, tex) {
     where,
     setSpeed,
     setAnimEndAct,
+    setAnimSound,
+    // 返回当前动作的总帧数
+    getPoseFrameLength,
   };
+
+
+  function setAnimSound(s) {
+    animSound = s;
+  }
 
 
   function setSpeed(s) {
@@ -177,6 +186,11 @@ function Living(mod, tex) {
 
   function setDir(d) {
     anim_dir = d;
+  }
+
+
+  function getPoseFrameLength() {
+    return pose ? pose.length : 0;
   }
 
 
@@ -255,6 +269,10 @@ function Living(mod, tex) {
     liner_pos.x = frame_data.x;
     liner_pos.y = frame_data.y;
     liner_pos.z = frame_data.z;
+
+    if (frm.flag && animSound) {
+      animSound.play(frm.flag);
+    }
     // show_info();
     return true;
   }

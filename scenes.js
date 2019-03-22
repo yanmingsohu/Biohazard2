@@ -39,7 +39,7 @@ const game_var = [];
 //  1D:游戏状态，通过几次重播保持?
 const ck_flag = [];
 // 当前地图上的所有需要释放资源的对象
-const free_objects = [];
+const scenes_garbage = [];
 // 当前地图上的对象, 用于 bio2 脚本
 const object_arr = [];
 const enemy = [];
@@ -53,6 +53,10 @@ const collisions = [];
 const touch = [];
 // 地图上的可调查对象, 当玩家在范围内调查时, 事件被触发, 调用 act()
 const survey = [];
+// 地板, 用于步行音效
+const floors = [];
+// 记录摄像机切换顺序
+const cut_stack = [];
 
 // 当前房间脚本上下文
 let script_context;
@@ -73,6 +77,7 @@ const gameState = {
   play_range,
   collisions,
   script_running : false,
+  floors,
 
   // js 脚本函数
   switch_camera,
@@ -83,6 +88,8 @@ const gameState = {
   // bio 脚本函数
   waittime:0,
   cut_chg,
+  cut_restore,
+  cut_auto,
   aot_set,
   addEnemy,
   setGameVar,
@@ -94,6 +101,7 @@ const gameState = {
   get_game_object,
   play_se,
   play_voice,
+  show_message,
 };
 
 
@@ -143,7 +151,8 @@ function find_camera_switcher() {
 
   function bind_cm(sw) {
     // TODO: 如果角色离开摄像机开关, 恢复开关的功能
-    let isStanding = Tool.inRange(sw, p1);
+    const w = p1.where();
+    let isStanding = Tool.inRange(sw, w[0], w[2]);
     if (!isStanding) {
       sw.act = function() {
         // if (isStanding) return;
@@ -168,16 +177,18 @@ function setup_lights(cr) {
 
 
 function free_map() {
-  for (let i = free_objects.length-1; i>=0; --i) {
-    free_objects[i].free();
+  for (let i = scenes_garbage.length-1; i>=0; --i) {
+    scenes_garbage[i].free();
   }
-  free_objects.length = 0;
+  scenes_garbage.length = 0;
   object_arr.length = 0;
   play_range.length = 0;
   survey.length = 0;
   touch.length = 0;
   collisions.length = 0;
   enemy.length = 0;
+  floors.length = 0;
+  cut_stack.length = 0;
 }
 
 
@@ -190,7 +201,7 @@ function load_map() {
     collisions.push(c);
     // 显示碰撞体
     const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
-    // free_objects.push(Tool.showCollision(c, window, color2));
+    // scenes_garbage.push(Tool.showCollision(c, window, color2));
   }
 
   const color = new Float32Array([0.9, 0.1, 0.3]);
@@ -198,7 +209,14 @@ function load_map() {
     let b = map_data.block[i];
     play_range.push(b);
     // 调试 block
-    // free_objects.push(Tool.showRange(b, window, color));
+    // scenes_garbage.push(Tool.showRange(b, window, color));
+  }
+
+  for (let i=map_data.floor.length-1; i>=0; --i) {
+    let f = map_data.floor[i];
+    let se = Sound.floorSE(f);
+    scenes_garbage.push(se);
+    floors.push(se);
   }
 
   try {
@@ -306,14 +324,16 @@ function begin_level() {
   // let mod = Liv.fromPld(player);
   p1 = Ai.player(mod, window, draw_order, gameState, camera);
 
-  init_pos(0);
+  init_pos(7);
 
   while (window.notClosed()) {
+    p1.able_to_control(false);
     goto_next_door = false;
     load_map();
     load_bgm();
     switch_camera();
     script_context = map_data.room_script.createContext(gameState, 0);
+    p1.able_to_control(true);
     // vm.gc();
 
     // TODO: 这里是补丁, 房间脚本应该不会退出?
@@ -369,8 +389,9 @@ function addEnemy(zb) {
     return;
 
   let mod = Liv.fromEmd(player, zb.model);
-  let ai = Ai.zombie(mod, window, draw_order);
-  free_objects.push(ai);
+  let se = Sound.enemySE(zb.sound_bank);
+  let ai = Ai.zombie(mod, window, draw_order, gameState, se, zb);
+  scenes_garbage.push(ai, se);
   ai.setPos(zb.x, zb.y, zb.z);
   ai.setDirection(zb.dir);
   enemy[zb.id] = ai;
@@ -491,7 +512,7 @@ function aot_set(npo) {
       throw new Error("unknow aot", type);
   }
   object_arr[npo.id] = npo;
-  // free_objects.push(Tool.showRange(npo, window));
+  scenes_garbage.push(Tool.showRange(npo, window));
 }
 
 
@@ -502,6 +523,7 @@ function setDoor(d) {
 
   range.act = function opendoor() {
     // TODO: 检查门锁 locked 和对应的钥匙 key, lock 无法打开.
+    p1.able_to_control(false);
     p1.setPos(d.next_x, d.next_y, d.next_z);
     p1.setDirection(d.next_dir);
     stage = d.stage + 1;
@@ -511,7 +533,7 @@ function setDoor(d) {
   };
 
   _test_bind_key_sw_room(d.id, range.act);
-  free_objects.push(Tool.showRange(range, window));
+  scenes_garbage.push(Tool.showRange(range, window));
 }
 
 
@@ -577,7 +599,7 @@ function _test_bind_key_sw_room(door_id, act) {
     act();
   };
   ip.pressOnce(gl.GLFW_KEY_1 + door_id, null, fn);
-  free_objects.push({
+  scenes_garbage.push({
     free() {
       ip.unbind(gl.GLFW_KEY_1 + door_id);
     }
@@ -586,8 +608,25 @@ function _test_bind_key_sw_room(door_id, act) {
 
 
 function cut_chg(c) {
+  p1.able_to_control(false);
+  cut_stack.push(camera_nm);
   camera_nm = c;
   switch_camera();
+}
+
+
+function cut_restore() {
+  p1.able_to_control(true);
+  let c = cut_stack.pop();
+  if (c) {
+    camera_nm = c;
+    switch_camera();
+  }
+}
+
+
+function cut_auto(is_on) {
+  p1.able_to_control(is_on);
 }
 
 
@@ -651,7 +690,7 @@ function get_game_object(type, id) {
 function play_se(id) {
   let se = Sound.playSE(stage, id);
   if (se) {
-    free_objects.push(se);
+    scenes_garbage.push(se);
   }
 }
 
@@ -659,6 +698,10 @@ function play_se(id) {
 function play_voice(id, rl) {
   let v = Sound.playVoice(player, stage, id);
   if (v) {
-    free_objects.push(v);
+    scenes_garbage.push(v);
   }
+}
+
+
+function show_message(d0, d1, d2) {
 }

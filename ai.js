@@ -2,9 +2,10 @@ import Shader from './shader.js'
 import Game   from '../boot/game.js'
 import Tool   from './tool.js'
 import Node   from '../boot/node.js'
+import Sound  from './sound.js'
 import { Point2, Triangle2 } from './tool.js'
 const matrix = Node.load('boot/gl-matrix.js');
-const {vec4, mat4} = matrix;
+const {vec2, mat4} = matrix;
 const PI_360 = Math.PI * 2;
 
 // 按键绑定
@@ -31,11 +32,14 @@ function player(mod, win, order, gameState, camera) {
   const ROT        = 0.018;
   const WALK_SPEED = 30;
 
+  const input      = win.input();
   const play_range = gameState.play_range;
   const touch      = gameState.touch;
   const survey     = gameState.survey;
   const collisions = gameState.collisions;
+  const floors     = gameState.floors;
   const thiz       = Base(mod, win, order, {
+    able_to_control,
     back,
     traverse,
     draw,
@@ -46,19 +50,25 @@ function player(mod, win, order, gameState, camera) {
   let forward;
   // 跑步
   let run = 0;
-  let dir = -1;
+  let dir = 0;
   // 后退
   let goback = 0;
   // 左转/右转
   let gleft, gright;
   let currpose;
+  let current_floor = Sound.floorSE(0);
 
   mod.setSpeed(WALK_SPEED);
-  bind_ctrl(defaultKeyBind);
+  bind_ctrl(input, defaultKeyBind);
   changePose(12);
-  mod.setDir(1);
+  changeDir(1);
 
   return thiz;
+
+
+  function able_to_control(able) {
+    input.pause(!able);
+  }
 
 
   function changePose(id) {
@@ -70,20 +80,28 @@ function player(mod, win, order, gameState, camera) {
   }
 
 
+  function changeDir(d) {
+    if (dir != d) {
+      mod.setDir(d);
+      dir = d;
+    }
+  }
+
+
   function draw(u) {
     let stand;
     if (forward) {
       one_step = WALK;
       if (run) {
-        dir = 1;
+        changeDir(1);
         changePose(11);
       } else {
-        dir = -1;
+        changeDir(-1);
         changePose(0);
       }
       move();
     } else if (goback) {
-      dir = 1;
+      changeDir(1);
       one_step = -WALK;
       changePose(0);
       move();
@@ -105,23 +123,22 @@ function player(mod, win, order, gameState, camera) {
 
   function move() {
     thiz.translate(thiz.wrap0(one_step + run, 0, 0));
+    // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.
+    const w = thiz.where();
+    const p = new Point2(w[0], w[2]);
   
-    if (undefined === Tool.inRanges(play_range, thiz)) {
+    if (undefined === Tool.inRanges(play_range, w[0], w[2])) {
       back();
     }
 
     for (let i=0; i<touch.length; ++i) {
       let t = touch[i];
-      if (Tool.inRange(touch[i], thiz)) {
-        t.act();
+      if (Tool.inRange(t, w[0], w[2])) {
+        t.act(thiz);
       } else if (t.leave) {
-        t.leave();
+        t.leave(thiz);
       }
     }
-    
-    // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.
-    const w = thiz.where();
-    const p = new Point2(w[0], w[2]);
     
     for (let i=0, l=collisions.length; i<l; ++i) {
       let c = collisions[i];
@@ -130,6 +147,17 @@ function player(mod, win, order, gameState, camera) {
         thiz.where();
         p.x = w[0];
         p.y = w[2];
+      }
+    }
+
+    for (let i=0; i<floors.length; ++i) {
+      let f = floors[i];
+      if (f.range && Tool.inRange(f.range, w[0], w[2])) {
+        if (current_floor != f) {
+          current_floor = f;
+          mod.setAnimSound(f);
+        }
+        break;
       }
     }
     // console.line('player:', thiz.where());
@@ -144,6 +172,24 @@ function player(mod, win, order, gameState, camera) {
 
   function back() {
     thiz.translate(thiz.wrap0(-one_step - run, 0, 0));
+  }
+
+
+  function check_front() {
+    const w = thiz.frontPoint();
+    const x = w[0];
+    const y = w[2];
+    for (let i=survey.length-1; i>=0; --i) {
+      let s = survey[i];
+      if (Tool.inRange(s, x, y)) {
+        s.act();
+      }
+    }
+
+    // 可视化检测点
+    // let r = Tool.xywd2range({x, y, w:100, d:100});
+    // let color = new Float32Array([0.5, 0.5, 1]);
+    // Tool.showRange(r, win, color, -110);
   }
 
 
@@ -164,33 +210,28 @@ function player(mod, win, order, gameState, camera) {
   }
 
 
-  function bind_ctrl(bind) {
-    const i = win.input();
-
+  function bind_ctrl(i, bind) {
     i.pressOnce(bind.left,  ()=>{ gleft = 1     }, ()=>{ gleft = 0   });
     i.pressOnce(bind.right, ()=>{ gright = 1    }, ()=>{ gright = 0  });
     i.pressOnce(bind.up,    ()=>{ forward = 1   }, ()=>{ forward = 0 });
     i.pressOnce(bind.down,  ()=>{ goback = 1    }, ()=>{ goback = 0; });
     i.pressOnce(bind.run,   ()=>{ run = RUN_SP; }, ()=>{ run = 0;    });
-
-    i.pressOnce(bind.act, function() {
-      let si = Tool.inRanges(survey, thiz);
-      if (si >= 0) {
-        survey[si].act();
-      }
-      // console.line('player:', thiz.where());
-    });
+    i.pressOnce(bind.act, check_front);
   }
 }
 
 
-function zombie(mod, win, order) {
+function zombie(mod, win, order, gameState, se, data) {
   mod.setAnim(0, 0);
-  mod.setDir(1);
+  mod.setAnim(0, parseInt(Math.random() * mod.getPoseFrameLength()));
+  if (data.state != 64 && data.state != 0) {
+    mod.setDir(1);
+  }
 
   const thiz = Base(mod, win, order, {
   });
-  const mx = thiz.mx;
+
+  // mod.setAnimSound(se);
   return thiz;
 }
 
@@ -205,16 +246,21 @@ function Base(mod, win, order, ext) {
     rotateY,
     getAngle,
     setAnim,
+    frontPoint,
+    lookAt,
   };
 
   order.addMod(thiz);
+  const ch_free = ext.free;
   const Tran = Game.Transformation(thiz);
   const model_trans = Tran.objTr;
   const swap = new Array(3);
+  const zero = [0,0,0];
   let angle = 0;
 
   thiz.ms = model_trans;
   thiz.swap = swap; // 使用的元素必须完全清空
+  delete ext.free;
 
   return Object.assign(Tran, thiz, ext);
 
@@ -226,6 +272,15 @@ function Base(mod, win, order, ext) {
   //
   function setAnim(a, b) {
     mod.setAnim(a, 0, 0);
+  }
+
+
+  // neck: x,y,z, spx,spz, op
+  function lookAt(neck) {
+    // let to = mat4.create();
+    // mat4.targetTo(to, Tran.where(), [neck.x, neck.y, neck.z], [0,-1,0]);
+    // mat4.multiply(this.objTr, this.objTr, to);
+    console.log("Look AT", neck, '-========================================');
   }
 
 
@@ -255,6 +310,7 @@ function Base(mod, win, order, ext) {
     order.rmMod(thiz);
     mod.free();
     mod = null;
+    ch_free && ch_free();
   }
 
   
@@ -266,12 +322,27 @@ function Base(mod, win, order, ext) {
   }
 
 
+  //
+  // 返回角色前方检测点, 返回的对象立即使用, 之后该对象将被复用.
+  //
+  function frontPoint() {
+    const w = Tran.where();
+    // 向前方探出触角的长度(游戏单位)
+    swap[0] = 800;
+    swap[1] = 0;
+    vec2.rotate(swap, swap, zero, -angle);
+    swap[0] = swap[0] + w[0];
+    swap[2] = swap[1] + w[2];
+    return swap;
+  }
+
+
   // d 是游戏角度参数 (0-4096)
   function setDirection(d) {
-    let r = d/0x0FFF * Math.PI * 2;
+    angle = d/0x0FFF * Math.PI * 2;
     // mat4.rotateY(model_trans, model_trans, r);
-    let s = Math.sin(r);
-    let c = Math.cos(r);
+    let s = Math.sin(angle);
+    let c = Math.cos(angle);
     model_trans[0] = c;
     model_trans[2] = -s;
     model_trans[8] = s;

@@ -19,8 +19,8 @@ export default {
   debug,
   // 格式化2位16进制数字
   b2,
-  // 格式化3/4位10进制数字
-  d3, d4,
+  // 格式化2/3/4位10进制数字
+  d2, d3, d4,
   // 格式化4位16进制数字
   h4,
 };
@@ -40,6 +40,13 @@ function b2(a) {
 function d3(a) {
   if (a < 10) return '00'+ a;
   if (a < 100) return '0'+ a;
+  return ''+ a;
+}
+
+
+// 格式不可动
+function d2(a) {
+  if (a < 10) return '0'+ a;
   return ''+ a;
 }
 
@@ -90,9 +97,9 @@ function debug() {
 // 成功返回位置在 range 的索引, (注意返回 0 索引).
 // 失败返回 false.
 //
-function inRanges(range, who) {
-  const w = who.where();
-  const x = w[0], y = w[2];
+function inRanges(range, x, y) {
+  // const w = who.where();
+  // const x = w[0], y = w[2];
   let r, a, b, c, d;
 
   for (let i=range.length-1; i>=0; --i) {
@@ -112,9 +119,9 @@ function inRanges(range, who) {
 }
 
 
-function inRange(r, who) {
-  const w = who.where();
-  const x = w[0], y = w[2];
+function inRange(r, x, y) {
+  // const w = who.where();
+  // const x = w[0], y = w[2];
   let a, b, c, d;
 
   a = (r.x2 - r.x1)*(y - r.y1) - (r.y2 - r.y1)*(x - r.x1);

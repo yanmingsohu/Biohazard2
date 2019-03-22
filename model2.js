@@ -287,7 +287,7 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
   const skdata     = { angle: [] };
   const PI2        = 2 * Math.PI;
   const angle_fn   = degrees; // radian & degrees
-  const OFF_MASK   = 2048; // TODO: 搞清楚偏移的意义
+  const OFF_MASK   = 2000; // TODO: 搞清楚偏移的意义
   let curr_sk_idx  = -1;
 
   if (angle_size <= 0) {

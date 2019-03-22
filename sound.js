@@ -8,6 +8,7 @@ const SOUND = 'COMMON/Sound/'
 const BGM   = SOUND +'BGM/';
 // fs 是地板声音, room 是机关/水/电梯等房间中的音效
 const ROOM  = SOUND +'room/';
+const FLOOR = ROOM;
 // 开枪的声音
 const ARMS  = SOUND +'arms/';
 // 开门的声音, 开门是上楼梯等
@@ -30,6 +31,8 @@ export default {
   getBgm,
   playSE,
   playVoice,
+  floorSE,
+  enemySE,
 };
 
 
@@ -42,6 +45,58 @@ function vab(buf, rate, ch) {
   wav.play();
   wav.loop(true);
   return wav;
+}
+
+
+//
+// 允许内部 wav 对象被释放而不会崩溃.
+//
+class AnimSound {
+  constructor(fname) {
+    this.state = 0;
+    try {
+      const file = File.open(fname);
+      this.wav = sap(file.buf, false, false);
+      this.state = 1;
+    } catch(e) {
+      console.error("cannot init wav", fname);
+      this.state = -1;
+    }
+  }
+
+  free() {
+    if (this.state == -1) return;
+    this.state = -1;
+    this.wav.free();
+    this.wav = null;
+  }
+
+  // flag: 0x8 左脚? 0xC 右脚?
+  play(flag) {
+    if (this.state == 1) {
+      let cp = this.wav.clone();
+      cp.play();
+    }
+  }
+}
+
+
+function enemySE(sound_bank) {
+  const fname = ENEMY +'enemy'+ Tool.d2(sound_bank) +'.sap';
+  return new AnimSound(fname);
+}
+
+
+//
+// se_no: 23(0001-0111)3, 26(0001-1010)1, 29(0001-1101)2, 
+//
+function floorSE(floor) {
+  const se_no = (floor.se_no & 0x6) >> 1;
+  const fname = FLOOR +'fs'+ Tool.d2(se_no) +'.sap';
+  const thiz = new AnimSound(fname);
+  thiz.height = floor.height;
+  thiz.range = Tool.xywd2range(floor);
+  return thiz;
 }
 
 
@@ -131,7 +186,7 @@ function sap(arraybuf, play, loop) {
 
 function init(win) {
   core = new Sound.Core();
-  // test(ROOM, win, false);
+  // test(ROOM, win, true);
 }
 
 
@@ -159,6 +214,10 @@ function test(dir, win, loop) {
   it.pressOnce(gl.GLFW_KEY_I, function() {
     if (--i < 0) i = arr.length -1; 
     play();
+  });
+
+  it.pressOnce(gl.GLFW_KEY_O, function() {
+    wav && wav.pause();
   });
 
   console.log("press U/I switch music");
