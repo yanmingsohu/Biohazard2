@@ -30,6 +30,7 @@ export default {
   setLights,
   // 返回蒙版深度对应的 z 值
   maskDepth,
+  setBoneConvert,
 };
 
 import Draw from '../boot/draw.js'
@@ -57,6 +58,7 @@ let anim_offset;
 let env_light;
 let lights;
 let view_pos;
+let bone_convert;
 let n = NEAR, fov = FOVY, f = FAR;
 
 
@@ -89,12 +91,13 @@ function init(window) {
   
   draw_type   = sp.getUniform('draw_type');
   model       = sp.getUniform('model');
-  bind_bones  = sp.getUniform('bind_bones');
-  bind_len    = sp.getUniform('bind_len');
+  bind_bones  = sp.getUniform('bind_bones', true);
+  bind_len    = sp.getUniform('bind_len', true);
   rgb         = sp.getUniform('rgb');
   anim_offset = sp.getUniform('anim_offset');
   env_light   = sp.getUniform('env_light');
   view_pos    = sp.getUniform('view_pos');
+  bone_convert= sp.getUniform('bone_convert', true);
   lights      = [ new UiLight(sp, 0), 
                   new UiLight(sp, 1), 
                   new UiLight(sp, 2) ];
@@ -191,6 +194,11 @@ function check_init() {
 
 function setModelTrans(mat4) {
   model.setMatrix4fv(1, gl.GL_FALSE, mat4);
+}
+
+
+function setBoneConvert(m4) {
+  bone_convert.setMatrix4fv(1, gl.GL_FALSE, m4);
 }
 
 

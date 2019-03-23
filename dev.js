@@ -123,7 +123,7 @@ function enemyBrowse(Liv, window, Room, camera) {
 
   let mod;
   let anim_idx = 0;
-  // let anim_frame = -1;
+  let anim_frame = 0;
   // let q = 0;
   let one_step = 5;
   let weaponid = 0;
@@ -165,6 +165,13 @@ function enemyBrowse(Liv, window, Room, camera) {
 
   window.input().pressOnce(gl.GLFW_KEY_I, function() {
     switchMod(-1);
+  });
+
+  window.input().pressOnce(gl.GLFW_KEY_4, function() {
+    if (++anim_frame > mod.getPoseFrameLength()) 
+      anim_frame = 0;
+    mod.setAnim(anim_idx, anim_frame);
+    console.log("Frame", anim_frame);
   });
 
   window.input().pressOnce(gl.GLFW_KEY_Q, function() {

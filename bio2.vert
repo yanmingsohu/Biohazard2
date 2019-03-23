@@ -24,6 +24,7 @@ uniform mat4 bone_rotate;
 uniform vec4 anim_offset;
 uniform Light lights[3];
 uniform vec4 view_pos;
+uniform mat4 bone_convert;
 
 out vec2 oTexCoord;
 out vec4 oColor;
@@ -92,14 +93,14 @@ void compute_light(int i, vec4 modPos) {
 
 
 void draw_living() {
-  vec4 mpos = bone_rotate * vec4(pos, 1);
+  vec4 mpos = bone_rotate * bone_convert * vec4(pos, 1);
 
-  for (int i = bind_len*2-1; i >= 0; i -= 2) {
-    vec4 off = bind_bones[i-1];
-    vec4 rot = bind_bones[i];
-    mpos = rotate_vertex_position(mpos, rot);
-    mpos += off;
-  }
+  // for (int i = bind_len*2-1; i >= 0; i -= 2) {
+  //   vec4 off = bind_bones[i-1];
+  //   vec4 rot = bind_bones[i];
+  //   mpos = rotate_vertex_position(mpos, rot);
+  //   mpos += off;
+  // }
 
   vec4 modPos = model * (mpos + anim_offset);
   gl_Position = projection * camera * modPos;

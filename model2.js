@@ -2,15 +2,16 @@ import File   from './file.js'
 import Shader from './shader.js'
 import Tim    from './tim.js'
 import Tool   from './tool.js'
-// import H    from '../boot/hex.js'
-// import node from '../boot/node.js'
+import node   from '../boot/node.js'
 
-// const matrix = node.load('boot/gl-matrix.js');
-// const {vec3, mat4} = matrix;
-
+const matrix = node.load('boot/gl-matrix.js');
+const {vec3, mat4} = matrix;
 const {b2, h4} = Tool;
-const VERTEX_LEN = 2 * 4; 
-const NORMAL_LEN = VERTEX_LEN;
+
+const PI2         = 2 * Math.PI;
+const MAX_ANGLE   = 0x1000;
+const VERTEX_LEN  = 2 * 4; 
+const NORMAL_LEN  = VERTEX_LEN;
 const TRI_IDX_LEN = 2 * 6;
 const TRI_TEX_LEN = (1+1+2) * 3;
 const QUA_IDX_LEN = 2 * 8;
@@ -66,7 +67,8 @@ class MD {
   }
 
   transformRoot(alf, sprites, count) {
-    this.bone[0].transform2(this.bind_bone, alf, sprites, count);
+    // this.bone[0].transform2(this.bind_bone, alf, sprites, count);
+    this.bone[0].transform1(alf, sprites);
   }
 
   // 从 beginIdx 开始覆盖, 默认在后面追加新动作
@@ -243,6 +245,30 @@ class SkeletonBone {
       this.child[i].transform2(bind_bone, alf, sprites, count);
     }
   }
+
+  //
+  // 把骨骼变换矩阵传送到着色器(测试)
+  //
+  transform1(alf, sprites, parent_convert) {
+    let modmat = mat4.create();
+    let qu = alf.index(this.idx);
+    let tr = [this.dat.x, this.dat.y, this.dat.z];
+    mat4.fromRotationTranslation(modmat, qu, tr);
+
+    if (parent_convert) {
+      mat4.multiply(modmat, parent_convert, modmat);
+    }
+
+    Shader.setBoneConvert(modmat);
+    sprites[this.idx].draw();
+    if (this._combination) {
+      this._combination.draw();
+    }
+
+    for (let i=0, len=this.child.length; i<len; ++i) {
+      this.child[i].transform1(alf, sprites, modmat);
+    }
+  }
 };
 
 
@@ -328,10 +354,8 @@ function __bone_bind(md, count, xyoff, ref_offset, buf) {
 function create_anim_frame_data(buf, anim_offset, data_size) {
   const xy_size    = 2*6;
   const angle_size = data_size - xy_size;
-  const MAX_ANGLE  = 0x1000;
   const RLEN       = parseInt(angle_size/9*2);
   const skdata     = { angle: [] };
-  const PI2        = 2 * Math.PI;
   const angle_fn   = degrees; // radian & degrees
   const OFF_MASK   = 2000; // TODO: 搞清楚偏移的意义
   let curr_sk_idx  = -1;
@@ -403,16 +427,17 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
       // debug(r.x, r.y, r.z);
     }
   }
+}
 
-  // 返回弧度
-  function radian(n) {
-    return (n/MAX_ANGLE) * PI2;
-  }
 
-  // 返回角度
-  function degrees(n) {
-    return (n/MAX_ANGLE) * 360;
-  }
+// 返回弧度
+function radian(n) {
+  return (n/MAX_ANGLE) * PI2;
+}
+
+// 返回角度
+function degrees(n) {
+  return (n/MAX_ANGLE) * 360;
 }
 
 

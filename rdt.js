@@ -614,7 +614,7 @@ function readOffset(filebuf) {
   off.cam_pos       = Offset.getUint32(7*4, true);
   off.cam_sw        = Offset.getUint32(8*4, true);
   off.lights        = Offset.getUint32(9*4, true);
-  off.tim           = Offset.getUint32(10*4, true);
+  off.tim           = Offset.getUint32(10*4, true); // 房间3d模型, 最多17个
   off.offset11      = Offset.getUint32(11*4, true); // Floor?
   off.offset12      = Offset.getUint32(12*4, true); // Block?
   off.lang1         = Offset.getUint32(13*4, true);
@@ -625,7 +625,7 @@ function readOffset(filebuf) {
   off.sprites_anim  = Offset.getUint32(18*4, true);
   off.offset19      = Offset.getUint32(19*4, true); // sprites_anim offset
   off.list_tim      = Offset.getUint32(20*4, true);
-  off.another_tim   = Offset.getUint32(21*4, true);
+  off.another_tim   = Offset.getUint32(21*4, true); // 房间3d模型纹理tim
   off.offset22      = Offset.getUint32(22*4, true); // Player Animation?
 
   debug(J(off, 0, 2));

@@ -77,6 +77,7 @@ class AngleLinearFrame {
     this.y = a[1];
     this.z = a[2];
     this.w = a[3];
+    return a;
 
     // 欧拉角(测试用)
     // this.x = this.curr[boneIdx].x * Math.PI / 180;
