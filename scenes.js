@@ -4,16 +4,19 @@ import Node   from '../boot/node.js'
 import Rdt    from './rdt.js'
 import Liv    from './living.js'
 import Ai     from './ai.js'
-import Tool   from './tool.js'
+import Tool,  {DrawArray} from './tool.js'
 import Tbl    from './init-tbl.js'
 import Sound  from './sound.js';
+
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4} = matrix;
+
 
 export default {
   init,
   start_game,
 };
+
 
 let window, camera, draw_order;
 const LEON = 0;
@@ -65,8 +68,9 @@ let map_data;
 let stage = 1;
 let room_nm = 0;
 let camera_nm = -1;
-let player = LEON;
+let play_mode = LEON;
 let ab = DISK_A;
+// 玩家对象
 let p1;
 
 
@@ -194,7 +198,7 @@ function free_map() {
 
 function load_map() {
   free_map();
-  map_data = Rdt.from(stage, room_nm, player);
+  map_data = Rdt.from(stage, room_nm, play_mode);
 
   for (let i=0; i<map_data.collision.length; ++i) {
     let c = map_data.collision[i];
@@ -234,7 +238,7 @@ function load_bgm() {
   const STOP_FLAG = 0x40;
   const UK_FLAG = 0xC0;
 
-  let cfg = Tbl.get(stage, room_nm, player, ab);
+  let cfg = Tbl.get(stage, room_nm, play_mode, ab);
   let m   = cfg.main != 0xFF ? cfg.main : -1;
   let s   = cfg.sub  != 0xFF ? cfg.sub  : -1;
   let mid, sid;
@@ -313,18 +317,19 @@ function begin_level() {
   // 难度
   set_bitarr(0, 0x19, EASY);
   // 角色类型
-  set_bitarr(1, 0x00, player);
+  set_bitarr(1, 0x00, play_mode);
   // 二周目 0:A, 1:B
   set_bitarr(1, 0x01, ab);
   // 游戏模式 0:Leon/Claire, 1:Hunk/Tofu, or vice versa
   set_bitarr(1, 0x06, 0);
 
-  // TODO: 加载玩家角色模型, pld 没有 emd 动作多?
-  let mod = Liv.fromEmd(player, 0x50);
-  // let mod = Liv.fromPld(player);
-  p1 = Ai.player(mod, window, draw_order, gameState, camera);
+  // TODO: 加载玩家角色模型, pld 的部分动作来自 plw.
+  let liv = Liv.fromEmd(play_mode, 0x50);
+  // let liv = Liv.fromPld(play_mode);
+  p1 = Ai.player(liv, window, draw_order, gameState, camera);
+  set_weapon(liv, 7);
 
-  init_pos(7);
+  init_pos(0);
 
   while (window.notClosed()) {
     p1.able_to_control(false);
@@ -388,7 +393,7 @@ function addEnemy(zb) {
   if (get_bitarr(6, zb.killed_id))
     return;
 
-  let mod = Liv.fromEmd(player, zb.model);
+  let mod = Liv.fromEmd(play_mode, zb.model);
   let se = Sound.enemySE(zb.sound_bank);
   let ai = Ai.zombie(mod, window, draw_order, gameState, se, zb);
   scenes_garbage.push(ai, se);
@@ -696,7 +701,7 @@ function play_se(id) {
 
 
 function play_voice(id, rl) {
-  let v = Sound.playVoice(player, stage, id);
+  let v = Sound.playVoice(play_mode, stage, id);
   if (v) {
     scenes_garbage.push(v);
   }
@@ -704,4 +709,14 @@ function play_voice(id, rl) {
 
 
 function show_message(d0, d1, d2) {
+}
+
+
+function set_weapon(target, weaponid) {
+  const weapon = Liv.fromPlw(play_mode, weaponid);
+  const comp = new DrawArray();
+  Liv.createSprites(weapon.mesh, weapon.tex, comp.array);
+  const md = target.getMD();
+  md.setPoseFromMD(weapon, 10/* 覆盖动画 */);
+  md.combinationDraw(11/* 右手 */, comp);
 }

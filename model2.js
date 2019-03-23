@@ -1,13 +1,14 @@
-import File from './file.js'
-import H    from '../boot/hex.js'
-import node from '../boot/node.js'
+import File   from './file.js'
 import Shader from './shader.js'
-import Tim  from './tim.js'
-import Tool from './tool.js'
+import Tim    from './tim.js'
+import Tool   from './tool.js'
+// import H    from '../boot/hex.js'
+// import node from '../boot/node.js'
 
-const matrix = node.load('boot/gl-matrix.js');
-const {vec3, mat4} = matrix;
+// const matrix = node.load('boot/gl-matrix.js');
+// const {vec3, mat4} = matrix;
 
+const {b2, h4} = Tool;
 const VERTEX_LEN = 2 * 4; 
 const NORMAL_LEN = VERTEX_LEN;
 const TRI_IDX_LEN = 2 * 6;
@@ -18,6 +19,8 @@ const QUA_TEX_LEN = (1+1+2) * 4;
 export default {
   emd,
   pld,
+  plw,
+  fromPlw,
 };
 
 
@@ -27,8 +30,8 @@ class MD {
     this.pose = [];
     // 骨骼绑定状态
     this.bone = [];
-    // 用于传输数据到着色器
-    this.bind_bone = new Float32Array(20*8);
+    // 用于传输数据到着色器, 最多 20 块骨头层级, 每个骨头 4个偏移4个旋转
+    this.bind_bone = new Float32Array(20 * 8);
   }
 
   //
@@ -65,6 +68,19 @@ class MD {
   transformRoot(alf, sprites, count) {
     this.bone[0].transform2(this.bind_bone, alf, sprites, count);
   }
+
+  // 从 beginIdx 开始覆盖, 默认在后面追加新动作
+  setPoseFromMD(md, beginIdx = -1) {
+    if (beginIdx < 0) beginIdx = this.pose.length;
+    for (let i = 0; i<md.pose.length; ++i) {
+      this.pose[beginIdx] = md.pose[i];
+      ++beginIdx;
+    }
+  }
+
+  combinationDraw(boneIdx, drawable) {
+    this.bone[boneIdx].combination = drawable;
+  }
 }
 
 
@@ -81,7 +97,7 @@ function _open(file) {
       throw new Error("Dir Exceeded the maximum", h_dir_count);
     }
     let r = buf.ulong(h_dir_offset + (typeIdx << 2));
-    // debug("] OFFSET", Tool.h4(r), 'AT', Tool.h4(h_dir_offset + (typeIdx << 2)));
+    // debug("] OFFSET", h4(r), 'AT', h4(h_dir_offset + (typeIdx << 2)));
     return r;
   }
 }
@@ -106,6 +122,22 @@ function emd(file) {
 }
 
 
+// 武器音频 1-19, 武器模型代码 0-18
+// 0?, 1刀, 2手枪, 3?, 4自动手枪, 5麦林, 6?, 7霰弹, 8榴弹
+// 9?, 10?, 11?, 12?, 13冲锋, 14?, 15冲锋100%, 16喷火
+// 17火箭, 18转轮
+function fromPlw(playId, weaponId, _modid = 0) {
+  let file = 'PL'+ playId +'/PLD/PL'+ b2(_modid) +'W'+ b2(weaponId) +".PLW";
+  console.debug("Load PLW", file);
+  return plw(file);
+}
+
+
+function plw(file) {
+  return pld(file);
+}
+
+
 function pld(file) {
   const buf = _open(file);
   const md = new MD();
@@ -126,7 +158,7 @@ function animation(buf, am_off) {
   // const count = buf.ushort(am_off);
   const aoff  = buf.ushort(am_off+2);
   const total = aoff >> 2;
-  debug("Anim", total, Tool.h4(am_off));
+  debug("Anim", total, h4(am_off));
   if (total <= 0) {
     debug(" > No Anim");
     return;
@@ -139,7 +171,7 @@ function animation(buf, am_off) {
     let offset = buf.ushort();
     let group = am_idx[i] = [];
     buf.setpos(am_off + offset);
-    debug(' >', i, ec, Tool.h4(am_off + offset));
+    debug(' >', i, ec, h4(am_off + offset));
 
     for (let j=0; j<ec; ++j) {
       let t = buf.ulong();
@@ -162,6 +194,19 @@ class SkeletonBone {
     this.idx = i;
     this.child = [];
     this._pos = [];
+    // 骨头可以组合一个绘制对象
+    this._combination = null;
+  }
+
+
+  // 
+  // 自动释放之前关联的对象
+  //
+  set combination(c) {
+    if (this._combination) {
+      this._combination.free();
+    }
+    this._combination = c;
   }
 
 
@@ -175,10 +220,10 @@ class SkeletonBone {
   //
   transform2(bind_bone, alf, sprites, count) {
     // 骨骼索引和3d面组索引对应
-    const idx = this.idx;
-    alf.index(idx);
+    // TODO: 这个索引的错误导致动画怪异?
+    alf.index(this.idx);
     
-    let boffset = count << 3;
+    const boffset = count << 3;
     bind_bone[0 +boffset] = this.dat.x;
     bind_bone[1 +boffset] = this.dat.y;
     bind_bone[2 +boffset] = this.dat.z;
@@ -188,11 +233,12 @@ class SkeletonBone {
     bind_bone[6 +boffset] = alf.z;
     bind_bone[7 +boffset] = alf.w;
 
-    // bind_bone.fill(0);
-    Shader.bindBoneOffset(bind_bone, count);
-    sprites[idx].draw();
+    Shader.bindBoneOffset(bind_bone, ++count);
+    sprites[this.idx].draw();
+    if (this._combination) {
+      this._combination.draw();
+    }
 
-    count++;
     for (let i=0, len=this.child.length; i<len; ++i) {
       this.child[i].transform2(bind_bone, alf, sprites, count);
     }
@@ -201,7 +247,7 @@ class SkeletonBone {
 
 
 function skeleton(md, am_idx, buf, sk_offset) {
-  debug("SK", Tool.h4(sk_offset));
+  debug("SK", h4(sk_offset));
   // buf.print(sk_offset, 500);
   const ref_val     = buf.ushort(sk_offset);
   const anim_val    = buf.ushort();
@@ -295,7 +341,7 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     return;
   }
 
-  debug(" * Anim angle count", RLEN);
+  debug(" * Anim angle", RLEN);
   skdata.angle = new Array(RLEN);
   for (let i=0; i<RLEN; ++i) {
     skdata.angle[i] = {x:0, y:0, z:0};
@@ -308,7 +354,7 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     // debug(" * Frame sk", sk_index);
     // 没有改变骨骼索引直接返回最后的数据
     if (curr_sk_idx === sk_index) return skdata;
-    // 整体位置偏移量, 一个半字节有效
+    // 整体位置偏移量
     let xy_off = anim_offset + data_size * sk_index;
     skdata.x = buf.short(xy_off);
     skdata.y = buf.short() + OFF_MASK;
@@ -324,36 +370,37 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     return skdata;
   }
 
+  // XX, YX, YY, ZZ, AZ, AA, BB, CB, CC
+  // 00  10, 11, 22, 32, 33, 44, 54, 55
+  // a0, a1, a2, a3, a4, a1, a2, a3, a4
   function compute_angle() {
-    let i = -1;
+    let i = -1, r, a0, a1, a2, a3, a4;
     while (++i < RLEN) {
-      let r = skdata.angle[i];
-      let a0 = buf.byte();
-      let a1 = buf.byte();
-      let a2 = buf.byte();
-      let a3 = buf.byte();
-      let a4 = buf.byte();
-      // debug('joint', i, a0, a1, a2, a3, a4);
-      r.x = angle_fn(a0 + ((a1 & 0xF) << 8));
-      r.y = angle_fn((a1 >> 4) + (a2 << 4));
-      r.z = angle_fn(a3 + ((a4 & 0xF) << 8));
+      r = skdata.angle[i];
+      a0 = buf.byte();
+      a1 = buf.byte();
+      a2 = buf.byte();
+      a3 = buf.byte();
+      a4 = buf.byte();
+      // debug('joint', i, b2(a0), b2(a1), b2(a2), b2(a3), b2(a4));
+      r.x = angle_fn(a0 | ((a1 & 0xF) << 8));
+      r.y = angle_fn((a1 >> 4) | (a2 << 4));
+      r.z = angle_fn(a3 | ((a4 & 0xF) << 8));
       // debug(r.x, r.y, r.z);
 
-      if (++i < RLEN) {
-        r = skdata.angle[i];
-        a0 = a4;
-        a1 = buf.byte();
-        a2 = buf.byte();
-        a3 = buf.byte();
-        a4 = buf.byte();
-        // debug('joint', i, a0, a1, a2, a3, a4);
-        r.x = angle_fn((a0 >> 4) + (a1 << 4));
-        r.y = angle_fn(a2 + ((a3 & 0xF) << 8));
-        r.z = angle_fn((a3 >> 4) + (a4 << 4));
-        // debug(r.x, r.y, r.z);
-      } else {
-        return;
-      }
+      if (++i >= RLEN) break;
+
+      r = skdata.angle[i];
+      a0 = a4;
+      a1 = buf.byte();
+      a2 = buf.byte();
+      a3 = buf.byte();
+      a4 = buf.byte();
+      // debug('joint', i, b2(a0), b2(a1), b2(a2), b2(a3), b2(a4));
+      r.x = angle_fn((a0 >> 4) | (a1 << 4));
+      r.y = angle_fn(a2 | ((a3 & 0xF) << 8));
+      r.z = angle_fn((a3 >> 4) | (a4 << 4));
+      // debug(r.x, r.y, r.z);
     }
   }
 
@@ -370,14 +417,14 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
 
 
 function mesh(buf, offset) {
-  const length = buf.ulong(offset);
-  const uk = buf.ulong(offset + 4);
+  const length    = buf.ulong(offset);
+  const uk        = buf.ulong(offset + 4);
   const obj_count = buf.ulong(offset + 8) >> 1;
-  const meshObj = [];
-  const beginAt = buf.getpos();
+  const meshObj   = [];
+  const beginAt   = buf.getpos();
   offset += 3 * 4;
-  debug('MESH', Tool.h4(beginAt), 'count', obj_count, length, uk);
 
+  debug('MESH', h4(beginAt), 'count', obj_count, length, uk);
   let o, c;
 
   // TODO: 艾达的面分配错误
@@ -398,7 +445,7 @@ function mesh(buf, offset) {
 
     o = buf.ulong() + beginAt;
     tri.tex = buildBuffer(Uint8Array, o, c, TRI_TEX_LEN);
-    debug(' % T end', i, tri.vertex.count, Tool.h4(tri.vertex.offset));
+    debug(' % T end', i, tri.vertex.count, h4(tri.vertex.offset));
 
     // 四边形
     let qua = {};
@@ -416,14 +463,14 @@ function mesh(buf, offset) {
 
     o = buf.ulong() + beginAt;
     qua.tex = buildBuffer(Uint8Array, o, c, QUA_TEX_LEN);
-    debug(' % Q end', i, qua.vertex.count, Tool.h4(qua.vertex.offset));
+    debug(' % Q end', i, qua.vertex.count, h4(qua.vertex.offset));
 
     offset += 56;
     meshObj.push({ tri, qua });
   }
 
   function buildBuffer(T, offset, count, stride) {
-    // console.debug(" % BUFFER", count, stride, 'AT:', Tool.h4(offset));
+    // console.debug(" % BUFFER", count, stride, 'AT:', h4(offset));
     return {
       // 缓冲区
       buf : buf.build(T, offset, count * stride),
@@ -440,5 +487,5 @@ function mesh(buf, offset) {
 
 
 function debug() {
-  // Tool.debug.apply(null, arguments);
+  Tool.debug.apply(null, arguments);
 }

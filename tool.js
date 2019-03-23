@@ -435,3 +435,34 @@ export class Rectangle2 {
     }
   }
 }
+
+
+//
+// 允许持有已经被释放的对象
+//
+export class DrawArray {
+  constructor() {
+    this.arr = [];
+  }
+
+  draw(u, t) {
+    if (this.arr) {
+      for (let i=0, l=this.arr.length; i<l; ++i) {
+        this.arr[i].draw(u, t);
+      }
+    }
+  }
+
+  free() {
+    if (this.arr) {
+      for (let i=0, l=this.arr.length; i<l; ++i) {
+        this.arr[i].free();
+      } 
+      this.arr = null;
+    }
+  }
+
+  get array() {
+    return this.arr;
+  }
+}

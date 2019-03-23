@@ -12,6 +12,7 @@ export default {
 import File   from './file.js'
 import Shader from './shader.js'
 import Node   from '../boot/node.js'
+import {DrawArray} from './tool.js'
 const matrix = Node.load('boot/gl-matrix.js');
 
 
@@ -111,19 +112,23 @@ function dataDirBrowse(Room, window) {
 
 
 function enemyBrowse(Liv, window, Room, camera) {
+  camera.setPos(500, -2500, 100);
   let mods = [];
   // 46: 枪店老板
   // 动画不正常: 51:里昂, 94:机械臂, 91:食人花, 70:舔舐者, 71:鳄鱼
   // 模型不正常: 39:艾达, 20:暴君
-  let mindex = 46;
+  let mindex = 51;
   _dir('Pl0/emd0');
   _dir('pl1/emd1');
 
   let mod;
   let anim_idx = 0;
-  let anim_frame = 0;
-  let q = 0;
+  // let anim_frame = -1;
+  // let q = 0;
   let one_step = 5;
+  let weaponid = 0;
+  let player;
+  let curr_weapon;
 
   let tmat = matrix.mat4.create(1);
   matrix.mat4.translate(tmat, tmat, [0, -300, -3500]);
@@ -131,6 +136,8 @@ function enemyBrowse(Liv, window, Room, camera) {
   Shader.setModelTrans(tmat);
   Shader.setEnvLight({r:255, g:255, b:255});
   switchMod(0);
+  mod.setAnim(11, 0);
+  mod.setDir(1);
 
   window.onKey(gl.GLFW_KEY_D, gl.GLFW_PRESS, 0, function() {
     matrix.mat4.rotateY(tmat, tmat, 0.01);
@@ -161,13 +168,19 @@ function enemyBrowse(Liv, window, Room, camera) {
   });
 
   window.input().pressOnce(gl.GLFW_KEY_Q, function() {
-    if (mod) {
-      if (!mod.setAnim(anim_idx++, 0)) {
-        mod.setAnim(0, 0);
-        anim_idx = 0;
-      }
+    if (!mod) return;
+    if (!mod.setAnim(++anim_idx, 0)) {
+      mod.setAnim(0, 0);
+      anim_idx = 0;
     }
     console.log("POSE", anim_idx);
+  });
+
+  window.input().pressOnce(gl.GLFW_KEY_E, function() {
+    if (!mod) return;
+    console.log("weapon", weaponid);
+    switchWeapon(weaponid++);
+    if (weaponid > 18) weaponid = 0;
   });
 
   window.input().pressOnce(gl.GLFW_KEY_1, function() {
@@ -206,13 +219,30 @@ function enemyBrowse(Liv, window, Room, camera) {
     else if (mindex >= mods.length) mindex = 0;
 
     let info = mods[mindex];
-    mod = Liv.loadEmd(info.player, info.id);
-    // mod = Liv.fromPld(info.player);
+    player = info.player;
+
+    mod = Liv.loadEmd(player, info.id);
+    // mod = Liv.fromPld(info.player, x);
+    
     window.add(mod);
     camera.lookAtSprite(mod);
     // 切换模型的同时, 用模型纹理做背景
     // Room.showPic(mod.texfile);
-    console.log("Mod index:", mindex, info.player, info.id);
+    camera.lookAt(tmat[12], tmat[13]-1000, tmat[14]);
+    console.log("Mod index:", mindex, player, info.id);
+  }
+
+
+  function switchWeapon(i) {
+    let weapon = Liv.fromPlw(player, i);
+    let comp = new DrawArray();
+    Liv.createSprites(weapon.mesh, weapon.tex, comp.array);
+    mod.getMD().setPoseFromMD(weapon, 10);
+    mod.getMD().combinationDraw(11/*right hand*/, comp);
+    if (curr_weapon) {
+      curr_weapon.free();
+    }
+    curr_weapon = comp;
   }
 
 

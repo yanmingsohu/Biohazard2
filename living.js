@@ -1,14 +1,3 @@
-//
-// 会动的活物
-//
-export default {
-  // 读取文件
-  loadEmd,
-  // 用游戏内部编号读取模型
-  fromEmd,
-  fromPld,
-};
-
 import Mod2   from './model2.js'
 import Draw   from '../boot/draw.js'
 import Shader from './shader.js'
@@ -22,7 +11,21 @@ import Tool   from './tool.js'
 
 const matrix = node.load('boot/gl-matrix.js');
 const {quat} = matrix;
+const {b2} = Tool;
 let swap_buf = Res.localBuffer();
+
+//
+// 会动的活物
+//
+export default {
+  // 读取文件
+  loadEmd,
+  // 用游戏内部编号读取模型
+  fromEmd,
+  fromPld,
+  fromPlw : Mod2.fromPlw,
+  createSprites,
+};
 
 
 // 处理线性动画
@@ -44,25 +47,21 @@ class AngleLinearFrame {
   }
 
   setCurrent(frame_data) {
-    this._copy(this.curr, frame_data.angle);
+    const a = this.curr, b = frame_data.angle;
+    let c;
+    for (let i=0, len=b.length; i<len; ++i) {
+      c = b[i];
+      if (!a[i]) a[i] = [0,0,0,0];
+      quat.fromEuler(a[i], c.x, c.y, c.z);
+    }
   }
 
   reset() {
-    for (let i=this.prev.length; i>=0; --i) {
+    for (let i=this.prev.length-1; i>=0; --i) {
       this.prev[i][0] = 0;
       this.prev[i][1] = 0;
       this.prev[i][2] = 0;
       this.prev[i][3] = 0;
-    }
-  }
-
-  // Copy Ele b TO a
-  _copy(a, b) {
-    for (let i=0, len=b.length; i<len; ++i) {
-      if (!a[i]) a[i] = {};
-      a[i].x = b[i].x;
-      a[i].y = b[i].y;
-      a[i].z = b[i].z;
     }
   }
 
@@ -72,10 +71,7 @@ class AngleLinearFrame {
     if (!a) {
       a = this.prev[boneIdx] = [0,0,0,0];
     }
-    let b = this.qb;
-    let c = this.curr[boneIdx];
-    quat.fromEuler(b, c.x, c.y, c.z);
-    quat.slerp(a, a, b, this.time);
+    quat.slerp(a, a, this.curr[boneIdx], this.time);
     
     this.x = a[0];
     this.y = a[1];
@@ -99,9 +95,13 @@ function fromEmd(playId, emdId) {
 }
 
 
-//TODO: 与武器绑定
-function fromPld(playId) {
-  let file = 'PL'+ playId +'/PLD/PL00.PLD'; // PL00CH.PLD PL00.PLD
+// _modid: 0里昂, 1克莱尔, 2里昂(武器袋), 3克莱尔(武器袋)
+// 4里昂受伤, 5克莱尔(无外套), 6里昂受伤(武器袋), 7克莱尔无外套(武器袋)
+// 8里昂(无外套), 9克莱尔暴走族, 10里昂暴走族, 11克里斯, 12幸存者
+// 13豆腐, 14艾达, 15雪莉,  'CH'后缀是测试模型
+function fromPld(playId, _modid = 0) {
+  // PL00CH.PLD PL00.PLD
+  let file = 'PL'+ playId +'/PLD/PL'+ b2(_modid) +'.PLD'; 
   let mod = Mod2.pld(file);
   console.debug("Load PLD", file);
   return Living(mod, mod.tex);
@@ -133,9 +133,8 @@ function Living(mod, tex) {
   const alf           = new AngleLinearFrame();
   const liner_pos     = {x:0, y:0, z:0};
   const liner_pos_tr  = Game.Pos3Transition(liner_pos, 0);
-  let   DEF_SPEED     = 30;
+  let   DEF_SPEED     = 45;
 
-  let comp_len = 0;
   // 动画索引
   let anim_idx = 0;
   // 动画帧数
@@ -149,7 +148,7 @@ function Living(mod, tex) {
   let animCallBack;
   let animSound;
 
-  init();
+  createSprites(mod.mesh, tex, components);
   setAnim(0, 0);
   _nextFrame(0);
 
@@ -166,7 +165,13 @@ function Living(mod, tex) {
     setAnimSound,
     // 返回当前动作的总帧数
     getPoseFrameLength,
+    getMD,
   };
+
+
+  function getMD() {
+    return mod;
+  }
 
 
   function setAnimSound(s) {
@@ -294,36 +299,30 @@ function Living(mod, tex) {
     if (a >= speed) {
       a = 0;
       if (!_nextFrame(anim_frame + anim_dir)) return;
-      speed = DEF_SPEED/* - frame_data.spx/200000*/;
+      speed = DEF_SPEED/* - frame_data.spx/2000*/;
       liner_pos_tr.speed(speed);
     }
   }
 
 
   function free() {
-    for (let i=0; i<comp_len; ++i) {
+    for (let i=0; i<components.length; ++i) {
       components[i].free();
     }
     components.length = 0;
   }
+}
 
 
-  function _add(t, q, i) {
+function createSprites(_mesh, _tex, _appendto) {
+  for (let i=0; i<_mesh.length; ++i) {
+    let t = mergeTriVertexBuffer(_mesh[i].tri, _tex);
+    let q = mergeQuaVertexBuffer(_mesh[i].qua, _tex);
     let sp = Game.createSprite(t, null, 'bone_rotate');
     sp.add(q);
-    components[i] = sp;
+    _appendto.push(sp);
   }
-
-
-  function init() {
-    for (let i=0; i<mod.mesh.length; ++i) {
-      let t = mergeTriVertexBuffer(mod.mesh[i].tri, tex);
-      let q = mergeQuaVertexBuffer(mod.mesh[i].qua, tex);
-      _add(t, q, comp_len);
-      ++comp_len;
-    }
-    console.debug("MODEL has", comp_len, "components");
-  }
+  console.debug("MODEL has", _appendto.length, "components");
 }
 
 
