@@ -7,6 +7,7 @@ import { Point2, Triangle2 } from './tool.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec2, mat4} = matrix;
 const PI_360 = Math.PI * 2;
+const ANTENNA_LEN = 800;
 
 // 按键绑定
 const defaultKeyBind = {
@@ -57,6 +58,8 @@ function player(mod, win, order, gameState, camera) {
   let gleft, gright;
   let currpose;
   let current_floor = Sound.floorSE(0);
+  // 举枪
+  let gun, rot = ROT;
 
   mod.setSpeed(WALK_SPEED);
   bind_ctrl(input, defaultKeyBind);
@@ -90,7 +93,10 @@ function player(mod, win, order, gameState, camera) {
 
   function draw(u) {
     let stand;
-    if (forward) {
+    if (gun) {
+      changePose(21);
+    }
+    else if (forward) {
       one_step = WALK;
       if (run) {
         changeDir(1);
@@ -100,7 +106,8 @@ function player(mod, win, order, gameState, camera) {
         changePose(0);
       }
       move();
-    } else if (goback) {
+    } 
+    else if (goback) {
       changeDir(1);
       one_step = -WALK;
       changePose(0);
@@ -110,10 +117,10 @@ function player(mod, win, order, gameState, camera) {
     }
     
     if (gleft) {
-      thiz.rotateY(-ROT);
+      thiz.rotateY(-rot);
       stand && changePose(0);
     } else if (gright) {
-      thiz.rotateY(ROT);
+      thiz.rotateY(rot);
       stand && changePose(0);
     } else if (stand) {
       changePose(12);
@@ -122,7 +129,8 @@ function player(mod, win, order, gameState, camera) {
 
 
   function move() {
-    thiz.translate(thiz.wrap0(one_step + run, 0, 0));
+    let step = (one_step + run) + ((thiz.move_speed[2]+0.1)/25);
+    thiz.translate(thiz.wrap0(step, 0, 0));
     // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.
     const w = thiz.where();
     const p = new Point2(w[0], w[2]);
@@ -187,9 +195,9 @@ function player(mod, win, order, gameState, camera) {
     }
 
     // 可视化检测点
-    // let r = Tool.xywd2range({x, y, w:100, d:100});
-    // let color = new Float32Array([0.5, 0.5, 1]);
-    // Tool.showRange(r, win, color, -110);
+    let r = Tool.xywd2range({x, y, w:100, d:100});
+    let color = new Float32Array([0.5, 0.5, 1]);
+    gameState.garbage(Tool.showRange(r, win, color, -110));
   }
 
 
@@ -216,6 +224,8 @@ function player(mod, win, order, gameState, camera) {
     i.pressOnce(bind.up,    ()=>{ forward = 1   }, ()=>{ forward = 0 });
     i.pressOnce(bind.down,  ()=>{ goback = 1    }, ()=>{ goback = 0; });
     i.pressOnce(bind.run,   ()=>{ run = RUN_SP; }, ()=>{ run = 0;    });
+    i.pressOnce(bind.gun,   ()=>{ gun = 0.5, rot=ROT*0.5 }, 
+                            ()=>{ gun = 0; rot = ROT });
     i.pressOnce(bind.act, check_front);
   }
 }
@@ -256,22 +266,32 @@ function Base(mod, win, order, ext) {
   const model_trans = Tran.objTr;
   const swap = new Array(3);
   const zero = [0,0,0];
+  const move_speed = mod.getMoveSpeed();
   let angle = 0;
 
   thiz.ms = model_trans;
   thiz.swap = swap; // 使用的元素必须完全清空
+  thiz.move_speed = move_speed;
   delete ext.free;
 
   return Object.assign(Tran, thiz, ext);
 
 
   //
-  // 动作说明, 0,1:步行, 2:后退, 3:倒下, 4,6:被攻击后倾, 5:被攻击前倾
-  // 7:蹲下, 8,9:不明, 10:步行, 11:跑动, 12:原地站立, 13:受伤步行
-  // 14: 受伤跑步, 15:原地站立叉腰?, 16-26:举枪/射击, 26:重装子弹
+  // 动作说明, 0:步行, 1:恐惧后退, 2:死亡倒下, 3:从正面被攻击, 4:从背面被攻击
+  // 5:?, 6:蹲下/站起, 7:准备推动, 8:向前推动, 9:轻伤前进
+  // 10:步行, 11:跑步, 12:站立, 13:轻伤步行, 14: 轻伤跑步, 15:轻伤站立
+  // 16:重伤步行, 17:重伤跑步, 18:重伤站立, 
+  // 19:向前方举枪, 20:向前方开枪, 21:向前方瞄准(不动)
+  // 22:向上方开枪, 23:向上方瞄准(不动), 24:向下方开枪, 25:向下方瞄准(不动)
+  // 26:重装子弹
   //
-  function setAnim(a, b) {
-    mod.setAnim(a, 0, 0);
+  function setAnim(a, b, flag) {
+    if (flag) {
+      mod.setAnim(a, 0, 0);
+    } else {
+      console.log('anim===========================from map data')
+    }
   }
 
 
@@ -328,7 +348,7 @@ function Base(mod, win, order, ext) {
   function frontPoint() {
     const w = Tran.where();
     // 向前方探出触角的长度(游戏单位)
-    swap[0] = 800;
+    swap[0] = ANTENNA_LEN;
     swap[1] = 0;
     vec2.rotate(swap, swap, zero, -angle);
     swap[0] = swap[0] + w[0];

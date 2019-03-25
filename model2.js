@@ -68,7 +68,12 @@ class MD {
 
   transformRoot(alf, sprites, count) {
     // this.bone[0].transform2(this.bind_bone, alf, sprites, count);
-    this.bone[0].transform1(alf, sprites);
+    const rootBone = this.bone[0];
+    // const zeropos = rootBone._pos;
+    const m4 = mat4.create();
+    // mat4.fromTranslation(m4, zeropos);
+    // mat4.invert(m4, m4);
+    rootBone.transform1(alf, sprites, null, m4);
   }
 
   // 从 beginIdx 开始覆盖, 默认在后面追加新动作
@@ -195,7 +200,7 @@ class SkeletonBone {
     this.parent = null;
     this.idx = i;
     this.child = [];
-    this._pos = [];
+    this._pos = [dat.x, dat.y, dat.z];
     // 骨头可以组合一个绘制对象
     this._combination = null;
   }
@@ -246,14 +251,14 @@ class SkeletonBone {
     }
   }
 
+
   //
   // 把骨骼变换矩阵传送到着色器(测试)
   //
   transform1(alf, sprites, parent_convert) {
     let modmat = mat4.create();
     let qu = alf.index(this.idx);
-    let tr = [this.dat.x, this.dat.y, this.dat.z];
-    mat4.fromRotationTranslation(modmat, qu, tr);
+    mat4.fromRotationTranslation(modmat, qu, this._pos);
 
     if (parent_convert) {
       mat4.multiply(modmat, parent_convert, modmat);
@@ -269,7 +274,7 @@ class SkeletonBone {
       this.child[i].transform1(alf, sprites, modmat);
     }
   }
-};
+}
 
 
 function skeleton(md, am_idx, buf, sk_offset) {
@@ -356,8 +361,9 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
   const angle_size = data_size - xy_size;
   const RLEN       = parseInt(angle_size/9*2);
   const skdata     = { angle: [] };
-  const angle_fn   = degrees; // radian & degrees
-  const OFF_MASK   = 2000; // TODO: 搞清楚偏移的意义
+  const angle_fn   = radian; // radian & degrees
+  // TODO: 搞清楚偏移的意义 右脚似乎被用作实体的参考位置应该有 flag
+  const OFF_MASK   = 2000; 
   let curr_sk_idx  = -1;
 
   if (angle_size <= 0) {
@@ -365,6 +371,7 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     return;
   }
 
+  debug(' * Anim begin', h4(anim_offset), h4(data_size));
   debug(" * Anim angle", RLEN);
   skdata.angle = new Array(RLEN);
   for (let i=0; i<RLEN; ++i) {
@@ -383,7 +390,8 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     skdata.x = buf.short(xy_off);
     skdata.y = buf.short() + OFF_MASK;
     skdata.z = buf.short();
-    // TODO: 动画速度?
+    // spx 似乎和动画帧绝对时间有关, spy 总是0
+    // spz 是移动偏移, 体现步伐之间的非线性移动
     skdata.spx = buf.short();
     skdata.spy = buf.short();
     skdata.spz = buf.short();
@@ -427,6 +435,32 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
       // debug(r.x, r.y, r.z);
     }
   }
+}
+
+
+//
+// 把三个角度值转换为 bio 4.5个字节数据
+//
+function angle2bytes(buf, x, y, z, c=0) {
+  x = x/360 * MAX_ANGLE;
+  y = y/360 * MAX_ANGLE;
+  z = z/360 * MAX_ANGLE;
+  console.log(x, y, z);
+  if ((c & 1) == 0) {
+    console.log(x>>8)
+    buf[c+0] = x & 0xFF;
+    buf[c+1] = (x >> 8) | ((y & 0x0F) << 4);
+    buf[c+2] = y >> 4;
+    buf[c+3] = z & 0xFF;
+    buf[c+4] |= z >> 8;
+  } else {
+    buf[c+0] |= (x & 0x0F) << 4;
+    buf[c+1] = x >> 4;
+    buf[c+2] = y & 0xFF;
+    buf[c+3] = (y >> 8) | ((z & 0x0F) << 4);
+    buf[c+4] = z >> 4;
+  }
+  return buf;
 }
 
 

@@ -106,6 +106,7 @@ const gameState = {
   play_se,
   play_voice,
   show_message,
+  garbage,
 };
 
 
@@ -205,7 +206,7 @@ function load_map() {
     collisions.push(c);
     // 显示碰撞体
     const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
-    // scenes_garbage.push(Tool.showCollision(c, window, color2));
+    scenes_garbage.push(Tool.showCollision(c, window, color2));
   }
 
   const color = new Float32Array([0.9, 0.1, 0.3]);
@@ -213,7 +214,7 @@ function load_map() {
     let b = map_data.block[i];
     play_range.push(b);
     // 调试 block
-    // scenes_garbage.push(Tool.showRange(b, window, color));
+    scenes_garbage.push(Tool.showRange(b, window, color));
   }
 
   for (let i=map_data.floor.length-1; i>=0; --i) {
@@ -697,6 +698,7 @@ function play_se(id) {
   if (se) {
     scenes_garbage.push(se);
   }
+  return se.length();
 }
 
 
@@ -705,6 +707,7 @@ function play_voice(id, rl) {
   if (v) {
     scenes_garbage.push(v);
   }
+  return v.length();
 }
 
 
@@ -719,4 +722,9 @@ function set_weapon(target, weaponid) {
   const md = target.getMD();
   md.setPoseFromMD(weapon, 10/* 覆盖动画 */);
   md.combinationDraw(11/* 右手 */, comp);
+}
+
+
+function garbage(x) { 
+  scenes_garbage.push(x) 
 }

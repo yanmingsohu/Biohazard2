@@ -48,11 +48,16 @@ class AngleLinearFrame {
 
   setCurrent(frame_data) {
     const a = this.curr, b = frame_data.angle;
-    let c;
+    let c, x;
     for (let i=0, len=b.length; i<len; ++i) {
-      c = b[i];
-      if (!a[i]) a[i] = [0,0,0,0];
-      quat.fromEuler(a[i], c.x, c.y, c.z);
+      c = b[i], x = a[i];
+      if (!x) x = a[i] = quat.create();
+      else quat.identity(x);
+      //!这种方法结果错误, 动画奇葩
+      // quat.fromEuler(a[i], c.x, c.y, c.z);
+      quat.rotateX(x, x, c.x);
+      quat.rotateY(x, x, c.y);
+      quat.rotateZ(x, x, c.z);
     }
   }
 
@@ -134,6 +139,7 @@ function Living(mod, tex) {
   const alf           = new AngleLinearFrame();
   const liner_pos     = {x:0, y:0, z:0};
   const liner_pos_tr  = Game.Pos3Transition(liner_pos, 0);
+  const move_speed    = [0,0,0];
   let   DEF_SPEED     = 45;
 
   // 动画索引
@@ -167,11 +173,19 @@ function Living(mod, tex) {
     // 返回当前动作的总帧数
     getPoseFrameLength,
     getMD,
+    // 每帧动画, 移动的距离不同, 返回的数组反映移动距离
+    // 返回的对象每帧都会更新.
+    getMoveSpeed,
   };
 
 
   function getMD() {
     return mod;
+  }
+
+
+  function getMoveSpeed() {
+    return move_speed;
   }
 
 
@@ -216,15 +230,6 @@ function Living(mod, tex) {
   }
 
 
-  function show_info() {
-    console.line("Anim", anim_idx, "Frame", Tool.d4(anim_frame), 
-        "Speed:", Tool.d4(frame_data.spx), 
-        Tool.d4(frame_data.spy), Tool.d4(frame_data.spz), 
-        "Offset", Tool.d4(frame_data.x), 
-        Tool.d4(frame_data.y), Tool.d4(frame_data.z), "\t");
-  }
-
-
   // 
   // 动画到结尾后, 0 停止, 1 循环, 
   //   2 停止并调用函数
@@ -252,6 +257,15 @@ function Living(mod, tex) {
   }
 
 
+  function show_info() {
+    console.line("Anim", anim_idx, "Frame", Tool.d4(anim_frame), 
+        "Offset", Tool.d4(frame_data.x), 
+        Tool.d4(frame_data.y), Tool.d4(frame_data.z), 
+        "Speed:", Tool.d4(frame_data.spx), 
+        Tool.d4(frame_data.spy), Tool.d4(frame_data.spz), "\t");
+  }
+
+
   function _nextFrame(frame) {
     if (frame < 0) {
       if (!_end()) return false;
@@ -275,6 +289,9 @@ function Living(mod, tex) {
     liner_pos.x = frame_data.x;
     liner_pos.y = frame_data.y;
     liner_pos.z = frame_data.z;
+    move_speed[0] = frame_data.spx;
+    move_speed[1] = frame_data.spy;
+    move_speed[2] = frame_data.spz;
 
     if (frm.flag && animSound) {
       animSound.play(frm.flag);
@@ -291,7 +308,7 @@ function Living(mod, tex) {
     
     // console.log(a/speed, '\t', a, '\t', speed);
     alf.setPercentage(u/speed);
-    liner_pos_tr.line(a, frame_data);
+    liner_pos_tr.line(u, frame_data);
 
     // console.line(liner_pos.y);
     Shader.setAnimOffset(liner_pos.x, liner_pos.y, liner_pos.z);

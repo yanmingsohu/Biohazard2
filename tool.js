@@ -196,8 +196,7 @@ function xywhBindRange(n) {
 //
 // 测试用, 可视化范围(x1~4, y1~4)
 //
-function showRange(range, window, color, y) {
-  if (!y) y = 0;
+function showRange(range, window, color, y=0) {
   const vertices = new Float32Array([
     range.x1, y, range.y1,
     range.x2, y, range.y2,

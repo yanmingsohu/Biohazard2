@@ -12,7 +12,7 @@ export default {
 import File   from './file.js'
 import Shader from './shader.js'
 import Node   from '../boot/node.js'
-import {DrawArray} from './tool.js'
+import Tool, {DrawArray} from './tool.js'
 const matrix = Node.load('boot/gl-matrix.js');
 
 
@@ -112,7 +112,7 @@ function dataDirBrowse(Room, window) {
 
 
 function enemyBrowse(Liv, window, Room, camera) {
-  camera.setPos(500, -2500, 100);
+  camera.setPos(3000, -1000, 0);
   let mods = [];
   // 46: 枪店老板
   // 动画不正常: 51:里昂, 94:机械臂, 91:食人花, 70:舔舐者, 71:鳄鱼
@@ -131,13 +131,23 @@ function enemyBrowse(Liv, window, Room, camera) {
   let curr_weapon;
 
   let tmat = matrix.mat4.create(1);
-  matrix.mat4.translate(tmat, tmat, [0, -300, -3500]);
+  matrix.mat4.translate(tmat, tmat, [0, 0, 0]);
   // matrix.mat4.rotateZ(tmat, tmat, Math.PI);
   Shader.setModelTrans(tmat);
   Shader.setEnvLight({r:255, g:255, b:255});
   switchMod(0);
-  mod.setAnim(11, 0);
-  mod.setDir(1);
+  mod.setAnim(0, 0);
+  // mod.setDir(1);
+
+  const d = 100000;
+  const color3 = new Float32Array([0.01, 0.01, 0.01]);
+  const range3 = Tool.xywd2range({x:0, y:-d, d:d<<1, w:10});
+  Tool.showRange(range3, window, color3);
+  const color2 = new Float32Array([0.9, 0.9, 0.9]);
+  const range1 = Tool.xywd2range({x:-d, y:0, d:10, w:d<<1});
+  Tool.showRange(range1, window, color3);
+  const range = Tool.xywd2range({x:-d, y:-d, d:d<<1, w:d<<1});
+  Tool.showRange(range, window, color2);
 
   window.onKey(gl.GLFW_KEY_D, gl.GLFW_PRESS, 0, function() {
     matrix.mat4.rotateY(tmat, tmat, 0.01);

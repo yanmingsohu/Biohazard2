@@ -174,6 +174,7 @@ function compile(arrbuf) {
       }
       if (game.waittime - u > 0) {
         game.waittime -= u;
+        if (game.waittime < 0) game.waittime = 0;
         return 1;
       }
       pc = mem._pc;
@@ -295,7 +296,12 @@ function compile(arrbuf) {
 
       case 0x0C:
         debug("Wsleeping");
-        game.waittime = 1.5;
+        // mem.wsec 必须是未来的结束时间
+        let wsec = mem.wsec - (Date.now()/1000);
+        debug("sec", wsec);
+        if (wsec > 0) {
+          game.waittime = wsec;
+        }
         break;
 
       case 0x0D:
@@ -631,7 +637,7 @@ function compile(arrbuf) {
         se.y = mem.short();
         se.z = mem.short();
         debug(se);
-        game.play_se(se.edt0);
+        mem.wsec = (Date.now()/1000) + game.play_se(se.edt0);
         break;
 
       case 0x37:
@@ -709,11 +715,11 @@ function compile(arrbuf) {
 
       case 0x3F:
         debug('Plc_motion -------------------------------------');
-        var anim = mem.byte();
+        var flag = mem.byte();
         var d0 = mem.byte();
         var d1 = mem.byte();
-        debug(anim, d0, d1);
-        game.work.setAnim(d0, d1);
+        debug(flag, d0, d1);
+        game.work.setAnim(d0, d1, flag);
         break;
 
       case 0x40:
@@ -934,7 +940,7 @@ function compile(arrbuf) {
         var se = mem.byte();
         var rl = mem.byte();
         debug(se, rl);
-        game.play_voice(se, rl);
+        mem.wsec = (Date.now()/1000) + game.play_voice(se, rl);
         break;
 
       case 0x5A:
