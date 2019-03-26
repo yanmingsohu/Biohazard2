@@ -1,13 +1,14 @@
-import Shader from './shader.js'
 import Game   from '../boot/game.js'
-import Tool   from './tool.js'
 import Node   from '../boot/node.js'
 import Sound  from './sound.js'
-import { Point2, Triangle2 } from './tool.js'
+import Shader from './shader.js'
+import Tool, { Point2, Triangle2 } from './tool.js'
+
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec2, mat4} = matrix;
 const PI_360 = Math.PI * 2;
 const ANTENNA_LEN = 800;
+const FLOOR_PER_PIXEL = 1800;
 
 // 按键绑定
 const defaultKeyBind = {
@@ -39,7 +40,7 @@ function player(mod, win, order, gameState, camera) {
   const survey     = gameState.survey;
   const collisions = gameState.collisions;
   const floors     = gameState.floors;
-  const thiz       = Base(mod, win, order, {
+  const thiz       = Base(gameState, mod, win, order, {
     able_to_control,
     back,
     traverse,
@@ -129,7 +130,7 @@ function player(mod, win, order, gameState, camera) {
 
 
   function move() {
-    let step = (one_step + run) + ((thiz.move_speed[2]+0.1)/25);
+    let step = (one_step + run) + ((thiz.move_speed[2]+0.1)/15);
     thiz.translate(thiz.wrap0(step, 0, 0));
     // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.
     const w = thiz.where();
@@ -150,6 +151,7 @@ function player(mod, win, order, gameState, camera) {
     
     for (let i=0, l=collisions.length; i<l; ++i) {
       let c = collisions[i];
+      // TODO: 每个碰撞物对 flag 的处理方式不同, 这样处理错误!
       if (c.play_on && c.block && c.py) {
         c.py.in(p, thiz);
         thiz.where();
@@ -238,7 +240,7 @@ function zombie(mod, win, order, gameState, se, data) {
     mod.setDir(1);
   }
 
-  const thiz = Base(mod, win, order, {
+  const thiz = Base(gameState, mod, win, order, {
   });
 
   // mod.setAnimSound(se);
@@ -246,7 +248,7 @@ function zombie(mod, win, order, gameState, se, data) {
 }
 
 
-function Base(mod, win, order, ext) {
+function Base(gameState, mod, win, order, ext) {
   const thiz = {
     setDirection,
     setPos,
@@ -258,6 +260,7 @@ function Base(mod, win, order, ext) {
     setAnim,
     frontPoint,
     lookAt,
+    floor,
   };
 
   order.addMod(thiz);
@@ -268,6 +271,7 @@ function Base(mod, win, order, ext) {
   const zero = [0,0,0];
   const move_speed = mod.getMoveSpeed();
   let angle = 0;
+  let ex_anim_index = -1;
 
   thiz.ms = model_trans;
   thiz.swap = swap; // 使用的元素必须完全清空
@@ -286,11 +290,27 @@ function Base(mod, win, order, ext) {
   // 22:向上方开枪, 23:向上方瞄准(不动), 24:向下方开枪, 25:向下方瞄准(不动)
   // 26:重装子弹
   //
-  function setAnim(a, b, flag) {
-    if (flag) {
-      mod.setAnim(a, 0, 0);
+  function setAnim(flag, type, idx) {
+    const reverse_dir = flag & 0x80;
+    const part = flag & 0x10;
+    
+    if (type == 1) {
+      mod.setAnim(idx, 0, 0);
+    } else if (type == 0) {
+      if (ex_anim_index <= 0) {
+        const md = mod.getMD();
+        ex_anim_index = md.poseCount();
+        gameState.bind_ex_anim(md, ex_anim_index);
+      }
+      mod.setAnim(idx + ex_anim_index, 0, 0);
+    }
+
+    if (reverse_dir) {
+      mod.setDir(-1);
+      let len = mod.getPoseFrameLength();
+      mod.setFrame(len-1);
     } else {
-      console.log('anim===========================from map data')
+      mod.setDir(1);
     }
   }
 
@@ -377,5 +397,13 @@ function Base(mod, win, order, ext) {
     swap[1] = y;
     swap[2] = z;
     return swap;
+  }
+
+
+  //
+  // 返回角色所在楼层的高度, 一个高度为1800像素, 总是>0
+  //
+  function floor() {
+    return -parseInt(this.where()[1] / FLOOR_PER_PIXEL);
   }
 }

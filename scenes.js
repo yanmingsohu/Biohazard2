@@ -88,6 +88,7 @@ const gameState = {
   next_frame,
   reverse,
   setDoor,
+  bind_ex_anim,
 
   // bio 脚本函数
   waittime:0,
@@ -158,12 +159,14 @@ function find_camera_switcher() {
     // TODO: 如果角色离开摄像机开关, 恢复开关的功能
     const w = p1.where();
     let isStanding = Tool.inRange(sw, w[0], w[2]);
+
     if (!isStanding) {
       sw.act = function() {
-        // if (isStanding) return;
-        thread.wait(CAM_SW_WAIT);
-        camera_nm = this.cam1;
-        switch_camera();
+        if (sw.floor == 0xFF || sw.floor == p1.floor()) {
+          // thread.wait(CAM_SW_WAIT);
+          camera_nm = this.cam1;
+          switch_camera();
+        }
       };
       touch.push(sw);
     }
@@ -697,8 +700,9 @@ function play_se(id) {
   let se = Sound.playSE(stage, id);
   if (se) {
     scenes_garbage.push(se);
+    return se.length();
   }
-  return se.length();
+  return 0;
 }
 
 
@@ -706,8 +710,9 @@ function play_voice(id, rl) {
   let v = Sound.playVoice(play_mode, stage, id);
   if (v) {
     scenes_garbage.push(v);
+    return v.length();
   }
-  return v.length();
+  return 0;
 }
 
 
@@ -722,6 +727,14 @@ function set_weapon(target, weaponid) {
   const md = target.getMD();
   md.setPoseFromMD(weapon, 10/* 覆盖动画 */);
   md.combinationDraw(11/* 右手 */, comp);
+}
+
+
+//
+// 把地图上的动画绑定给角色, 从 bindIdx 号开始覆盖
+//
+function bind_ex_anim(target, bindIdx) {
+  target.setPoseFromMD(map_data.extern_anim, bindIdx);
 }
 
 

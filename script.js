@@ -5,6 +5,7 @@ export default {
 };
 
 const EMPTY = '';
+const h = Tool.h4;
 let indentation = '';
 let addr = 0;
 
@@ -201,7 +202,7 @@ function compile(arrbuf) {
   // oppc 操作码所在的指针
   //
   function _do(game, op, mem, oppc) {
-    addr = oppc +"/"+ h(op);
+    addr = h(oppc) +"/"+ Tool.h2(op);
     switch(op) {
       default:
         throw new Error("BAD OP "+ h(op));
@@ -715,11 +716,11 @@ function compile(arrbuf) {
 
       case 0x3F:
         debug('Plc_motion -------------------------------------');
+        var type = mem.byte();
+        var idx  = mem.byte();
         var flag = mem.byte();
-        var d0 = mem.byte();
-        var d1 = mem.byte();
-        debug(flag, d0, d1);
-        game.work.setAnim(d0, d1, flag);
+        debug('f', flag, 't', type, 'i', idx);
+        game.work.setAnim(flag, type, idx);
         break;
 
       case 0x40:
@@ -1269,13 +1270,4 @@ function debug() {
   let a = [addr, '#', indentation];
   for (let i=0; i<arguments.length; ++i) a.push(arguments[i]);
   Tool.debug.apply(null, a);
-}
-
-
-function h(n) {
-  if (n < 0x10) {
-    return '0x0'+ n.toString(16);
-  } else {
-    return '0x'+ n.toString(16);
-  }
 }

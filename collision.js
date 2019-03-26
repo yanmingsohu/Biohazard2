@@ -1,5 +1,4 @@
-import {Triangle2, Point2, Rectangle2} from './tool.js'
-import Tool from './tool.js'
+import Tool, {Triangle2, Point2, Rectangle2} from './tool.js'
 
 const X = 12;
 const Y = 14; // 逻辑 Y 轴, 纵深
@@ -256,6 +255,25 @@ class ReflexAngle {
 }
 
 
+class Climb {
+  constructor(c, targetFloor) {
+    let p1 = new Point2(c.x, c.y);
+    let p2 = new Point2(c.x, c.y + c.d);
+    let p3 = new Point2(c.x + c.w, c.y + c.d);
+    let p4 = new Point2(c.x + c.w, c.y);
+    this.rect = new Rectangle2(p1, p2, p3, p4);
+    this.floor = c.floor * FLOOR_PER_PIXEL;
+    this.floor2 = targetFloor * FLOOR_PER_PIXEL;
+  }
+
+  in(p, target) {
+    if (this.floor == target.floor() && this.rect.in(p)) {
+      target.objTr[Z] = -this.floor2;
+    }
+  }
+}
+
+
 function r(a) {
   return a * 180 / Math.PI;
 }
@@ -325,12 +343,14 @@ function installCollision(c) {
     // Found in 304
     case  9: 
       c.name = 'Rectangle Climb Up'; 
+      c.py = new Climb(c, 1);
       break;
 
     // x,y= -22927 -14663 w,d= 2390 4290 x/w= 2 z/d= 2 type= 0 floor= 3 sw= 0
     // Found in 304
     case 10: 
       c.name = 'Rectangle Jump Down';
+      c.py = new Climb(c, 0);
       break;
 
     // Found in 200, 斜坡
@@ -359,4 +379,5 @@ function installCollision(c) {
 
 export default {
   installCollision,
+  FLOOR_PER_PIXEL,
 };

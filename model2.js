@@ -22,6 +22,7 @@ export default {
   pld,
   plw,
   fromPlw,
+  rbj,
 };
 
 
@@ -125,6 +126,17 @@ function emd(file) {
   if (am_idx) skeleton(md, am_idx, buf, buf._offset(6));
 
   md.mesh = mesh(buf, buf._offset(7));
+  return md;
+}
+
+
+//
+// 房间内嵌的过场动画数据
+//
+function rbj(buf, sk_off, anim_off) {
+  const md = new MD();
+  const am_idx = animation(buf, anim_off);
+  skeleton(md, am_idx, buf, sk_off);
   return md;
 }
 
@@ -360,11 +372,12 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
   const xy_size    = 2*6;
   const angle_size = data_size - xy_size;
   const RLEN       = parseInt(angle_size/9*2);
-  const skdata     = { angle: [] };
+  // const skdata     = { angle: [] };
   const angle_fn   = radian; // radian & degrees
   // TODO: 搞清楚偏移的意义 右脚似乎被用作实体的参考位置应该有 flag
   const OFF_MASK   = 2000; 
-  let curr_sk_idx  = -1;
+  const sk_cache   = [];
+  // let curr_sk_idx  = -1;
 
   if (angle_size <= 0) {
     console.warn("NO more anim frame data");
@@ -373,10 +386,10 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
 
   debug(' * Anim begin', h4(anim_offset), h4(data_size));
   debug(" * Anim angle", RLEN);
-  skdata.angle = new Array(RLEN);
-  for (let i=0; i<RLEN; ++i) {
-    skdata.angle[i] = {x:0, y:0, z:0};
-  }
+  // skdata.angle = new Array(RLEN);
+  // for (let i=0; i<RLEN; ++i) {
+  //   skdata.angle[i] = {x:0, y:0, z:0};
+  // }
   
   //
   // sk_index - 骨骼状态索引
@@ -384,31 +397,34 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
   return function get_frame_data(sk_index) {
     // debug(" * Frame sk", sk_index);
     // 没有改变骨骼索引直接返回最后的数据
-    if (curr_sk_idx === sk_index) return skdata;
+    let sk = sk_cache[sk_index];
+    if (sk) return sk;
+    sk = sk_cache[sk_index] = {};
+    // if (curr_sk_idx === sk_index) return skdata;
     // 整体位置偏移量
     let xy_off = anim_offset + data_size * sk_index;
-    skdata.x = buf.short(xy_off);
-    skdata.y = buf.short() + OFF_MASK;
-    skdata.z = buf.short();
+    sk.x = buf.short(xy_off);
+    sk.y = buf.short() + OFF_MASK;
+    sk.z = buf.short();
     // spx 似乎和动画帧绝对时间有关, spy 总是0
     // spz 是移动偏移, 体现步伐之间的非线性移动
-    skdata.spx = buf.short();
-    skdata.spy = buf.short();
-    skdata.spz = buf.short();
+    sk.spx = buf.short();
+    sk.spy = buf.short();
+    sk.spz = buf.short();
 
-    compute_angle();
-    // debug(JSON.stringify(skdata), RLEN);
-    curr_sk_idx = sk_index;
-    return skdata;
+    sk.angle = new Array(RLEN);
+    compute_angle(sk);
+    // debug(JSON.stringify(sk), RLEN);
+    return sk;
   }
 
   // XX, YX, YY, ZZ, AZ, AA, BB, CB, CC
   // 00  10, 11, 22, 32, 33, 44, 54, 55
   // a0, a1, a2, a3, a4, a1, a2, a3, a4
-  function compute_angle() {
+  function compute_angle(skdata) {
     let i = -1, r, a0, a1, a2, a3, a4;
     while (++i < RLEN) {
-      r = skdata.angle[i];
+      r = skdata.angle[i] = {};
       a0 = buf.byte();
       a1 = buf.byte();
       a2 = buf.byte();
@@ -422,7 +438,7 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
 
       if (++i >= RLEN) break;
 
-      r = skdata.angle[i];
+      r = skdata.angle[i] = {};
       a0 = a4;
       a1 = buf.byte();
       a2 = buf.byte();

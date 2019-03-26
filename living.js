@@ -164,6 +164,7 @@ function Living(mod, tex) {
     free,
     // 设置动画片段,  动作: 11.跑动, 12.休息, 13.残疾, 14.残疾跑动
     setAnim,
+    setFrame,
     // 设置动画的播放方向, 1正向播放, -1反向播放, 0停止
     setDir,
     where,
@@ -214,6 +215,11 @@ function Living(mod, tex) {
   }
 
 
+  function setFrame(f) {
+    anim_frame = f;
+  }
+
+
   function setAnim(idx, frame, end=1) {
     whenAnimEnd = end;
 
@@ -244,10 +250,12 @@ function Living(mod, tex) {
   function _end() {
     switch (whenAnimEnd) {
       case 0:
+        anim_dir = 0;
         return false;
       case 1:
         return true;
       case 2:
+        anim_dir = 0;
         animCallBack();
         return false;
       case 3:

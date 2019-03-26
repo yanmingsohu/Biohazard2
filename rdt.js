@@ -9,6 +9,7 @@ import Tool   from './tool.js'
 import Node   from '../boot/node.js'
 import Coll   from './collision.js'
 import Sound  from './sound.js'
+import MD2    from './model2.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4, vec2} = matrix;
 
@@ -66,6 +67,9 @@ function load(file) {
   readSpritesTim(filebuf, off, obj);
   readSpace(filebuf, off, obj);
 
+  if (off.offset22) {
+    obj.extern_anim = readExAnim(filebuf, off.offset22);
+  }
   if (num_obj10) {
     readTim(filebuf, off, obj);
   }
@@ -76,6 +80,19 @@ function load(file) {
     obj.room_script = readScript(filebuf, off.room_script);
   }
   return obj;
+}
+
+
+function readExAnim(buf, off) {
+  debug("Ex Anim", Tool.h4(off));
+  const v = File.dataViewExt(new DataView(buf, off));
+  const len = v.ulong();
+  const uk0 = v.ulong();
+  const uk1 = v.ulong();
+  const anim_off = v.ulong(len+4);
+  // TODO: 有几个字节意义不明
+  debug(" . len", len, uk0, uk1, Tool.h4(anim_off));
+  return MD2.rbj(v, 0xC, anim_off);
 }
 
 
@@ -125,7 +142,7 @@ function readSpace(buf, offobj, obj) {
     let f = {};
     f.x = v.getInt16(off, true);
     f.y = v.getInt16(off+2, true);
-    f.w = v.getUint16(off+4, true); //?有符号
+    f.w = v.getUint16(off+4, true); 
     f.d = v.getUint16(off+6, true);
     f.se_no = v.getUint16(off+8, true); //地面音效编号?
     f.height = v.getUint16(off+10, true);
@@ -191,7 +208,7 @@ function readSpace(buf, offobj, obj) {
     debug('\t', c.name, 'x,y=', c.x, c.y, 
       'w,d=', c.w, c.d, 'x/w=', c.xw, 'z/d=', c.yd, 
       'type=', c.type, 'floor=', c.floor, 
-      /*'f=', f.toString(2), '?=', type & 0x1F,*/ flag2.toString(2));
+      /*'f=', f.toString(2), '?=', type & 0x1F,*/ Tool.bit(flag2));
   }
 }
 
@@ -295,7 +312,7 @@ function readSpritesTim(buf, off, obj) {
 
 
 function readSpritesAnim(filebuf, off, obj) {
-  debug("Sprites Anim: ("+ off.sprites_anim +")");
+  debug("Sprites Anim:", Tool.h4(off.sprites_anim));
   // hex.printHex(new Uint8Array(filebuf, off.sprites_anim, 1500));
 
   const v = new DataView(filebuf, off.sprites_anim);
@@ -308,15 +325,14 @@ function readSpritesAnim(filebuf, off, obj) {
     if (c == 0xFF || c == 0) break;
     let point = p.getUint32(off.offset19 - i*4, true);
     debug("Sprites Anim Block", i, c, point);
-    // block.push({c, point});
-    parseSp(c, point);
+    parseSp(i, c, point);
   }
 
   //
   // obj.sprites_anim: { frames, sprites, height, width, 
   //                     num_frames, num_sprites }
   //
-  function parseSp(id, begin_at) {
+  function parseSp(id, cc, begin_at) {
     let vi = begin_at;
     let h = {
       id,
@@ -325,6 +341,8 @@ function readSpritesAnim(filebuf, off, obj) {
       height      : v.getUint8( vi +4),
       width       : v.getUint8( vi +5),
       unknow      : v.getUint16(vi +6, true),
+      frames      : [],
+      sprites     : [],
     };
     vi += 8;
     header.push(h);
@@ -332,17 +350,20 @@ function readSpritesAnim(filebuf, off, obj) {
 
     for (let f=0; f<h.num_frames; ++f) {
       let frm = {
-        un0 : v.getUint8(vi+ 0),
-        un1 : v.getUint8(vi+ 1),
-        un2 : v.getUint8(vi+ 2),
-        un3 : v.getUint8(vi+ 3),
-        un4 : v.getUint8(vi+ 4),
-        un5 : v.getUint8(vi+ 5),
-        un6 : v.getUint8(vi+ 6),
-        un7 : v.getUint8(vi+ 7),
+        sp_idx : v.getUint8(vi+ 0),
+        x      : v.getUint8(vi+ 1),
+        y      : v.getUint8(vi+ 2),
+        z      : v.getUint8(vi+ 3),
+        // un1 : v.getUint8(vi+ 1),
+        // un2 : v.getUint8(vi+ 2),
+        // un3 : v.getUint8(vi+ 3),
+        // un4 : v.getUint8(vi+ 4),
+        // un5 : v.getUint8(vi+ 5),
+        // un6 : v.getUint8(vi+ 6),
+        // un7 : v.getUint8(vi+ 7),
       };
       vi += 8;
-      h.frames = frm;
+      h.frames.push(frm);
       debug("   Frames:", J(frm));
     }
 
@@ -356,7 +377,7 @@ function readSpritesAnim(filebuf, off, obj) {
         offset_y : v.getInt8(vi+ 3),
       };
       vi += 4;
-      h.sprites = sp;
+      h.sprites.push(sp);
       debug("  Sprites:", J(sp));
     }
 
@@ -551,7 +572,6 @@ function readLight(filebuf, off, ret) {
 function readCameraSwitch(filebuf, off, ret) {
   const len = 4 + 8*2;
   let cameras = ret.cameras_sw = [];
-  let c = 0;
 
   for (let i=0; i<100; ++i) {
     let beg = off.cam_sw + len * i;
@@ -559,7 +579,12 @@ function readCameraSwitch(filebuf, off, ret) {
     if (v.getUint32(0) == 0xFFFFFFFF) {
       break;
     }
+    // TODO: floor 它大部分时间是FF或十进制的255。 在地板上它将起作用的高度意味着。 
+    // 将其设置为255意味着它将适用于房间中的所有高度
+    // 将它设置到特定的楼层意味着它只能在那里工作。
     let cam = {
+      flag : v.getUint8(0),
+      floor: v.getUint8(1),
       cam0 : v.getUint8(2),
       cam1 : v.getUint8(3),
       x1 : v.getInt16(4,  true), y1 : v.getInt16(6,  true),
@@ -568,8 +593,7 @@ function readCameraSwitch(filebuf, off, ret) {
       x4 : v.getInt16(16, true), y4 : v.getInt16(18, true),
     }
     cameras.push(cam);
-
-    // debug("Camera Switch", c++, cam);
+    // debug("Camera Switch", i, cam);
   }
 }
 
@@ -615,8 +639,8 @@ function readOffset(filebuf) {
   off.cam_sw        = Offset.getUint32(8*4, true);
   off.lights        = Offset.getUint32(9*4, true);
   off.tim           = Offset.getUint32(10*4, true); // 房间3d模型, 最多17个
-  off.offset11      = Offset.getUint32(11*4, true); // Floor?
-  off.offset12      = Offset.getUint32(12*4, true); // Block?
+  off.offset11      = Offset.getUint32(11*4, true); // Floor
+  off.offset12      = Offset.getUint32(12*4, true); // Block
   off.lang1         = Offset.getUint32(13*4, true);
   off.lang2         = Offset.getUint32(14*4, true);
   off.offset15      = Offset.getUint32(15*4, true); // Scroll Texture?

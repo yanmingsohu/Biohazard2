@@ -22,8 +22,25 @@ export default {
   // 格式化2/3/4位10进制数字
   d2, d3, d4,
   // 格式化4位16进制数字
-  h4,
+  h4, h2,
+  // 格式化 2进制数字
+  bit,
 };
+
+
+function bit(b) {
+  let s = b.toString(2);
+  switch (s.length) {
+    case 1: return '0000000'+s;
+    case 2: return '000000'+s;
+    case 3: return '00000'+s;
+    case 4: return '0000'+s;
+    case 5: return '000'+s;
+    case 6: return '00'+s;
+    case 7: return '0'+s;
+  }
+  return s;
+}
 
 
 // 格式不可动
@@ -69,6 +86,12 @@ function h4(x) {
   if (x < 0x10) return '0x000'+ x.toString(16);
   if (x < 0x100) return '0x00'+ x.toString(16);
   if (x < 0x1000) return '0x0'+ x.toString(16);
+  return '0x'+ x.toString(16);
+}
+
+
+function h2(x) {
+  if (x < 0x10) return '0x0'+ x.toString(16);
   return '0x'+ x.toString(16);
 }
 
