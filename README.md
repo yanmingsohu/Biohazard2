@@ -1,4 +1,6 @@
-# 生化危机2 - 99重生 / Resident Evil 2 / Biohazard 2 1998'PC
+# 生化危机2 - 98重生 / Resident Evil 2 / Biohazard 2 1998'PC
+
+![screen2](https://github.com/yanmingsohu/PlayJS-release/blob/master/screen/s2.jpg)
 
 生化危机2 PC 1998年版本重置  
 Resident Evil 2 PC-1998 Rebirth
@@ -10,11 +12,13 @@ Resident Evil 2 PC-1998 Rebirth
 
 创建 `bio2` 目录, 把该项目中的所有文件复制 bio2 子目录中;  
 把该项目中的 `playjs.yaml` 文件与 PlayJS 主程序放在一起;  
-把 `bio2` 目录和 PlayJS 主程序放在一起, 并复制到原始游戏目录中, 启动 PlayJS.  
+把 `bio2` 目录和 PlayJS 主程序放在一起, 并复制到原始游戏目录中;  
+启动 PlayJS.  
 
 Create a `bio2` directory and copy all the files in the project into the bio2 subdirectory;  
 Put the `playjs.yaml` file in the project with the PlayJS main program;  
-Put the `bio2` directory together with the PlayJS main program and copy it into the original game directory to launch PlayJS.  
+Put the `bio2` directory together with the PlayJS main program and copy it into the original game directory;  
+Launch PlayJS.  
 
 
 # TODO list
