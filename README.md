@@ -1,5 +1,7 @@
 # 生化危机2 - 98重生 / Resident Evil 2 / Biohazard 2 1998'PC
 
+https://github.com/yanmingsohu/PlayJS-BIO2
+
 ![screen2](https://github.com/yanmingsohu/PlayJS-release/blob/master/screen/s2.jpg)
 
 生化危机2 PC 1998年版本重置  
@@ -19,6 +21,14 @@ Create a `bio2` directory and copy all the files in the project into the bio2 su
 Put the `playjs.yaml` file in the project with the PlayJS main program;  
 Put the `bio2` directory together with the PlayJS main program and copy it into the original game directory;  
 Launch PlayJS.  
+
+
+# 控制 / controller
+
+* [W, A, S, D] move
+* [J] action
+* [K] Run
+* [L] Take aim
 
 
 # TODO list
