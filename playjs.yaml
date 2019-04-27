@@ -1,0 +1,18 @@
+#
+# 主引导脚本
+#
+main-script: bio2/index.js
+#main-script: demo/basic.js
+
+#
+# 分辨率设置
+#
+screen:
+  width: 1280
+  height: 960
+  
+#
+# 游戏配置, 在 global.game 中返回
+#
+game:
+  bio2: ./

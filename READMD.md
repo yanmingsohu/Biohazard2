@@ -1,6 +1,20 @@
-# 生化危机2 - 99重生
+# 生化危机2 - 99重生 / Resident Evil 2 / Biohazard 2 1998'PC
 
-.....................................................................
+生化危机2 PC 1998年版本重置  
+Resident Evil 2 PC-1998 Rebirth
+
+
+# 安装方法
+
+[PlayJS 主程序 / Main program](https://github.com/yanmingsohu/PlayJS-release)
+
+创建 `bio2` 目录, 把该项目中的所有文件复制 bio2 子目录中;  
+把该项目中的 `playjs.yaml` 文件与 PlayJS 主程序放在一起;  
+把 `bio2` 目录和 PlayJS 主程序放在一起, 并复制到原始游戏目录中, 启动 PlayJS.  
+
+Create a `bio2` directory and copy all the files in the project into the bio2 subdirectory;  
+Put the `playjs.yaml` file in the project with the PlayJS main program;  
+Put the `bio2` directory together with the PlayJS main program and copy it into the original game directory to launch PlayJS.  
 
 
 # TODO list
@@ -22,11 +36,16 @@
   * [ ] 房间博物馆(和隐藏的测试房间)
   * [ ] 模型博物馆
   * [ ] 双人模式
-  * [ ] 死之城, 所以敌人以死亡呈现(紧有一个暴君在警署大厅?)
+  * [ ] 死之城, 所有敌人以死亡呈现(只有一个暴君在警署大厅?)
 
 
-  # Thanks
+# Thanks
 
-  * https://github.com/MeganGrass/BioScript
-  * https://github.com/mortician
-  * https://github.com/pmandin
+* https://github.com/MeganGrass/BioScript
+* https://github.com/mortician
+* https://github.com/pmandin
+
+
+# Discuss
+
+[Temporary](https://tieba.baidu.com/p/6067739411)
