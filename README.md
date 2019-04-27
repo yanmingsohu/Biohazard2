@@ -33,30 +33,29 @@ Launch PlayJS.
 
 # TODO list
 
-* [ ] 原版重现
-  * [x] 加载3d模型
-  * [x] 模型动画
-  * [x] 加载地图/遮挡图层
-  * [ ] 遮挡图层处于正确的深度
-  * [x] 加载地图障碍物
-  * [ ] 障碍物处于正确的楼层高度
-  * [x] 播放音频
-  * [ ] 背景音乐/地板音效与关卡对应正确
-  * [ ] 播放视频动画
-  * [ ] 武器系统
-  * [ ] 敌人逻辑
-  * [ ] 正确的过场动画 (游戏字节码脚本解析)
-  * [ ] 数值系统
-  * [ ] 开始菜单/游戏菜单, 各种菜单
-* [ ] MOD 开发系统
-* [ ] 视觉效果
-  * [ ] 真实的阴影
-  * [x] 平滑动画
-* [ ] 游戏性修改
+* [ ] 原版重现 / Original reproduction
+  * [x] 加载3d模型 / load 3d model
+  * [x] 模型动画 / model animation
+  * [x] 加载地图/遮挡图层 / Load map/occlusion layer
+  * [ ] 遮挡图层处于正确的深度 / occlusion layer is at the correct depth
+  * [x] 加载地图障碍物 / Loading map obstacles
+  * [ ] 障碍物处于正确的楼层高度 / Obstacle is at the correct floor height
+  * [x] 播放音频 / Play audio 
+  * [ ] 背景音乐/地板音效与关卡对应正确 / Background music/floor sounds are correct for the level
+  * [ ] 播放视频动画 / Play video
+  * [ ] 武器系统 / Weapon System
+  * [ ] 敌人逻辑 / enemy AI
+  * [ ] 正确的过场动画 (游戏字节码脚本解析) / Correct cutscenes (game bytecode script parsing)
+  * [ ] 开始菜单/游戏菜单, 各种菜单 / Start menu/game menu, various menus
+* [ ] MOD 开发系统 / MOD Development System
+* [ ] 视觉效果 / Visual effects
+  * [ ] 真实的阴影 / More realistic shadows
+  * [x] 平滑动画 / smooth animation
+* [ ] 游戏性修改 / Gameplay modification
   * [ ] 更快的开门
   * [ ] 重做 UI
   * [ ] 打开菜单, 时间不停止
-* [ ] 增加新模式
+* [ ] 增加新模式 / Add new mode
   * [ ] 操控僵尸的僵尸模式
   * [ ] 女僵尸模式
   * [ ] 舔舐者模式
