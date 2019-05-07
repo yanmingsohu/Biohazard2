@@ -7,11 +7,13 @@ export default {
   enemyBrowse,
   smallMapBrowse,
   dataDirBrowse,
+  bgm,
 };
 
 import File   from './file.js'
 import Shader from './shader.js'
 import Node   from '../boot/node.js'
+import BGM    from './bgm.js'
 import Tool, {DrawArray} from './tool.js'
 const matrix = Node.load('boot/gl-matrix.js');
 
@@ -303,4 +305,9 @@ function runAllScript(mapObj, runtime_data) {
       script.run(runtime_data);
     }
   }
+}
+
+
+function bgm() {
+  BGM.bgm('COMMON/Sound/BGM/MAIN0C.BGM');
 }

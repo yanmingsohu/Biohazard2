@@ -94,6 +94,7 @@ export default {
   open,
   openArrayBuffer,
   openDataView,
+  openExDataView,
   openHandle,
   open_pic,
   fileSize,
@@ -160,6 +161,11 @@ function openDataView(file) {
 }
 
 
+function openExDataView(file) {
+  return dataViewExt(openDataView(file));
+}
+
+
 //
 // TODO: set方法
 // 扩展 DataView 增加方法
@@ -182,6 +188,12 @@ function dataViewExt(v) {
     setpos(i) {
       if (i >=0 ) pos = i;
       else throw new Error("bad pos:"+ i);
+    },
+
+    // 相对移动当前指针位置移动指针
+    movepos(i) {
+      if (isNaN(i)) throw new Error("bad offset "+ i);
+      pos += i;
     },
 
     // 设置小端字节序, 默认为 LittleEndian
