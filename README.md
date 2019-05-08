@@ -44,7 +44,9 @@ Launch PlayJS.
   * [x] 加载地图障碍物 / Loading map obstacles
   * [ ] 障碍物处于正确的楼层高度 / Obstacle is at the correct floor height
   * [x] 播放音频 / Play audio 
-  * [ ] 背景音乐/地板音效与关卡对应正确 / Background music/floor sounds are correct for the level
+  * [ ] 背景音乐/地板音效与关卡对应正确 / Background music/floor sounds are correct for 
+  the level
+  * [ ] 播放 '.bgm' 序列音乐
   * [ ] 播放视频动画 / Play video
   * [ ] 武器系统 / Weapon System
   * [ ] 敌人逻辑 / enemy AI

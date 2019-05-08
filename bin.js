@@ -92,7 +92,7 @@ function _bin(file) {
     if (!f) return;
     let len = f.end-f.begin;
     if (len <= 0) return;
-
+    
     let buf = new ArrayBuffer(len);
     fs.read(fd, buf, 0, len, f.begin);
     return new T(buf);

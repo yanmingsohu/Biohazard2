@@ -309,5 +309,10 @@ function runAllScript(mapObj, runtime_data) {
 
 
 function bgm() {
-  BGM.bgm('COMMON/Sound/BGM/MAIN0C.BGM');
+  Tool.debug(audio.F_WaveShaperFilter);
+  let sub0 = 'COMMON/Sound/BGM/SUB_01.BGM';
+  let main0 = 'COMMON/Sound/BGM/MAIN0C.BGM';
+  // let seq = BGM.main(main0);
+  let seq = BGM.sub(sub0)[0];
+  seq.play();
 }

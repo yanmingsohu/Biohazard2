@@ -5,48 +5,129 @@ import Sound from '../boot/Sound.js'
 // import Node from '../boot/node.js'
 // import {decode} from '../boot/imaadpcm.js'
 
+const debug = Tool.debug;
+const core = new Sound.Core();
+const samplerate = 44100/2;
 
 export default {
-    bgm,
+    main,
+    sub,
 }
 
 
-function bgm(filename) {
-    let v = file.openExDataView(filename);
-    // v.print(0, 100);
-    const seq_off = v.ulong(v.byteLength-4);
-    const vab_off = v.ulong(v.byteLength-8);
-    const sampling = v.ulong(v.byteLength-12)
-    debug(seq_off, vab_off, sampling);
+class Channel {
+    constructor(midi) {
+        this.midi = midi;
+        this.notes = new Array(0x7F);
+    }
 
-    parse_midi(v, seq_off);
-    parse_vab_header(v, vab_off, sampling);
+    release(note, strength) {
+        let wav = this.notes[note];
+        wav.stop();
+    }
+
+    play(note, strength) {
+        let wav = this.notes[note];
+        wav.seek(0);
+        wav.play();
+    }
+
+    setProgram(programid) {
+        let prog = this.midi.vab.prog[programid];
+        this.prog = prog;
+        for (let i=0, l=prog.tone.length; i<l; ++i) {
+            let tone = this.prog.tone[i];
+            for (let n=tone.min; n<=tone.max; ++n) {
+                let raw = this.midi.getSoundData(tone.vag);
+                let h = tone.shift - n;
+                let oct = parseInt(h/0x7f * 12);
+                let semi = h/0x7f % 12;
+                raw = new Uint8Array(audio.pitchSound(raw, 1, samplerate, 1, 1, 1, oct, semi));
+                let wav = new Sound.Wav(core);
+                // wav.setFilter(0, audio.F_EchoFilter);
+                wav.rawBuffer(raw, samplerate, 1, audio.RAW_TYPE_16BIT);
+                this.notes[n] = wav;
+            }
+        }
+    }
+
+    setVolume(v) {}
+    setPan(p) {}
 }
 
 
 class Midi {
-    constructor() {
+    constructor(vab) {
         this.seq = [];
-        this.channels = [];
+        this.channels = new Array(16);
+        this.vab = vab;
+        for (let i=0; i<16; ++i) {
+            this.channels[i] = new Channel(this);
+        }
     }
 
     push(fn) {
         this.seq.push(fn);
     }
 
-    time(t) {
+    pushTick(ti) {
+        const thiz = this;
         this.push(function() {
-            thread.wait(t);
+            let time = thiz.tempo / thiz.tpqn * ti;
+            debug("- wait", thiz.tempo, '/', thiz.tpqn, '*', ti, time);
+            thread.wait(time);
         });
     }
 
-    play() {}
+    getChannel(i) {
+        if (i>15 || i<0) throw new Error("bad channel index "+ i);
+        return this.channels[i];
+    }
+
+    play() {
+        for (let i=0, l=this.seq.length; i<l; ++i) {
+            let fn = this.seq[i];
+            fn(this);
+        }
+    }
+
+    getSoundData(vagIdx) {
+        return this.vab.raw[vagIdx];
+    }
+}
+
+
+function sub(filename) {
+    let v = file.openExDataView(filename);
+    const seq_off0 = v.ulong(v.byteLength-4);
+    const seq_off1 = v.ulong(v.byteLength-8);
+    const vab_off = v.ulong(v.byteLength-12);
+    const sampling = v.ulong(v.byteLength-16)
+    debug(seq_off0, seq_off1, vab_off, sampling);
+
+    let vab = parse_vab_header(v, vab_off, sampling);
+    let midi0 = parse_midi(v, seq_off0, vab);
+    let midi1 = parse_midi(v, seq_off1, vab);
+    return [midi0, midi1];
+}
+
+
+function main(filename) {
+    let v = file.openExDataView(filename);
+    const seq_off = v.ulong(v.byteLength-4);
+    const vab_off = v.ulong(v.byteLength-8);
+    const sampling = v.ulong(v.byteLength-12)
+    debug(seq_off, vab_off, sampling);
+
+    let vab = parse_vab_header(v, vab_off, sampling);
+    let midi = parse_midi(v, seq_off, vab);
+    return midi;
 }
 
 
 // http://loveemu.hatenablog.com/entry/20060630/PSX_SEQ_Format
 // https://www.csie.ntu.edu.tw/~r92092/ref/midi/midi_messages.html#running
-function parse_midi(v, begin) {
+function parse_midi(v, begin, vab) {
     v.setBigEndian();
     // 70 51 45 53 pQES
     if (v.byte(begin) != 0x70 || v.byte() != 0x51 ||
@@ -55,28 +136,30 @@ function parse_midi(v, begin) {
         throw new Error("bad midi file");
     }
 
-    const midi = new Midi();
-    midi.version = v.ulong(begin + 4);
     // 固定的 midi 格式 0, 单通道
+    const midi = new Midi(vab);
+    midi.version = v.ulong(begin + 4);
     // 定义一个四分音符的tick数
     midi.tpqn = v.ushort(begin + 8);
     // 四分音符的长度，以微秒为单位, 3个字节
-    midi.tempo = v.ulong(begin + 9) & 0x00FFFFFF;
+    midi.tempo = (v.ulong(begin + 9) & 0x00FFFFFF) / 1000;
     // 时间签名的分子（n）
     midi.RhythmNumerator = v.byte();
     // 时间特征的分母（2 ^n）
     midi.RhythmDenominator = v.byte();
-    debug(midi);
+    debug("TPQN", midi.tpqn, midi.tempo);
 
     let state = { end:false, cmd:0 };
 
     while (!state.end) {
-        let p = v.getpos();
-        let time = readtime(v);
-        debug("--Time", time, p);
-        midi.time(time);
-        readevent(v, state);
-        // midi.push(event);
+        // let p = v.getpos();
+        let tick = readtime(v);
+        // debug("Tick", tick, p);
+        midi.pushTick(tick);
+        let event = readevent(v, state);
+        if (typeof event == 'function') {
+            midi.push(event); 
+        }
     }
     return midi;
 }
@@ -116,9 +199,12 @@ function readevent(v, state) {
             }
             
             case 0x51: {
-                let speed = [v.byte(), v.byte(), v.byte()];
-                debug("速度", speed);
-                break;
+                // 没有 midi 标准的长度字节
+                let speed = (v.byte() << 16) + (v.byte() << 8) + v.byte();
+                return function(midi) {
+                    debug("速度", speed);
+                    midi.tempo = speed;
+                };
             }
 
             case 0x58: {
@@ -150,15 +236,20 @@ function readevent(v, state) {
         case 0x80: {
             let tone = v.byte();
             let strength = v.byte();
-            debug("松开", channel, tone, strength);
+            return function(midi) {
+                debug("- 松开", channel, tone, strength);
+                midi.getChannel(channel).release(tone, strength);
+            };
             break;
         }
 
         case 0x90: {
             let tone = v.byte();
             let strength = v.byte();
-            debug("按下", channel, tone, strength);
-            break;
+            return function(midi) {
+                debug("- 按下", channel, tone, strength);
+                midi.getChannel(channel).play(tone, strength);
+            };
         }
 
         case 0xA0: {
@@ -169,32 +260,52 @@ function readevent(v, state) {
         }
 
         case 0xB0: {
-            // data entry (6)
-            // volume (7)
-            // panpot (10)
-            // expression (11)
-            // NRPN data (98, 99)
+            // 6 data entry
+            // 8 Balance 
+            // 11 expression
+            // 12 Effect Control 1
+            // 13 Effect Control 2
             // 78 关闭所有声音
             // 79 重置所有控制器
             // 7B 关闭所有音符
             let ctrl_num = v.byte();
             let ctrl_parm = v.byte();
-            debug("控制器", channel, ctrl_num, ctrl_parm);
-            if (ctrl_num == 99) {
-                if (ctrl_parm == 20) {
-                    debug(" - loop start");
-                }
-                else if (ctrl_parm == 30) {
-                    debug(' - loop end');
-                }
+
+            switch (ctrl_num) {
+                case 98: // NRPN data (98, 99)
+                case 99:
+                    if (ctrl_parm == 20) {
+                        debug(" - loop start");
+                    }
+                    else if (ctrl_parm == 30) {
+                        debug(' - loop end');
+                    }
+                    break;
+
+                case 7: // volume
+                    return function(midi) {
+                        debug("Volume", channel, ctrl_parm);
+                        midi.getChannel(channel).setVolume(ctrl_parm);
+                    }
+                case 10: // panpot
+                    return function(midi) {
+                        debug("Pan", channel, ctrl_parm);
+                        midi.getChannel(channel).setPan(ctrl_parm);
+                    }
+
+                default:
+                    debug("控制器", channel, ctrl_num, ctrl_parm);
+                    break;
             }
             break;
         }
 
         case 0xC0: {
             let instrument = v.byte();
-            debug("乐器", channel, instrument);
-            break;
+            return function(midi) {
+                debug("乐器", channel, instrument);
+                midi.getChannel(channel).setProgram(instrument);
+            };
         }
 
         case 0xD0: {
@@ -263,7 +374,7 @@ function parse_vab_header(v, offset, vagoff) {
     vab.attr2 = v.byte();
     vab.reserved1 = v.ulong();
     vab.prog = new Array(vab.num_progs);
-    vab.vag = new Array(vab.num_vags);
+    vab.raw = new Array(vab.num_vags);
     debug(vab);
 
     for (let i=0; i<128; ++i) {
@@ -287,6 +398,7 @@ function parse_vab_header(v, offset, vagoff) {
     for (let j=0; j < vab.num_progs; ++j) {
         // debug('pos', v.getpos());
         for (let c=0; c<16; ++c) {
+            // tone 是音区
             const tone = {};
             tone.priority = v.byte();
             tone.mode = v.byte();
@@ -294,6 +406,7 @@ function parse_vab_header(v, offset, vagoff) {
             tone.pan = v.byte();
             tone.center = v.byte();
             tone.shift = v.byte();
+            // 发送的 note 在 (min-max) 音区中, 则 tone 出声
             tone.min = v.byte();
             tone.max = v.byte();
             tone.vibw = v.byte();
@@ -312,30 +425,31 @@ function parse_vab_header(v, offset, vagoff) {
             tone.reserved4 = v.short();
             tone.reserved5 = v.short();
             tone.reserved6 = v.short();
-            vab.prog[tone.prog].tone[c] = tone;
-            debug("Tone", j, c, tone, "\n");
+
+            const prog = vab.prog[tone.prog];
+            if (c < prog.num_tones) {
+                prog.tone[c] = tone;
+                debug("Tone", j, c, tone, "\n");
+            }
         }
     }
 
     // http://problemkaputt.de/psx-spx.htm#spuadpcmsamples
-    const core = new Sound.Core();
     let table_off = v.getpos();
     let data_off = vagoff;
     debug('vag pos', table_off);
 
-    for (let i=0; i<vab.num_vags; ++i) {
-        table_off += 2;
+    for (let i=0; i<=vab.num_vags; ++i) {
         const size = v.ushort(table_off) * 8;
-        const vag = vab.vag[i] = v.build(Uint8Array, data_off, size);
+        table_off += 2;
+        if (size <= 0) continue;
+
+        const vag = v.build(Uint8Array, data_off, size);
         debug(' = wav', data_off, size);
         data_off += size;
-
-        if (i==0) {
-            let wav = new Sound.Wav(core);
-            wav.rawBuffer(ADPCMtoPCM(vag), 44100.0, 1, audio.RAW_TYPE_16BIT);
-            wav.play();
-        }
+        vab.raw[i] = ADPCMtoPCM(vag);
     }
+    return vab;
 }
 
 
@@ -353,16 +467,16 @@ function ADPCMtoPCM(srcbuf) {
         filter >>= 4;
 
         flags = srcbuf[srci++];
-        // if (flags & 1) break;
+        if (flags & 1) break;
         // if ((flags & 4) > 0)
 
-        for (let i=0; i<28; ++i) {
+        for (let i=0; i<28/2; ++i) {
             tmp = srcbuf[srci++];
             DecodeNibble(true, shift, filter, tmp);
             DecodeNibble(false, shift, filter, tmp);
         }
     }
-    debug(srcbuf.length, out.length)
+    // debug(srcbuf.length, out.length)
     return new Uint8Array(out);
 
     function Signed4bit(number) {
@@ -400,9 +514,4 @@ function ADPCMtoPCM(srcbuf) {
     function pushback(x) {
         out.push(x);
     }
-}
-
-
-function debug() {
-    Tool.debug.apply(null, arguments);
 }
