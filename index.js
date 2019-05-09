@@ -35,6 +35,7 @@ Tbl.init();
 Sound.init(window);
 Room.init(window, order, camera);
 Scenes.init(window, camera, sp, order);
+// Dev.bgm(); //!!!
 Scenes.start_game();
 
 // 开发测试用
@@ -42,7 +43,6 @@ Scenes.start_game();
 // Dev.smallMapBrowse(Room, window);
 // Dev.dataDirBrowse(Room, window);
 // Dev.enemyBrowse(Liv, window, Room, camera);
-// Dev.bgm();
 
 
 // 备用游戏循环, 有戏主循环在别处

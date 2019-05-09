@@ -312,7 +312,22 @@ function bgm() {
   Tool.debug(audio.F_WaveShaperFilter);
   let sub0 = 'COMMON/Sound/BGM/SUB_01.BGM';
   let main0 = 'COMMON/Sound/BGM/MAIN0C.BGM';
+  let main1 = 'COMMON/Sound/BGM/MAIN05.BGM';
   // let seq = BGM.main(main0);
   let seq = BGM.sub(sub0)[0];
-  seq.play();
+  // for (;;) {
+    seq.play();
+  //   console.log("LOOP");
+  // }
+  // allnote(seq);
+
+  function allnote(seq) {
+    let ch = seq.getChannel(0);
+    ch.setProgram(2);
+    for (let i=48; i<127; ++i) {
+      console.log("Note", i);
+      ch.play(i, 120);
+      thread.wait(1200);
+    }
+  }
 }

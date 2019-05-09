@@ -1,14 +1,13 @@
-// 解析 ps 音乐序列格式, bgm 音质比 sap 更好.
+// 解析 ps 音乐序列格式, bgm 音质比 sap 更好? 可惜解析不出来!.
 import file from './file.js'
 import Tool from './tool.js'
 import Sound from '../boot/Sound.js'
-// import Node from '../boot/node.js'
-// import {decode} from '../boot/imaadpcm.js'
 
 const debug = Tool.debug;
 const core = new Sound.Core();
-const samplerate = 44100/2;
+const samplerate = 44100/4;
 
+// TODO: 崩溃了...
 export default {
     main,
     sub,
@@ -17,42 +16,68 @@ export default {
 
 class Channel {
     constructor(midi) {
+        this.volume = 0;
+        this.pan = 0;
         this.midi = midi;
-        this.notes = new Array(0x7F);
+        this.notes = null;
+        this.playnote = null;
     }
 
-    release(note, strength) {
-        let wav = this.notes[note];
-        wav.stop();
+    release(note) {
+        let n = this.playnote[note];
+        if (n) n.fadeVolume(0, 0.1);
     }
 
     play(note, strength) {
-        let wav = this.notes[note];
-        wav.seek(0);
-        wav.play();
+        this.release(note);
+        let wav = this.getNoteWav(note);
+        let n = this.playnote[note] = wav.clone();
+        n.volume(strength/127 * this.volume);
+        n.pan(this.pan);
+        n.play();
     }
 
     setProgram(programid) {
         let prog = this.midi.vab.prog[programid];
         this.prog = prog;
-        for (let i=0, l=prog.tone.length; i<l; ++i) {
-            let tone = this.prog.tone[i];
-            for (let n=tone.min; n<=tone.max; ++n) {
-                let raw = this.midi.getSoundData(tone.vag);
-                let h = tone.shift - n;
-                let oct = parseInt(h/0x7f * 12);
-                let semi = h/0x7f % 12;
-                raw = new Uint8Array(audio.pitchSound(raw, 1, samplerate, 1, 1, 1, oct, semi));
-                let wav = new Sound.Wav(core);
-                // wav.setFilter(0, audio.F_EchoFilter);
-                wav.rawBuffer(raw, samplerate, 1, audio.RAW_TYPE_16BIT);
-                this.notes[n] = wav;
-            }
-        }
+        this.setVolume(prog.vol);
+        this.setPan(prog.pan);
+        this.notes = new Array(0x7F);
+        this.playnote = new Array(0x7F);
     }
 
-    setVolume(v) {}
-    setPan(p) {}
+    getNoteWav(note) {
+        let wav = this.notes[note];
+        if (wav) return wav;
+
+        let tone;
+        for (let i=0, l=this.prog.tone.length; i<l; ++i) {
+            tone = this.prog.tone[i];
+            if (note >= tone.min && note <= tone.max) {
+                break;
+            } else {
+                tone = null;
+            }
+        }
+
+        let s_raw = this.midi.getSoundData(tone.vag);
+        let semi = note - (tone.center-24) + tone.shift/127;
+        let craw = new Uint8Array(audio.pitchSound(s_raw, 1, samplerate, 1, 1, 1, 
+            0, semi, audio.RAW_TYPE_16BIT, audio.RAW_TYPE_32FLOAT));
+        wav = new Sound.Wav(core);
+        // wav.setFilter(0, audio.F_EchoFilter);
+        wav.rawBuffer(craw, samplerate, 1, audio.RAW_TYPE_32FLOAT);
+        // TODO: 同一个 note 可以有多个 tone 组成
+        return this.notes[note] = wav;
+    }
+
+    setVolume(v) {
+        this.volume = v / 127;
+    }
+
+    setPan(p) {
+        this.pan = p / 64 - 1;
+    }
 }
 
 
@@ -74,7 +99,7 @@ class Midi {
         const thiz = this;
         this.push(function() {
             let time = thiz.tempo / thiz.tpqn * ti;
-            debug("- wait", thiz.tempo, '/', thiz.tpqn, '*', ti, time);
+            // debug("- wait", thiz.tempo, '/', thiz.tpqn, '*', ti, time);
             thread.wait(time);
         });
     }
@@ -237,18 +262,21 @@ function readevent(v, state) {
             let tone = v.byte();
             let strength = v.byte();
             return function(midi) {
-                debug("- 松开", channel, tone, strength);
-                midi.getChannel(channel).release(tone, strength);
+                // debug("- 松开", channel, tone, strength);
+                midi.getChannel(channel).release(tone);
             };
-            break;
         }
 
         case 0x90: {
             let tone = v.byte();
             let strength = v.byte();
             return function(midi) {
-                debug("- 按下", channel, tone, strength);
-                midi.getChannel(channel).play(tone, strength);
+                // debug("- 按下", channel, tone, strength);
+                if (strength > 0) {
+                    midi.getChannel(channel).play(tone, strength);
+                } else {
+                    midi.getChannel(channel).release(tone);
+                }
             };
         }
 
@@ -391,7 +419,7 @@ function parse_vab_header(v, offset, vagoff) {
         if (i < vab.num_progs) {
             prog.tone = new Array(prog.num_tones);
             vab.prog[i] = prog;
-            debug('Program', prog);
+            debug('Program', i, prog);
         }
     }
 
@@ -401,19 +429,28 @@ function parse_vab_header(v, offset, vagoff) {
             // tone 是音区
             const tone = {};
             tone.priority = v.byte();
+            // 音调模式 0 =正常; 4 =应用混响
             tone.mode = v.byte();
             tone.vol = v.byte();
             tone.pan = v.byte();
+            // 中心音符 0-127
             tone.center = v.byte();
+            // 音高修正（0~127，音分单位）
             tone.shift = v.byte();
             // 发送的 note 在 (min-max) 音区中, 则 tone 出声
             tone.min = v.byte();
             tone.max = v.byte();
+            // 颤音宽度（1/128率，0~127）
             tone.vibw = v.byte();
+            // 颤音的1个循环时间（tick 刻度单位）
             tone.vibt = v.byte();
+            // 滑音宽度（1/128率，0~127）
             tone.porw = v.byte();
+            // portamento持有时间（tick 刻度单位）
             tone.port = v.byte();
+            // 弯音（-0~127,127 = 1倍频程）
             tone.pitch_bend_min = v.byte();
+            // 弯音（+ 0~127,127 = 1倍频程）
             tone.pitch_bend_max = v.byte();
             tone.reserved1 = v.byte();
             tone.reserved2 = v.byte();
@@ -427,7 +464,7 @@ function parse_vab_header(v, offset, vagoff) {
             tone.reserved6 = v.short();
 
             const prog = vab.prog[tone.prog];
-            if (c < prog.num_tones) {
+            if (prog && c < prog.num_tones) {
                 prog.tone[c] = tone;
                 debug("Tone", j, c, tone, "\n");
             }
