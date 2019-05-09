@@ -58,7 +58,7 @@ function player(mod, win, order, gameState, camera) {
   // 左转/右转
   let gleft, gright;
   let currpose;
-  let current_floor = Sound.floorSE(0);
+  let current_floor;
   // 举枪
   let gun, rot = ROT;
 

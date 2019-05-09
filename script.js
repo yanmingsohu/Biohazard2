@@ -638,7 +638,7 @@ function compile(arrbuf) {
         se.y = mem.short();
         se.z = mem.short();
         debug(se);
-        mem.wsec = (Date.now()/1000) + game.play_se(se.edt0);
+        mem.wsec = (Date.now()/1000) + game.play_se(se.data1, se.edt0);
         break;
 
       case 0x37:

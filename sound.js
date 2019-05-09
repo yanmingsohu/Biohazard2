@@ -33,6 +33,7 @@ export default {
   playVoice,
   floorSE,
   enemySE,
+  mapSE,
 };
 
 
@@ -52,14 +53,21 @@ function vab(buf, rate, ch) {
 // 允许内部 wav 对象被释放而不会崩溃.
 //
 class AnimSound {
-  constructor(fname) {
+  constructor(fname, _wav) {
     this.state = 0;
     try {
-      const file = File.open(fname);
-      this.wav = sap(file.buf, false, false);
-      this.state = 1;
+      if (fname) {
+        const file = File.open(fname);
+        this.wav = sap(file.buf, false, false);
+        this.state = 1;
+      } else if (_wav) {
+        this.wav = _wav;
+        this.state = 1;
+      } else {
+        console.warn("not se");
+      }
     } catch(e) {
-      console.error("cannot init wav", fname);
+      console.error("cannot init AnimSound", fname || e);
       this.state = -1;
     }
   }
@@ -67,8 +75,10 @@ class AnimSound {
   free() {
     if (this.state == -1) return;
     this.state = -1;
-    this.wav.free();
-    this.wav = null;
+    if (this.wav) {
+      this.wav.free();
+      this.wav = null;
+    }
   }
 
   // flag: 0x8 左脚? 0xC 右脚?
@@ -77,6 +87,13 @@ class AnimSound {
       let cp = this.wav.clone();
       cp.play();
     }
+  }
+
+  length() {
+    if (this.state == 1) {
+      return this.wav.length();
+    }
+    return 0;
   }
 }
 
@@ -87,16 +104,23 @@ function enemySE(sound_bank) {
 }
 
 
-//
-// se_no: 23(0001-0111)3, 26(0001-1010)1, 29(0001-1101)2, 
-//
-function floorSE(floor) {
-  const se_no = (floor.se_no & 0x6) >> 1;
-  const fname = FLOOR +'fs'+ Tool.d2(se_no) +'.sap';
-  const thiz = new AnimSound(fname);
-  thiz.height = floor.height;
-  thiz.range = Tool.xywd2range(floor);
-  return thiz;
+function floorSE(floor, vab) {
+  // TODO: 整对他
+  let raw = vab.raw[ vab.prog[0].tone[(floor.se_no) & 0x7].vag ];
+  const se = mapSE(raw);
+  se.height = floor.height;
+  se.range = Tool.xywd2range(floor);
+  return se;
+}
+
+
+function mapSE(raw) {
+  let wav = null;
+  if (raw) {
+    wav = new Sound.Wav(core);
+    wav.rawBuffer(raw, 44100/2, 1, audio.RAW_TYPE_16BIT);
+  }
+  return new AnimSound(null, wav);
 }
 
 

@@ -10,6 +10,7 @@ import Node   from '../boot/node.js'
 import Coll   from './collision.js'
 import Sound  from './sound.js'
 import MD2    from './model2.js'
+import Bgm    from './bgm.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4, vec2} = matrix;
 
@@ -222,7 +223,6 @@ function readScript(filebuf, off) {
 
 
 function readSound(filebuf, off, ret) {
-  return;
   let v = File.dataViewExt(new DataView(filebuf));
   debug("VAB Edt0/SND?", off.offset0);
   debug("VAB Vh0",  off.vab);
@@ -230,64 +230,9 @@ function readSound(filebuf, off, ret) {
   debug("VAB Vh1",  off.offset3);
   debug("VAB Vb1",  off.offset4);
 
-  let x = off.offset0;
-  // ret.snd = [];
-  for (let i=0; i<48; ++i) {
-    let snd = { c: i };
-    snd.id = v.byte(x);
-    snd.pan = v.byte(x + 1);
-    snd.tone = v.byte(x + 2);
-    snd.mono = v.byte(x + 3);
-    // ret.snd.push(snd);
-    x += 4;
-    debug("SND", snd);
-  }
-
-  x = off.vab;
-  let vh = {};
-  vh.magic            = v.ulong(x); 
-  vh.version          = v.ulong(x+4);
-  vh.id               = v.ulong(x+8);   // vab id
-  vh.size             = v.ulong(x+12);  // waveform size in bytes
-  vh.reserved_0       = v.ushort(x+16);
-  vh.programs         = v.ushort(x+18); // total number of programs used
-  vh.tones            = v.ushort(x+20); // total number of tones used
-  vh.vag_count        = v.ushort(x+22); // total number of .vag files used
-  vh.master_volume    = v.byte(x+24);
-  vh.master_pan       = v.byte(x+25);
-  vh.bank_attribute_1 = v.byte(x+26);
-  vh.bank_attribute_2 = v.byte(x+27);
-  vh.reserved_1       = v.ulong(x+28);
-  x += 32;
-
-  debug("VH header", vh);
-  if (vh.magic != 1447117424) {
-    throw new Error("bad VH header format");
-  }
-
-  for (let i=0; i<16; ++i) {
-    debug("Program attr", i);
-    // v.print(x, 128);
-    x += 128;
-  }
-
-  for (let i=0; i<vh.programs; ++i) {
-    debug("Tone", i);
-    // v.print(x, 32*16);
-    x += 32*16;
-  }
-  x += 2; // 0x0000 ?
-
-  let y = off.offset2;
-  for (let i=0; i<vh.vag_count; ++i) {
-    let t = v.ushort(x) << 3;
-    x += 2;
-    debug("VAG", i, 'len', t);
-    // v.print(y, t);
-    // if (i==2) 
-    //   Sound.vab(new Uint8Array(filebuf, y, t), 44100/4, 1);
-    y += t;
-  }
+  let vab = Bgm.parse_vab_header(v, off.vab, off.offset2);
+  debug('RAW count', vab.raw.length);
+  ret.vab = vab;
 }
 
 

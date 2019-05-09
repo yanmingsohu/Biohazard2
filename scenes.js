@@ -222,7 +222,8 @@ function load_map() {
 
   for (let i=map_data.floor.length-1; i>=0; --i) {
     let f = map_data.floor[i];
-    let se = Sound.floorSE(f);
+    // let se = Sound.floorSE(f);
+    let se = Sound.floorSE(f, map_data.vab);
     scenes_garbage.push(se);
     floors.push(se);
   }
@@ -696,12 +697,16 @@ function get_game_object(type, id) {
 }
 
 
-function play_se(id) {
-  let se = Sound.playSE(stage, id);
+function play_se(prog, tone) {
+  // TODO: 整对他
+  let raw = map_data.vab.raw[ map_data.vab.prog[prog].tone[tone].vag ];
+  let se = Sound.mapSE(raw);
   if (se) {
+    se.play();
     scenes_garbage.push(se);
     return se.length();
   }
+  Tool.debug("No play se!!");
   return 0;
 }
 

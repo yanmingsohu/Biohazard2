@@ -11,6 +11,7 @@ const samplerate = 44100/4;
 export default {
     main,
     sub,
+    parse_vab_header,
 }
 
 
@@ -482,9 +483,14 @@ function parse_vab_header(v, offset, vagoff) {
         if (size <= 0) continue;
 
         const vag = v.build(Uint8Array, data_off, size);
-        debug(' = wav', data_off, size);
+        debug(' = wav', i, data_off, size);
         data_off += size;
         vab.raw[i] = ADPCMtoPCM(vag);
+
+        // let wav = new Sound.Wav(core);
+        // wav.rawBuffer(vab.raw[i], samplerate, 1, audio.RAW_TYPE_16BIT);
+        // wav.play();
+        // thread.wait(1000);
     }
     return vab;
 }
