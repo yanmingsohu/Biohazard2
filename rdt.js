@@ -160,7 +160,7 @@ function readSpace(buf, offobj, obj) {
   debug(". Collision", cx, cz, d0, d1.toString(16), d2.toString(16));
 
   const carr = obj.collision = [];
-  const GAP = 400; // 大一圈的算法有问题
+  const GAP = 300; // 大一圈的算法有问题
   off = collision + 16;
   for (let i=0; i<d0; ++i) {
     let c = {};

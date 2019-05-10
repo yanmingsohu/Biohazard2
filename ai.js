@@ -413,7 +413,7 @@ function Base(gameState, mod, win, order, ext) {
     // x 像素误差, 使接近上层也认为在上层
     const x = 10;
     let f = -parseInt((this.where()[1] - x) / FLOOR_PER_PIXEL); 
-    console.line(this.where()[1], f)
+    //console.line(this.where()[1], f)
     return f;
   }
 }
