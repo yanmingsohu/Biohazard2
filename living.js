@@ -266,7 +266,7 @@ function Living(mod, tex) {
 
 
   function show_info() {
-    console.line("Anim", anim_idx, "Frame", Tool.d4(anim_frame), 
+    console.line("Anim", Tool.d4(anim_idx), "Frame", Tool.d4(anim_frame), 
         "Offset", Tool.d4(frame_data.x), 
         Tool.d4(frame_data.y), Tool.d4(frame_data.z), 
         "Speed:", Tool.d4(frame_data.spx), 

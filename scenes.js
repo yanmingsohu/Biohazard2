@@ -208,8 +208,8 @@ function load_map() {
     let c = map_data.collision[i];
     collisions.push(c);
     // 显示碰撞体
-    const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
-    scenes_garbage.push(Tool.showCollision(c, window, color2));
+    // const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
+    // scenes_garbage.push(Tool.showCollision(c, window, color2));
   }
 
   const color = new Float32Array([0.9, 0.1, 0.3]);
@@ -217,7 +217,7 @@ function load_map() {
     let b = map_data.block[i];
     play_range.push(b);
     // 调试 block
-    scenes_garbage.push(Tool.showRange(b, window, color));
+    // scenes_garbage.push(Tool.showRange(b, window, color));
   }
 
   for (let i=map_data.floor.length-1; i>=0; --i) {
@@ -334,6 +334,7 @@ function begin_level() {
   p1 = Ai.player(liv, window, draw_order, gameState, camera);
   set_weapon(liv, 7);
 
+  // 玩家初始位置
   init_pos(0);
 
   while (window.notClosed()) {
@@ -522,7 +523,7 @@ function aot_set(npo) {
       throw new Error("unknow aot", type);
   }
   object_arr[npo.id] = npo;
-  scenes_garbage.push(Tool.showRange(npo, window));
+  // scenes_garbage.push(Tool.showRange(npo, window));
 }
 
 
@@ -543,7 +544,7 @@ function setDoor(d) {
   };
 
   _test_bind_key_sw_room(d.id, range.act);
-  scenes_garbage.push(Tool.showRange(range, window));
+  // scenes_garbage.push(Tool.showRange(range, window));
 }
 
 
@@ -699,12 +700,16 @@ function get_game_object(type, id) {
 
 function play_se(prog, tone) {
   // TODO: 整对他
-  let raw = map_data.vab.raw[ map_data.vab.prog[prog].tone[tone].vag ];
-  let se = Sound.mapSE(raw);
-  if (se) {
-    se.play();
-    scenes_garbage.push(se);
-    return se.length();
+  try {
+    let raw = map_data.vab.raw[ map_data.vab.prog[prog].tone[tone].vag ];
+    let se = Sound.mapSE(raw);
+    if (se) {
+      se.play();
+      scenes_garbage.push(se);
+      return se.length();
+    }
+  } catch(e) {
+    console.error(e);
   }
   Tool.debug("No play se!!");
   return 0;

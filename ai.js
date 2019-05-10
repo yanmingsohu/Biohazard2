@@ -29,9 +29,10 @@ export default {
 
 // TODO: 模型的移动需要与动画参数偏移数据同步
 function player(mod, win, order, gameState, camera) {
-  const RUN_SP     = 27;
-  const WALK       = 15;
-  const ROT        = 0.018;
+  // 转圈系数: 原地, 走路, 奔跑
+  const ROT_COE    = [0.022, 0.011, 0.015]
+  const RUN_SP     = 25;
+  const WALK       = 16;
   const WALK_SPEED = 30;
 
   const input      = win.input();
@@ -60,7 +61,7 @@ function player(mod, win, order, gameState, camera) {
   let currpose;
   let current_floor;
   // 举枪
-  let gun, rot = ROT;
+  let gun, rot = ROT_COE[0];
 
   mod.setSpeed(WALK_SPEED);
   bind_ctrl(input, defaultKeyBind);
@@ -100,21 +101,25 @@ function player(mod, win, order, gameState, camera) {
     else if (forward) {
       one_step = WALK;
       if (run) {
+        rot = ROT_COE[2];
         changeDir(1);
         changePose(11);
       } else {
+        rot = ROT_COE[1];
         changeDir(-1);
         changePose(0);
       }
       move();
     } 
     else if (goback) {
+      rot = ROT_COE[1];
       changeDir(1);
       one_step = -WALK;
       changePose(0);
       move();
     } else {
       stand = true;
+      rot = ROT_COE[0];
     }
     
     if (gleft) {
@@ -130,11 +135,12 @@ function player(mod, win, order, gameState, camera) {
 
 
   function move() {
-    let step = (one_step + run) + ((thiz.move_speed[2]+0.1)/15);
+    let step = (one_step + run) + ((thiz.move_speed[2]+0.1)/15) + thiz.move_speed[0]/800;
     thiz.translate(thiz.wrap0(step, 0, 0));
     // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.
     const w = thiz.where();
     const p = new Point2(w[0], w[2]);
+    const floor = thiz.floor();
   
     if (undefined === Tool.inRanges(play_range, w[0], w[2])) {
       back();
@@ -152,7 +158,7 @@ function player(mod, win, order, gameState, camera) {
     for (let i=0, l=collisions.length; i<l; ++i) {
       let c = collisions[i];
       // TODO: 每个碰撞物对 flag 的处理方式不同, 这样处理错误!
-      if (c.play_on && c.block && c.py) {
+      if (c.play_on && c.floor_block[floor] && c.py) {
         c.py.in(p, thiz);
         thiz.where();
         p.x = w[0];
@@ -404,6 +410,10 @@ function Base(gameState, mod, win, order, ext) {
   // 返回角色所在楼层的高度, 一个高度为1800像素, 总是>0
   //
   function floor() {
-    return -parseInt(this.where()[1] / FLOOR_PER_PIXEL);
+    // x 像素误差, 使接近上层也认为在上层
+    const x = 10;
+    let f = -parseInt((this.where()[1] - x) / FLOOR_PER_PIXEL); 
+    console.line(this.where()[1], f)
+    return f;
   }
 }

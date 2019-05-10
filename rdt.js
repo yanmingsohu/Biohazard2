@@ -160,7 +160,7 @@ function readSpace(buf, offobj, obj) {
   debug(". Collision", cx, cz, d0, d1.toString(16), d2.toString(16));
 
   const carr = obj.collision = [];
-  const GAP = 400;
+  const GAP = 400; // 大一圈的算法有问题
   off = collision + 16;
   for (let i=0; i<d0; ++i) {
     let c = {};
@@ -198,8 +198,11 @@ function readSpace(buf, offobj, obj) {
     Coll.installCollision(c);
     carr.push(c);
 
-    let flag2 = v.getUint8(off+12);
-    c.block = flag2 & 0x1;
+    let lev_flag0 = v.getUint8(off+12);
+    let lev_flag1 = v.getUint8(off+13);
+    let lev_flag2 = v.getUint8(off+14);
+    let lev_flag3 = v.getUint8(off+15);
+    c.floor_block = makeFloorBlock(lev_flag3, lev_flag2, lev_flag1, lev_flag0);
 
     off += 16;
     if (((type >> 12) & 0xF) != 9) {
@@ -209,8 +212,22 @@ function readSpace(buf, offobj, obj) {
     debug('\t', c.name, 'x,y=', c.x, c.y, 
       'w,d=', c.w, c.d, 'x/w=', c.xw, 'z/d=', c.yd, 
       'type=', c.type, 'floor=', c.floor, 
-      /*'f=', f.toString(2), '?=', type & 0x1F,*/ Tool.bit(flag2));
+      /*'f=', f.toString(2), '?=', type & 0x1F,*/
+      '\n', c.floor_block);
   }
+}
+
+
+// 返回数组元素的位置对应楼层数, 1表示阻碍, 0表示通过
+function makeFloorBlock(f3, f2, f1, f0) {
+  let b = [];
+  for (let i=0; i<8; ++i) {
+    b[i   ] = (f0 & (1<<i)) >> i;
+    b[i+ 8] = (f1 & (1<<i)) >> i;
+    b[i+16] = (f2 & (1<<i)) >> i;
+    b[i+24] = (f3 & (1<<i)) >> i;
+  }
+  return b;
 }
 
 
