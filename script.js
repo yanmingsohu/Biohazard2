@@ -604,12 +604,17 @@ function compile(arrbuf) {
         var y = mem.short();
         var z = mem.short();
         debug(x, y, z);
-        game.pos_set(x, y, z);
+        // game.pos_set(x, y, z);
+        game.work.setPos(x, y, z);
         break;
 
       case 0x33:
-        debug("Dir_set")
-        mem.s(7);
+        debug("Dir_set");
+        mem.s(1);
+        var x = mem.short();
+        var y = mem.short();
+        var z = mem.short();
+        game.work.lookAt(x, y, z);
         break;
 
       case 0x34:
@@ -715,7 +720,7 @@ function compile(arrbuf) {
         break;
 
       case 0x3F:
-        debug('Plc_motion -------------------------------------');
+        debug('Plc_motion');
         var type = mem.byte();
         var idx  = mem.byte();
         var flag = mem.byte();
@@ -724,7 +729,7 @@ function compile(arrbuf) {
         break;
 
       case 0x40:
-        debug('Plc_dest');
+        debug('Plc_dest ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^');
         mem.s(1);
         var flag = mem.byte();
         var room = mem.byte();
@@ -734,7 +739,7 @@ function compile(arrbuf) {
         if ((flag & 0x10) || (flag & 0x08)) { // 相对位置 0x09
           // game.pos_set(x, 0, z);
         } else {
-          game.pos_set(x, 0, z);
+          game.work.moveTo(x, 0, z);
         }
         break;
 
@@ -748,7 +753,7 @@ function compile(arrbuf) {
         neck.spx = mem.byte();
         neck.spz = mem.byte();
         debug(neck);
-        game.work.lookAt(neck);
+        game.work.turnAround(neck);
         break;
 
       case 0x42:
@@ -931,7 +936,7 @@ function compile(arrbuf) {
         break;
 
       case 0x58:
-        debug("Plc_rot");
+        debug("Plc_rot *********************************************");
         mem.s(3);
         break;
 

@@ -177,6 +177,7 @@ function Living(mod, tex) {
     // 每帧动画, 移动的距离不同, 返回的数组反映移动距离
     // 返回的对象每帧都会更新.
     getMoveSpeed,
+    moveImmediately,
   };
 
 
@@ -195,6 +196,7 @@ function Living(mod, tex) {
   }
 
 
+  // 值越大, 播放速度越慢
   function setSpeed(s) {
     DEF_SPEED = s;
   }
@@ -230,7 +232,7 @@ function Living(mod, tex) {
       return false;
     }
     pose = tmp;
-    anim_frame = frame;
+    if (frame >= 0) anim_frame = frame;
     a = 0;
     return true;
   }
@@ -274,6 +276,16 @@ function Living(mod, tex) {
   }
 
 
+  //
+  // 立即把模型移动到当前动画帧指定的位置(默认线性插值)
+  //
+  function moveImmediately() {
+    liner_pos.x = frame_data.x;
+    liner_pos.y = frame_data.y;
+    liner_pos.z = frame_data.z;
+  }
+
+
   function _nextFrame(frame) {
     if (frame < 0) {
       if (!_end()) return false;
@@ -282,7 +294,7 @@ function Living(mod, tex) {
       if (!_end()) return false;
       anim_frame = 0;
     } else {
-      anim_frame = frame;
+      anim_frame = parseInt(frame);
     }
 
     let frm = pose[anim_frame];
@@ -294,9 +306,6 @@ function Living(mod, tex) {
     frame_data = pose.get_frame_data(frm.sk_idx);
     alf.setPercentage(0);
     alf.setCurrent(frame_data);
-    liner_pos.x = frame_data.x;
-    liner_pos.y = frame_data.y;
-    liner_pos.z = frame_data.z;
     move_speed[0] = frame_data.spx;
     move_speed[1] = frame_data.spy;
     move_speed[2] = frame_data.spz;

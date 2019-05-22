@@ -25,7 +25,13 @@ export default {
   h4, h2,
   // 格式化 2进制数字
   bit,
+  randomInt,
 };
+
+
+function randomInt(x) {
+  return parseInt(Math.random() * x);
+}
 
 
 function bit(b) {
@@ -98,6 +104,7 @@ function h2(x) {
 
 function debug() {
   const a = arguments;
+  const o = [];
   let v;
   for (let i=0; i<a.length; ++i) {
     v = a[i];
@@ -109,10 +116,12 @@ function debug() {
         v.constructor != Array &&
         !ArrayBuffer.isView(v)
     ) {
-      a[i] = JSON.stringify(v);
-    } 
+      o[i] = JSON.stringify(v);
+    } else {
+      o[i] = a[i];
+    }
   }
-  console.debug.apply(console, a);
+  console.debug(o.join(' '));
 }
 
 

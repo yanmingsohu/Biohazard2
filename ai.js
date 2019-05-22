@@ -27,6 +27,17 @@ export default {
 };
 
 
+
+
+//
+// 玩家模型动作说明, 0:步行, 1:恐惧后退, 2:死亡倒下, 3:从正面被攻击, 4:从背面被攻击
+// 5:?, 6:蹲下/站起, 7:准备推动, 8:向前推动, 9:轻伤前进
+// 10:步行, 11:跑步, 12:站立, 13:轻伤步行, 14: 轻伤跑步, 15:轻伤站立
+// 16:重伤步行, 17:重伤跑步, 18:重伤站立, 
+// 19:向前方举枪, 20:向前方开枪, 21:向前方瞄准(不动)
+// 22:向上方开枪, 23:向上方瞄准(不动), 24:向下方开枪, 25:向下方瞄准(不动)
+// 26:重装子弹
+//
 // TODO: 模型的移动需要与动画参数偏移数据同步
 function player(mod, win, order, gameState, camera) {
   // 转圈系数: 原地, 走路, 奔跑
@@ -206,6 +217,7 @@ function player(mod, win, order, gameState, camera) {
     let r = Tool.xywd2range({x, y, w:100, d:100});
     let color = new Float32Array([0.5, 0.5, 1]);
     gameState.garbage(Tool.showRange(r, win, color, -110));
+    console.log(x, y);
   }
 
 
@@ -232,19 +244,63 @@ function player(mod, win, order, gameState, camera) {
     i.pressOnce(bind.up,    ()=>{ forward = 1   }, ()=>{ forward = 0 });
     i.pressOnce(bind.down,  ()=>{ goback = 1    }, ()=>{ goback = 0; });
     i.pressOnce(bind.run,   ()=>{ run = RUN_SP; }, ()=>{ run = 0;    });
-    i.pressOnce(bind.gun,   ()=>{ gun = 0.5, rot=ROT*0.5 }, 
-                            ()=>{ gun = 0; rot = ROT });
+    i.pressOnce(bind.gun,   ()=>{ gun = 0.5; rot=ROT_COE[0]; }, 
+                            ()=>{ gun = 0; rot=ROT_COE[0]; });
     i.pressOnce(bind.act, check_front);
   }
 }
 
 
+//
+// 僵尸动作说明: 0.手放下缓慢前进; 1.手放下稍快前进; 2.3.手放下大步前进; 
+// 4.抬手八字步前进; 5.抬手八字步快速前进; 6.抬手直立前进; 7.抬手快速前进;
+// 8.原地徘徊; 9.向前倒地; 10.向后倒地; 11.向前趔趄; 12.向后趔趄;
+// 13.向前爬; 14.爬行时中枪; 15.爬行死亡; 16.面朝下爬起并站立; 17.面朝上爬起并站立;
+// 18.双手向前扑倒; 19.??站立双手抬起,尝试攻击(过渡动作); 20.站立啃咬; 
+// 21.向后趔趄(腿部动作不同); 22.爬行时尝试攻击(过渡动作); 23.爬行啃咬;
+// 24.???啃咬时被攻击; 25.站立被射击; 26.跪在地上啃咬; 27.跪在地上啃咬2;
+// 28.跪在地上啃咬3; 29.跪在地上并站起; 30.面朝上抽动; 31.面朝下抽动;
+// 32.彻底扑倒后撕咬(应该是玩家空血后被扑倒);
+// 33.由原地站立后抬手(?); 34.原地抬手(不动); 35.向前扑空;
+// 36.被机枪攻击1; 37.被机枪攻击2; 38.被机枪攻击3; 39.??过渡动作,一只手抬起
+// 40.??一只手向前推(铁砂掌?); 41.用肩膀撞击, 后巷用到这个动作;
+// 42.向43的过渡动作(尝试攻击?); 43.站立啃咬动作?; 44.??站立甩头浑身扭动
+// 45.向46的过渡动作; 46.踩蟑螂?????; 47.向48的过渡动作; 48.??射门,球进了(一点没开玩笑)
+// 49.向50的过渡动作; 50.瘸了一条腿前进; 51.瘸了一条腿转身????;
+// 52.向后倒地, 并作出死不瞑目的手部动作;
+// 53.面朝上躺在地上, 头部似乎要转向; 54.向前倒地, 手部抬起似乎在喊着我还不能死;
+// 55.和54有某种关系;
+//
 function zombie(mod, win, order, gameState, se, data) {
-  mod.setAnim(0, 0);
-  mod.setAnim(0, parseInt(Math.random() * mod.getPoseFrameLength()));
-  if (data.state != 64 && data.state != 0) {
-    mod.setDir(1);
-  }
+  // mod.setAnim(8, 0);
+  // mod.setAnim(0, parseInt(Math.random() * mod.getPoseFrameLength()));
+  // if (data.state != 64 && data.state != 0) {
+  //   mod.setDir(1);
+  // }
+
+  const thiz = Base(gameState, mod, win, order, {
+  });
+
+  // mod.setAnimSound(se);
+  return thiz;
+}
+
+
+//
+// 舔食者动画编号与说明:
+// 0.中速爬行; 1.缓慢爬行; 2.站立前进; 3.趴着原地徘徊; 4.站立原地徘徊(警戒);
+// 5.趴着与站立过渡,慢速; 6.趴着与站立过渡,快速; 7.吼叫; 8.被攻击;
+// 9.面朝上倒地; 10.面朝下倒地; 11.面朝上扭动直到死亡; 12.从平面横向爬到右手边的墙壁上;
+// 13.准备起跳?; 14.跳跃; 15.??某种过渡动作; 16.从平面向前爬下垂直的墙壁;
+// 17.从平面向前爬上垂直的墙壁; 18.在天花板上转身准备落地; 19.落到地面上缓冲;
+// 20.??在地面上抖动; 21.右爪攻击; 22.面朝上倒地后翻身回到爬行态;
+// 36
+//
+function licker(mod, win, order, gameState, se, data) {
+  // mod.setAnim(8, 0);
+  // if (data.state != 64 && data.state != 0) {
+  //   mod.setDir(1);
+  // }
 
   const thiz = Base(gameState, mod, win, order, {
   });
@@ -258,6 +314,9 @@ function Base(gameState, mod, win, order, ext) {
   const thiz = {
     setDirection,
     setPos,
+    moveTo,
+    turnAround,
+    lookAt,
     draw, 
     free,
     wrap0,
@@ -265,7 +324,6 @@ function Base(gameState, mod, win, order, ext) {
     getAngle,
     setAnim,
     frontPoint,
-    lookAt,
     floor,
   };
 
@@ -273,29 +331,23 @@ function Base(gameState, mod, win, order, ext) {
   const ch_free = ext.free;
   const Tran = Game.Transformation(thiz);
   const model_trans = Tran.objTr;
+  const moving_destination = [];
   const swap = new Array(3);
   const zero = [0,0,0];
   const move_speed = mod.getMoveSpeed();
   let angle = 0;
   let ex_anim_index = -1;
+  let _state = 0;
 
   thiz.ms = model_trans;
   thiz.swap = swap; // 使用的元素必须完全清空
   thiz.move_speed = move_speed;
   delete ext.free;
+  mod.moveImmediately();
 
   return Object.assign(Tran, thiz, ext);
 
 
-  //
-  // 动作说明, 0:步行, 1:恐惧后退, 2:死亡倒下, 3:从正面被攻击, 4:从背面被攻击
-  // 5:?, 6:蹲下/站起, 7:准备推动, 8:向前推动, 9:轻伤前进
-  // 10:步行, 11:跑步, 12:站立, 13:轻伤步行, 14: 轻伤跑步, 15:轻伤站立
-  // 16:重伤步行, 17:重伤跑步, 18:重伤站立, 
-  // 19:向前方举枪, 20:向前方开枪, 21:向前方瞄准(不动)
-  // 22:向上方开枪, 23:向上方瞄准(不动), 24:向下方开枪, 25:向下方瞄准(不动)
-  // 26:重装子弹
-  //
   function setAnim(flag, type, idx) {
     const reverse_dir = flag & 0x80;
     const part = flag & 0x10;
@@ -321,15 +373,6 @@ function Base(gameState, mod, win, order, ext) {
   }
 
 
-  // neck: x,y,z, spx,spz, op
-  function lookAt(neck) {
-    // let to = mat4.create();
-    // mat4.targetTo(to, Tran.where(), [neck.x, neck.y, neck.z], [0,-1,0]);
-    // mat4.multiply(this.objTr, this.objTr, to);
-    console.log("Look AT", neck, '-========================================');
-  }
-
-
   function rotateY(rad) {
     mat4.rotateY(this.objTr, this.objTr, rad);
     angle += rad;
@@ -345,9 +388,28 @@ function Base(gameState, mod, win, order, ext) {
 
   
   function draw(u, t) {
+    if (_state == 1) _move();
     ext.draw && ext.draw(u, t);
     Shader.setModelTrans(model_trans);
     mod.draw(u, t);
+  }
+
+
+  function _move() {
+    const STEP = 10;
+    let x = model_trans[12] - moving_destination[0];
+    let y = model_trans[13] - moving_destination[1];
+    let z = model_trans[14] - moving_destination[2];
+    let need = Math.abs(x) > 10 || Math.abs(y) > 10 || Math.abs(z) > 10;
+
+    if (need) {
+      model_trans[12] -= Math.min(x, STEP);
+      model_trans[13] -= Math.min(y, STEP);
+      model_trans[14] -= Math.min(z, STEP);
+    } else {
+      mod.setAnim(12, 0);
+      _state = 0;
+    }
   }
 
 
@@ -359,12 +421,42 @@ function Base(gameState, mod, win, order, ext) {
     ch_free && ch_free();
   }
 
-  
+
   function setPos(x, y, z) {
     model_trans[12] = x;
     model_trans[13] = y;
     model_trans[14] = z;
+  }
+
+  
+  function moveTo(x, y, z, abs = 1) {
+    _state = 1;
+    mod.setAnim(0);
+    mod.setDir(-1);
+    if (abs) {
+      moving_destination[0] = x;
+      moving_destination[1] = y;
+      moving_destination[2] = z;
+    } else {
+      moving_destination[0] = x + model_trans[12];
+      moving_destination[1] = y + model_trans[13];
+      moving_destination[2] = z + model_trans[14];
+    }
     // mat4.fromTranslation(model_trans, wrap0(x, y, z));
+    Tool.debug("Move TO", x, y, z, '====================================');
+  }
+
+
+  function lookAt(x, y, z) {
+    // mat4.lookAt(this.objTr, Tran.where(), [x,y,z], [0,1,0]);
+    Tool.debug("Look AT", x, y, z, '-========================================');
+  }
+
+
+  // neck: x,y,z, spx,spz, op
+  function turnAround(neck) {
+    // mat4.lookAt(this.objTr, Tran.where(), [neck.x,neck.y,neck.z], [0,1,0]);
+    Tool.debug("Turn Around", neck, '-========================================');
   }
 
 

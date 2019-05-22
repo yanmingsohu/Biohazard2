@@ -102,7 +102,6 @@ const gameState = {
   get_bitarr,
   set_bitarr,
   calc,
-  pos_set,
   get_game_object,
   play_se,
   play_voice,
@@ -208,8 +207,8 @@ function load_map() {
     let c = map_data.collision[i];
     collisions.push(c);
     // 显示碰撞体
-    // const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
-    // scenes_garbage.push(Tool.showCollision(c, window, color2));
+    const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
+    scenes_garbage.push(Tool.showCollision(c, window, color2));
   }
 
   const color = new Float32Array([0.9, 0.1, 0.3]);
@@ -313,6 +312,12 @@ function init_pos(t) {
     case 7: // 监狱, 大量对话和过场剧情 ROOM3010.RDT
       p1.setPos(-25099.73046875,0,-15760);
       stage = 3; room_nm = 0x1; camera_nm = 0;
+      break;
+
+    case 8: // 卡车门口
+      p1.setPos(-6806,0,-16363);
+      stage = 1; room_nm = 0x19; camera_nm = 0;
+      break;
   }
 }
 
@@ -406,6 +411,51 @@ function addEnemy(zb) {
   ai.setPos(zb.x, zb.y, zb.z);
   ai.setDirection(zb.dir);
   enemy[zb.id] = ai;
+
+  switch (zb.state) {
+    // 和警局中从木板中伸出的手有关
+    case 0:
+    case 1:
+    case 16:
+      break;
+
+    case 70: // 普通僵尸, (血量不同?)
+    case 64:
+    case 6:
+      mod.setAnim(8, 0);
+      mod.setDir(1);
+      break;
+    
+    case 198: // 着火的僵尸
+      break;
+
+    case 194: // 着火的僵尸躺在地上
+      mod.setAnim(17, 0);
+      mod.setDir(1);
+      break;
+
+    case 72: // 趴在地上撕咬
+    case 8:
+      mod.setAnim(26 + Tool.randomInt(2), 0);
+      mod.setDir(1);
+      break;
+
+    case 2: // 已经死了, 抽搐
+    case 4:
+      mod.setAnim(30, 0);
+      mod.setDir(1);
+      break;
+
+    case 7: // 已经死了(不动)
+      mod.setAnim(31, 0);
+      mod.setDir(0);
+      break;
+
+    case 67: // 在地上爬行(不可站立)
+      mod.setAnim(13, 0);
+      mod.setDir(1);
+      break;
+  }
 }
 
 
@@ -638,15 +688,6 @@ function cut_restore() {
 
 function cut_auto(is_on) {
   p1.able_to_control(is_on);
-}
-
-
-function pos_set(x, y, z) {
-  if (this.work && this.work.setPos) {
-    this.work.setPos(x, y, z);
-  } else {
-    console.error("canot set pos", this.work);
-  }
 }
 
 

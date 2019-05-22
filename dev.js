@@ -116,10 +116,10 @@ function dataDirBrowse(Room, window) {
 function enemyBrowse(Liv, window, Room, camera) {
   camera.setPos(3000, -1000, 0);
   let mods = [];
-  // 46: 枪店老板
+  // 46: 枪店老板, 58:警察僵尸
   // 动画不正常: 51:里昂, 94:机械臂, 91:食人花, 70:舔舐者, 71:鳄鱼
   // 模型不正常: 39:艾达, 20:暴君
-  let mindex = 51;
+  let mindex = 70;
   _dir('Pl0/emd0');
   _dir('pl1/emd1');
 
@@ -131,6 +131,7 @@ function enemyBrowse(Liv, window, Room, camera) {
   let weaponid = 0;
   let player;
   let curr_weapon;
+  let speed = 100;
 
   let tmat = matrix.mat4.create(1);
   matrix.mat4.translate(tmat, tmat, [0, 0, 0]);
@@ -140,16 +141,17 @@ function enemyBrowse(Liv, window, Room, camera) {
   switchMod(0);
   mod.setAnim(0, 0);
   // mod.setDir(1);
+  mod.setSpeed(speed);
 
   const d = 100000;
   const color3 = new Float32Array([0.01, 0.01, 0.01]);
   const range3 = Tool.xywd2range({x:0, y:-d, d:d<<1, w:10});
-  Tool.showRange(range3, window, color3);
+  // Tool.showRange(range3, window, color3);
   const color2 = new Float32Array([0.9, 0.9, 0.9]);
   const range1 = Tool.xywd2range({x:-d, y:0, d:10, w:d<<1});
-  Tool.showRange(range1, window, color3);
+  // Tool.showRange(range1, window, color3);
   const range = Tool.xywd2range({x:-d, y:-d, d:d<<1, w:d<<1});
-  Tool.showRange(range, window, color2);
+  // Tool.showRange(range, window, color2);
 
   window.onKey(gl.GLFW_KEY_D, gl.GLFW_PRESS, 0, function() {
     matrix.mat4.rotateY(tmat, tmat, 0.01);
@@ -195,6 +197,15 @@ function enemyBrowse(Liv, window, Room, camera) {
     console.log("POSE", anim_idx);
   });
 
+  window.input().pressOnce(gl.GLFW_KEY_Z, function() {
+    if (!mod) return;
+    if (!mod.setAnim(--anim_idx, 0)) {
+      mod.setAnim(0, 0);
+      anim_idx = 0;
+    }
+    console.log("POSE", anim_idx);
+  });
+
   window.input().pressOnce(gl.GLFW_KEY_E, function() {
     if (!mod) return;
     console.log("weapon", weaponid);
@@ -203,28 +214,33 @@ function enemyBrowse(Liv, window, Room, camera) {
   });
 
   window.input().pressOnce(gl.GLFW_KEY_1, function() {
-    if (mod) {
-      mod.setDir(-1);
-    }
+    if (mod) mod.setDir(-1);
   });
 
   window.input().pressOnce(gl.GLFW_KEY_2, function() {
-    if (mod) {
-      mod.setDir(0);
-    }
+    if (mod) mod.setDir(0);
   });
 
   window.input().pressOnce(gl.GLFW_KEY_3, function() {
-    if (mod) {
-      mod.setDir(1);
-    }
+    if (mod) mod.setDir(1);
+  });
+
+  window.input().pressOnce(gl.GLFW_KEY_MINUS, function() {
+    console.log("speed", speed+=5);
+    if (mod) mod.setSpeed(speed);
+  });
+
+  window.input().pressOnce(gl.GLFW_KEY_EQUAL, function() {
+    console.log("speed", speed-=5);
+    if (mod) mod.setSpeed(speed);
   });
 
   console.log("Press U/I next model");
   console.log("Press A/D rotate");
   console.log("Press W/S far/near");
-  console.log("Press Q next pose");
+  console.log("Press Q next pose, Z previous pose");
   console.log("Press 1/2/3 play anim");
+  console.log("Press =/- play anim speed");
 
 
   function switchMod(x) {
@@ -248,6 +264,8 @@ function enemyBrowse(Liv, window, Room, camera) {
     // 切换模型的同时, 用模型纹理做背景
     // Room.showPic(mod.texfile);
     camera.lookAt(tmat[12], tmat[13]-1000, tmat[14]);
+    mod.setSpeed(speed);
+    mod.moveImmediately();
     console.log("Mod index:", mindex, player, info.id);
   }
 
