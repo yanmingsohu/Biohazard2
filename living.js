@@ -138,6 +138,7 @@ function Living(mod, tex) {
   const components    = [];
   const alf           = new AngleLinearFrame();
   const liner_pos     = {x:0, y:0, z:0};
+  const abs_pos       = {x:0, y:0, z:0};
   const liner_pos_tr  = Game.Pos3Transition(liner_pos, 0);
   const move_speed    = [0,0,0];
   let   DEF_SPEED     = 45;
@@ -309,6 +310,9 @@ function Living(mod, tex) {
     move_speed[0] = frame_data.spx;
     move_speed[1] = frame_data.spy;
     move_speed[2] = frame_data.spz;
+    abs_pos.x = frame_data.x;
+    abs_pos.y = frame_data.y + mod.getHeight();
+    abs_pos.z = frame_data.z;
 
     if (frm.flag && animSound) {
       animSound.play(frm.flag);
@@ -325,7 +329,7 @@ function Living(mod, tex) {
     
     // console.log(a/speed, '\t', a, '\t', speed);
     alf.setPercentage(u/speed);
-    liner_pos_tr.line(u, frame_data);
+    liner_pos_tr.line(u, abs_pos);
 
     // console.line(liner_pos.y);
     Shader.setAnimOffset(liner_pos.x, liner_pos.y, liner_pos.z);

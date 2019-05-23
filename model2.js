@@ -34,6 +34,8 @@ class MD {
     this.bone = [];
     // 用于传输数据到着色器, 最多 20 块骨头层级, 每个骨头 4个偏移4个旋转
     this.bind_bone = new Float32Array(20 * 8);
+    // 使用模型的高度作为与地平线零点的偏移
+    this.height = 0;
   }
 
   //
@@ -71,10 +73,10 @@ class MD {
     // this.bone[0].transform2(this.bind_bone, alf, sprites, count);
     const rootBone = this.bone[0];
     // const zeropos = rootBone._pos;
-    const m4 = mat4.create();
+    // const m4 = mat4.create();
     // mat4.fromTranslation(m4, zeropos);
     // mat4.invert(m4, m4);
-    rootBone.transform1(alf, sprites, null, m4);
+    rootBone.transform1(alf, sprites, null);
   }
 
   // 从 beginIdx 开始覆盖, 默认在后面追加新动作
@@ -84,10 +86,16 @@ class MD {
       this.pose[beginIdx] = md.pose[i];
       ++beginIdx;
     }
+    md.height = this.getHeight();
   }
 
   combinationDraw(boneIdx, drawable) {
     this.bone[boneIdx].combination = drawable;
+  }
+
+  getHeight() {
+    // console.log(this.height)
+    return this.height;
   }
 }
 
@@ -325,6 +333,7 @@ function __bone_bind(md, count, xyoff, ref_offset, buf) {
   // 复用骨骼
   const bone = md.bone;
   const bind = {};
+  let miny = 99999, maxy = 0;
 
   for (let i=0; i<count; ++i) {
     let sk = { child: [] };
@@ -332,6 +341,8 @@ function __bone_bind(md, count, xyoff, ref_offset, buf) {
     sk.y = buf.short();
     sk.z = buf.short();
     xyoff += 6;
+    miny = Math.min(miny, Math.abs(sk.y));
+    maxy = Math.max(maxy, Math.abs(sk.y));
 
     // 子节点的数量
     let num_mesh = buf.ushort(ref_offset + (i<<2));
@@ -360,6 +371,9 @@ function __bone_bind(md, count, xyoff, ref_offset, buf) {
       // debug(bone[i]);
     }
   }
+
+  md.height = Math.abs(maxy - miny);
+  debug(" & Height", md.height);
 }
 
 
@@ -374,8 +388,6 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
   const RLEN       = parseInt(angle_size/9*2);
   // const skdata     = { angle: [] };
   const angle_fn   = radian; // radian & degrees
-  // TODO: 搞清楚偏移的意义 右脚似乎被用作实体的参考位置应该有 flag
-  const OFF_MASK   = 2000; 
   const sk_cache   = [];
   // let curr_sk_idx  = -1;
 
@@ -399,12 +411,13 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     // 没有改变骨骼索引直接返回最后的数据
     let sk = sk_cache[sk_index];
     if (sk) return sk;
+
     sk = sk_cache[sk_index] = {};
     // if (curr_sk_idx === sk_index) return skdata;
     // 整体位置偏移量
     let xy_off = anim_offset + data_size * sk_index;
     sk.x = buf.short(xy_off);
-    sk.y = buf.short() + OFF_MASK;
+    sk.y = buf.short();
     sk.z = buf.short();
     // spx 似乎和动画帧绝对时间有关, spy 总是0
     // spz 是移动偏移, 体现步伐之间的非线性移动

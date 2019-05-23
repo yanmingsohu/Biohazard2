@@ -146,12 +146,12 @@ function enemyBrowse(Liv, window, Room, camera) {
   const d = 100000;
   const color3 = new Float32Array([0.01, 0.01, 0.01]);
   const range3 = Tool.xywd2range({x:0, y:-d, d:d<<1, w:10});
-  // Tool.showRange(range3, window, color3);
+  Tool.showRange(range3, window, color3);
   const color2 = new Float32Array([0.9, 0.9, 0.9]);
   const range1 = Tool.xywd2range({x:-d, y:0, d:10, w:d<<1});
-  // Tool.showRange(range1, window, color3);
+  Tool.showRange(range1, window, color3);
   const range = Tool.xywd2range({x:-d, y:-d, d:d<<1, w:d<<1});
-  // Tool.showRange(range, window, color2);
+  Tool.showRange(range, window, color2);
 
   window.onKey(gl.GLFW_KEY_D, gl.GLFW_PRESS, 0, function() {
     matrix.mat4.rotateY(tmat, tmat, 0.01);
