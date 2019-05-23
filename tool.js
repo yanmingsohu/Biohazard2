@@ -89,6 +89,7 @@ function d4(a) {
 
 
 function h4(x) {
+  if (x < 0) return '-0x'+ (-x).toString(16);
   if (x < 0x10) return '0x000'+ x.toString(16);
   if (x < 0x100) return '0x00'+ x.toString(16);
   if (x < 0x1000) return '0x0'+ x.toString(16);
@@ -97,6 +98,7 @@ function h4(x) {
 
 
 function h2(x) {
+  if (x < 0) return '-0x'+ (-x).toString(16);
   if (x < 0x10) return '0x0'+ x.toString(16);
   return '0x'+ x.toString(16);
 }

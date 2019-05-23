@@ -581,6 +581,7 @@ function compile(arrbuf) {
         var aot = mem.char();
         debug(type, aot);
         game.work = game.get_game_object(type, aot);
+        debug(game.work);
         break;
 
       case 0x2F:
@@ -604,8 +605,9 @@ function compile(arrbuf) {
         var y = mem.short();
         var z = mem.short();
         debug(x, y, z);
-        // game.pos_set(x, y, z);
-        game.work.setPos(x, y, z);
+        if (game.work && game.work.setPos) {
+          game.work.setPos(x, y, z);
+        }
         break;
 
       case 0x33:
@@ -614,7 +616,9 @@ function compile(arrbuf) {
         var x = mem.short();
         var y = mem.short();
         var z = mem.short();
-        game.work.lookAt(x, y, z);
+        if (game.work && game.work.lookAt) {
+          game.work.lookAt(x, y, z);
+        }
         break;
 
       case 0x34:

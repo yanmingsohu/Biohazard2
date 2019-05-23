@@ -195,10 +195,10 @@ function animation(buf, am_off) {
     for (let j=0; j<ec; ++j) {
       let t = buf.ulong();
       group[j] = {
-        flag   : (t & 0xFFFFF800) >> 11,
+        flag   : (t & 0xFFFFF800) >>> 11,
         sk_idx : (t &      0x7FF),
       };
-      // debug('  -', i, j, '\t', group[j].flag, '\t', group[j].sk_idx);
+      group[j].flag && debug('  -', j, '\t', Tool.h4(group[j].flag), '\t', group[j].sk_idx);
     }
   }
   // debug("Anim count", ret.length);
@@ -364,7 +364,7 @@ function __bone_bind(md, count, xyoff, ref_offset, buf) {
 
 
 //
-// 每个骨骼状态, 保护一组坐标, 一组速度和一组旋转数组,
+// 每个骨骼状态, 绑定一组坐标, 一组速度和一组旋转数组,
 // 旋转数组用 9 个字节保存2组旋转坐标.
 // <防止闭包引用过多变量>
 //
