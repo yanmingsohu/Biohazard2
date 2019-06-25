@@ -487,9 +487,9 @@ function parse_vab_header(v, offset, vagoff) {
         data_off += size;
         vab.raw[i] = ADPCMtoPCM(vag);
 
-        // let wav = new Sound.Wav(core);
+        // let wav = new Sound.Wav(core); // 测试: 轮播场景音效
         // wav.rawBuffer(vab.raw[i], samplerate, 1, audio.RAW_TYPE_16BIT);
-        // wav.play();
+        // debug("WAV", i); wav.play(); 
         // thread.wait(1000);
     }
     return vab;

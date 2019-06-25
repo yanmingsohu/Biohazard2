@@ -643,11 +643,14 @@ function compile(arrbuf) {
         se.edt1 = mem.byte();
         se.data0 = mem.byte();
         se.data1 = mem.byte();
+        // se.edt = mem.ushort();
+        // se.data = mem.ushort();
         se.x = mem.short();
         se.y = mem.short();
         se.z = mem.short();
-        debug(se);
-        mem.wsec = (Date.now()/1000) + game.play_se(se.data1, se.edt0);
+        debug('SE', se);
+        // 见鬼了, 数据本身似乎指向未知的表.
+        // mem.wsec = (Date.now()/1000) + game.play_se(0, se.edt0 & 0x1f);
         break;
 
       case 0x37:
@@ -1276,6 +1279,7 @@ function compile(arrbuf) {
 
 
 function debug() {
+  // if (arguments[0] != 'SE') return; // 用于调试单个命令
   let a = [addr, '#', indentation];
   for (let i=0; i<arguments.length; ++i) a.push(arguments[i]);
   Tool.debug.apply(null, a);

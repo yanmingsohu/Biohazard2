@@ -752,7 +752,7 @@ function play_se(prog, tone) {
   } catch(e) {
     console.error(e);
   }
-  Tool.debug("No play se!!");
+  Tool.debug("No play se!!", map_data.vab.prog.length, prog, tone);
   return 0;
 }
 

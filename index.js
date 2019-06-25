@@ -38,7 +38,7 @@ Scenes.init(window, camera, sp, order);
 // Dev.bgm(); //!!!
 Scenes.start_game();
 
-// 开发测试用
+// 开发测试用, 启用后需要把39行注释, 同时只能启用一个.
 // Dev.roomBrowse(Room, window, camera);
 // Dev.smallMapBrowse(Room, window);
 // Dev.dataDirBrowse(Room, window);
