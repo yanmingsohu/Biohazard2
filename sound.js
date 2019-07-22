@@ -106,7 +106,9 @@ function enemySE(sound_bank) {
 
 function floorSE(floor, vab) {
   // TODO: 整对他
-  let raw = vab.raw[ vab.prog[0].tone[(floor.se_no) & 0x7].vag ];
+  let prgIdx = ((floor.se_no & 0xF0) >>4) -1;
+  let tonIdx = floor.se_no & 0x7;
+  let raw = vab.raw[ vab.prog[prgIdx].tone[tonIdx].vag ];
   const se = mapSE(raw);
   se.height = floor.height;
   se.range = Tool.xywd2range(floor);

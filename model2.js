@@ -575,5 +575,5 @@ function mesh(buf, offset) {
 
 
 function debug() {
-  Tool.debug.apply(null, arguments);
+  // Tool.debug.apply(null, arguments);
 }

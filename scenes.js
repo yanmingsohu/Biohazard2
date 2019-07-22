@@ -4,9 +4,10 @@ import Node   from '../boot/node.js'
 import Rdt    from './rdt.js'
 import Liv    from './living.js'
 import Ai     from './ai.js'
-import Tool,  {DrawArray} from './tool.js'
+import Tool,  {DrawArray, Point2} from './tool.js'
 import Tbl    from './init-tbl.js'
 import Sound  from './sound.js';
+import PFind  from './astar.js';
 
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4} = matrix;
@@ -60,6 +61,10 @@ const survey = [];
 const floors = [];
 // 记录摄像机切换顺序
 const cut_stack = [];
+// 用地图数据构建的寻路路径图, 寻路图大小 1x1, 映射到实际地图的 512x512 方格上.
+const map_mblock = 512;
+const map_pblock = 0x20000 / map_mblock;
+const map_path = new PFind.AStarFindPath(map_pblock, map_pblock);
 
 // 当前房间脚本上下文
 let script_context;
@@ -82,6 +87,9 @@ const gameState = {
   collisions,
   script_running : false,
   floors,
+  map_path,
+  map_mblock,
+  map_pblock,
 
   // js 脚本函数
   switch_camera,
@@ -89,6 +97,7 @@ const gameState = {
   reverse,
   setDoor,
   bind_ex_anim,
+  getPlayer(num) { return p1 },
 
   // bio 脚本函数
   waittime:0,
@@ -202,30 +211,9 @@ function free_map() {
 function load_map() {
   free_map();
   map_data = Rdt.from(stage, room_nm, play_mode);
-
-  for (let i=0; i<map_data.collision.length; ++i) {
-    let c = map_data.collision[i];
-    collisions.push(c);
-    // 显示碰撞体
-    const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
-    scenes_garbage.push(Tool.showCollision(c, window, color2));
-  }
-
-  const color = new Float32Array([0.9, 0.1, 0.3]);
-  for (let i=map_data.block.length-1; i>=0; --i) {
-    let b = map_data.block[i];
-    play_range.push(b);
-    // 调试 block
-    // scenes_garbage.push(Tool.showRange(b, window, color));
-  }
-
-  for (let i=map_data.floor.length-1; i>=0; --i) {
-    let f = map_data.floor[i];
-    // let se = Sound.floorSE(f);
-    let se = Sound.floorSE(f, map_data.vab);
-    scenes_garbage.push(se);
-    floors.push(se);
-  }
+  build_road();
+  build_collisions();
+  build_floors_se();
 
   try {
     Tool.debug("0----------------------- Start init script");
@@ -234,6 +222,59 @@ function load_map() {
     Tool.debug("0----------------------- script end");
   } catch(e) {
     console.error(e.stack);
+  }
+}
+
+
+function build_collisions() {
+  map_path.setAllWeights(-1);
+  let check = {};
+  
+  // TODO: 碰撞体在游戏时可被改变, 如枪店后巷, 僵尸把门撞开后.
+  for (let i=0; i<map_data.collision.length; ++i) {
+    let c = map_data.collision[i];
+    collisions.push(c);
+    c.py.mark(map_mblock, mark_point_callback);
+
+    // 显示碰撞体
+    // const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
+    // scenes_garbage.push(Tool.showCollision(c, window, color2));
+  }
+
+  function mark_point_callback(x, y) {
+    let x0 = parseInt(x / map_mblock + map_pblock/2);
+    let y0 = parseInt(y / map_mblock + map_pblock/2);
+    map_path.setWeights(x0, y0, 0);
+
+    // if (check[x0+'|'+y0] == null) {
+    //   //显示不可通过路径点
+    //   check[x0+'|'+y0] = 1;
+    //   let r = Tool.xywd2range({x, y, w:100, d:100});
+    //   let color = new Float32Array([1, 0, 0]);
+    //   garbage(Tool.showRange(r, window, color, -110));
+    // }
+  }
+}
+
+
+function build_road() {
+  const color = new Float32Array([0.9, 0.1, 0.3]);
+  for (let i=map_data.block.length-1; i>=0; --i) {
+    let b = map_data.block[i];
+    play_range.push(b);
+    // 调试 block
+    // scenes_garbage.push(Tool.showRange(b, window, color));
+  }
+}
+
+
+function build_floors_se() {
+  for (let i=map_data.floor.length-1; i>=0; --i) {
+    let f = map_data.floor[i];
+    // let se = Sound.floorSE(f);
+    let se = Sound.floorSE(f, map_data.vab);
+    scenes_garbage.push(se);
+    floors.push(se);
   }
 }
 

@@ -499,3 +499,21 @@ export class DrawArray {
     return this.arr;
   }
 }
+
+
+export class RectangleMark {
+  constructor(x, y, w, d) {
+    this.x = x;
+    this.y = y;
+    this.w = w + this.x;
+    this.d = d + this.y;
+  }
+
+  mark(step, fn) {
+    for (let x = this.x; x < this.w; x += step) {
+      for (let y = this.y; y < this.d; y += step) {
+        fn(x, y);
+      }
+    }
+  }
+}

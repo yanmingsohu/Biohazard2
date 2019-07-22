@@ -1,4 +1,4 @@
-import Tool, {Triangle2, Point2, Rectangle2} from './tool.js'
+import Tool, {Triangle2, Point2, Rectangle2, RectangleMark} from './tool.js'
 
 const X = 12;
 const Y = 14; // 逻辑 Y 轴, 纵深
@@ -25,6 +25,7 @@ class Rectangle {
     this.t2 = new Triangle2(p2, p3, pc);
     this.t3 = new Triangle2(p3, p4, pc);
     this.t4 = new Triangle2(p4, p1, pc);
+    this._mark = new RectangleMark(c.x, c.y, c.w, c.d);
     // this.msg = 'x:'+ c.x +' y:'+c.y +' w:'+w +' d:'+d
     //          + ' xw:'+c.xw +' yd:'+ c.yd;
     // this.w = w * c.xw;
@@ -51,6 +52,10 @@ class Rectangle {
       target.objTr[Y] += this.t4.p1.y - p.y;
     }
   }
+
+  mark(step, fn) {
+    this._mark.mark(step, fn);
+  }
 }
 
 
@@ -59,6 +64,7 @@ class Circle {
     let r = this.r = c.w/2;
     this.ct = new Point2(c.x + r, c.y + r);
     this.r2 = this.r * this.r;
+    this._mark = new RectangleMark(c.x, c.y, c.w, c.w);
   }
 
   in(p, target) {
@@ -72,6 +78,10 @@ class Circle {
       target.objTr[X] = d.x + this.ct.x;
       target.objTr[Y] = d.y + this.ct.y;
     }
+  }
+
+  mark(step, fn) {
+    this._mark.mark(step, fn);
   }
 }
 
@@ -88,6 +98,7 @@ class Oval {
     this.b  = b;
     this.rt = a/b;
     this.xa = isXaxis;
+    this._mark = new RectangleMark(c.x, c.y, c.w, c.d);
   }
 
   in(p, target) {
@@ -115,6 +126,10 @@ class Oval {
       target.objTr[Y] = d.y + this.ct.y;
     }
   }
+
+  mark(step, fn) {
+    this._mark.mark(step, fn);
+  }
 }
 
 
@@ -125,6 +140,10 @@ class Triangle {
     this.t1 = new Triangle2(p1, p2, ct);
     this.t2 = new Triangle2(p2, p3, ct);
     this.t3 = new Triangle2(p3, p1, ct);
+  }
+
+  setMark(x, y, w, d) {
+    this._mark = new RectangleMark(x, y, w, d);
   }
 
   in(p, target) {
@@ -158,6 +177,10 @@ class Triangle {
       target.objTr[Y] = pt.y + cp.y;
     }
   }
+
+  mark(step, fn) {
+    this._mark.mark(step, fn);
+  }
 }
 
 
@@ -175,6 +198,7 @@ class Stairs {
     this.y = c.y;
     this.w = c.w;
     this.d = c.d;
+    this._mark = new RectangleMark(c.x, c.y, c.w, c.d);
   }
 
   // TODO: 上楼动画
@@ -199,6 +223,10 @@ class Stairs {
       }
     }
   }
+
+  mark(step, fn) {
+    this._mark.mark(step, fn);
+  }
 }
 
 
@@ -216,6 +244,7 @@ class ReflexAngle {
     this.yslope = (c.floor * FLOOR_PER_PIXEL) / c.d;
     this.xslope = (c.floor * FLOOR_PER_PIXEL) / c.w;
     this.type = c.type;
+    this._mark = new RectangleMark(c.x, c.y, c.w, c.d);
 
     switch (c.type) {
       case 2:
@@ -252,6 +281,10 @@ class ReflexAngle {
       }
     }
   }
+
+  mark(step, fn) {
+    this._mark.mark(step, fn);
+  }
 }
 
 
@@ -264,12 +297,17 @@ class Climb {
     this.rect = new Rectangle2(p1, p2, p3, p4);
     this.floor = c.floor * FLOOR_PER_PIXEL;
     this.floor2 = targetFloor * FLOOR_PER_PIXEL;
+    this._mark = new RectangleMark(c.x, c.y, c.w, c.d);
   }
 
   in(p, target) {
     if (this.floor == target.floor() && this.rect.in(p)) {
       target.objTr[Z] = -this.floor2;
     }
+  }
+
+  mark(step, fn) {
+    this._mark.mark(step, fn);
   }
 }
 
@@ -293,6 +331,7 @@ function installCollision(c) {
       p2 = new Point2(c.x + c.w, c.y + c.d);
       p3 = new Point2(c.x + c.w, c.y);
       c.py = new Triangle(p1, p2, p3);
+      c.py.setMark(c.x, c.y, c.w, c.d);
       break;
 
     case  2: 
@@ -301,6 +340,7 @@ function installCollision(c) {
       p2 = new Point2(c.x,       c.y + c.d);
       p3 = new Point2(c.x + c.w, c.y + c.d);
       c.py = new Triangle(p1, p2, p3);
+      c.py.setMark(c.x, c.y, c.w, c.d);
       break;
 
     case  3: 
@@ -309,6 +349,7 @@ function installCollision(c) {
       p2 = new Point2(c.x + c.w, c.y + c.d);
       p3 = new Point2(c.x + c.w, c.y);
       c.py = new Triangle(p1, p2, p3);
+      c.py.setMark(c.x, c.y, c.w, c.d);
       break;
 
     case  4: 
@@ -317,6 +358,7 @@ function installCollision(c) {
       p2 = new Point2(c.x,       c.y + c.d);
       p3 = new Point2(c.x + c.w, c.y);
       c.py = new Triangle(p1, p2, p3);
+      c.py.setMark(c.x, c.y, c.w, c.d);
       break;
 
     case  5: 
