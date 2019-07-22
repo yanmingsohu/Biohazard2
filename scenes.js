@@ -4,7 +4,7 @@ import Node   from '../boot/node.js'
 import Rdt    from './rdt.js'
 import Liv    from './living.js'
 import Ai     from './ai.js'
-import Tool,  {DrawArray, Point2} from './tool.js'
+import Tool,  {DrawArray, Point2, RectangleMark} from './tool.js'
 import Tbl    from './init-tbl.js'
 import Sound  from './sound.js';
 import PFind  from './astar.js';
@@ -211,6 +211,7 @@ function free_map() {
 function load_map() {
   free_map();
   map_data = Rdt.from(stage, room_nm, play_mode);
+  map_path.setAllWeights(-1);
   build_road();
   build_collisions();
   build_floors_se();
@@ -227,7 +228,6 @@ function load_map() {
 
 
 function build_collisions() {
-  map_path.setAllWeights(-1);
   let check = {};
   
   // TODO: 碰撞体在游戏时可被改变, 如枪店后巷, 僵尸把门撞开后.
@@ -244,7 +244,7 @@ function build_collisions() {
   function mark_point_callback(x, y) {
     let x0 = parseInt(x / map_mblock + map_pblock/2);
     let y0 = parseInt(y / map_mblock + map_pblock/2);
-    map_path.setWeights(x0, y0, 0);
+    map_path.setWeights(x0, y0, -1);
 
     // if (check[x0+'|'+y0] == null) {
     //   //显示不可通过路径点
@@ -262,8 +262,16 @@ function build_road() {
   for (let i=map_data.block.length-1; i>=0; --i) {
     let b = map_data.block[i];
     play_range.push(b);
+    new RectangleMark(b.x1, b.y1, b.x3-b.x1, b.y3-b.y1)
+      .mark(map_mblock, mark_point_callback);
     // 调试 block
     // scenes_garbage.push(Tool.showRange(b, window, color));
+  }
+
+  function mark_point_callback(x, y) {
+    let x0 = parseInt(x / map_mblock + map_pblock/2);
+    let y0 = parseInt(y / map_mblock + map_pblock/2);
+    map_path.setWeights(x0, y0, 0);
   }
 }
 
@@ -445,12 +453,25 @@ function addEnemy(zb) {
   if (get_bitarr(6, zb.killed_id))
     return;
 
+  let ai_cons;
+
+  switch (zb.model) {
+    case 72: // 枪店老版
+      ai_cons = Ai.Npc;
+      break;
+
+    default:  
+      ai_cons = Ai.zombie;
+      break;
+  }
+
   let mod = Liv.fromEmd(play_mode, zb.model);
   let se = Sound.enemySE(zb.sound_bank);
-  let ai = Ai.zombie(mod, window, draw_order, gameState, se, zb);
+  let ai = ai_cons(mod, window, draw_order, gameState, se, zb);
   scenes_garbage.push(ai, se);
   ai.setPos(zb.x, zb.y, zb.z);
   ai.setDirection(zb.dir);
+  mod.moveImmediately();
   enemy[zb.id] = ai;
 
   switch (zb.state) {

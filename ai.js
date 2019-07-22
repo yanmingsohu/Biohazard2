@@ -24,6 +24,7 @@ const defaultKeyBind = {
 export default {
   zombie,
   player,
+  Npc,
 };
 
 
@@ -64,20 +65,17 @@ function player(mod, win, order, gameState, camera) {
   let forward;
   // 跑步
   let run = 0;
-  let dir = 0;
   // 后退
   let goback = 0;
   // 左转/右转
   let gleft, gright;
-  let currpose;
   let current_floor;
   // 举枪
   let gun, rot = ROT_COE[0];
 
   mod.setSpeed(WALK_SPEED);
   bind_ctrl(input, defaultKeyBind);
-  changePose(12);
-  changeDir(1);
+  thiz.changePose(12, 1);
 
   return thiz;
 
@@ -87,47 +85,27 @@ function player(mod, win, order, gameState, camera) {
   }
 
 
-  function changePose(id) {
-    if (id != currpose) {
-      currpose = id;
-      mod.setAnim(id, 0);
-      mod.setDir(dir);
-    }
-  }
-
-
-  function changeDir(d) {
-    if (dir != d) {
-      mod.setDir(d);
-      dir = d;
-    }
-  }
-
-
   function draw(u) {
     let stand;
     if (gun) {
-      changePose(21);
+      thiz.changePose(21, -1);
     }
     else if (forward) {
       one_step = WALK;
       if (run) {
         rot = ROT_COE[2];
-        changeDir(1);
-        changePose(11);
+        thiz.changePose(11, 1);
       } else {
         rot = ROT_COE[1];
-        changeDir(-1);
-        changePose(0);
+        thiz.changePose(0, -1);
       }
       move(u);
     } 
     else if (goback) {
       run = 0;
       rot = ROT_COE[1];
-      changeDir(1);
       one_step = -WALK;
-      changePose(0);
+      thiz.changePose(0, 1);
       move(u);
     } else {
       stand = true;
@@ -136,12 +114,12 @@ function player(mod, win, order, gameState, camera) {
     
     if (gleft) {
       thiz.rotateY(-rot*(u*140));
-      stand && changePose(0);
+      stand && thiz.changePose(0, 1);
     } else if (gright) {
       thiz.rotateY(rot*(u*140));
-      stand && changePose(0);
+      stand && thiz.changePose(0, -1);
     } else if (stand) {
-      changePose(12);
+      thiz.changePose(12, 1);
     }
   }
 
@@ -149,7 +127,8 @@ function player(mod, win, order, gameState, camera) {
   function move(u) {
     // step/rot 基于 140 帧来调试的, 在其他帧率需要乘以倍数.
     let step = ((one_step + run) + 
-        ((thiz.move_speed[2]+0.1)/15) + thiz.move_speed[0]/800)*(u*140);
+        ((thiz.anim_speed_addition[2]+0.1)/15) 
+        + thiz.anim_speed_addition[0]/800) *(u*140);
     thiz.translate(thiz.wrap0(step, 0, 0));
     // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.
     const w = thiz.where();
@@ -282,6 +261,7 @@ function zombie(mod, win, order, gameState, se, data) {
   // }
   let state = 8;
   let thepath = null;
+  let frame = 0;
   // 
 
   const thiz = Base(gameState, mod, win, order, {
@@ -298,10 +278,12 @@ function zombie(mod, win, order, gameState, se, data) {
   function draw(u) {
     switch (state) {
     case 8: // 原地徘徊
+      thiz.changePose(8, -1);
       find_player();
       break;
 
     case 0: // 前进
+      thiz.changePose(0, -1);
       goto_player();  
       break;
     }
@@ -321,17 +303,22 @@ function zombie(mod, win, order, gameState, se, data) {
     const w = thiz.where();
     const pl = gameState.getPlayer(1).where();
     const d = dist2(w, pl);
-
-    if (d < 5000) {
+    
+    if (d < 2000) {
       thiz.moveTo(pl[0], 0, pl[2]);
       thepath = null;
       return;
     }
 
-    if (d > 15000) {
-      state = 8;
+    // 如果发现玩家, 就不停追踪
+    // if (d > 25000) {
+    //   state = 8;
+    //   thepath = null;
+    //   return;
+    // }
+    if (++frame > 300) {
       thepath = null;
-      return;
+      frame = 0;
     }
 
     if (!thepath) {
@@ -392,11 +379,21 @@ function licker(mod, win, order, gameState, se, data) {
 }
 
 
+function Npc(mod, win, order, gameState, se, data) {
+  const thiz = Base(gameState, mod, win, order, {
+  });
+
+  // mod.setAnimSound(se);
+  return thiz;
+}
+
+
 function Base(gameState, mod, win, order, ext) {
   const thiz = {
     setDirection,
     setPos,
     moveTo,
+    stopMove,
     turnAround,
     lookAt,
     draw, 
@@ -408,6 +405,8 @@ function Base(gameState, mod, win, order, ext) {
     frontPoint,
     floor,
     findRoad,
+    changePose,
+    setMoveSpeed,
   };
 
   order.addMod(thiz);
@@ -417,7 +416,6 @@ function Base(gameState, mod, win, order, ext) {
   const moving_destination = [];
   const swap = new Array(3);
   const zero = [0,0,0];
-  const move_speed = mod.getMoveSpeed();
   const mm = gameState.map_mblock;
   const mp = gameState.map_pblock /2;
   // 任务队列中的函数在单独的帧中执行
@@ -425,16 +423,20 @@ function Base(gameState, mod, win, order, ext) {
   let angle = 0;
   let ex_anim_index = -1;
   let _state = 0;
+  let frame = 0;
+  let anim_dir = 0;
+  let anim_pose = 0;
+  let moveSpeed = 10;
 
   thiz.ms = model_trans;
   thiz.swap = swap; // 使用的元素必须完全清空
-  thiz.move_speed = move_speed;
+  thiz.anim_speed_addition = mod.getMoveSpeed();
   delete ext.free;
-  mod.moveImmediately();
 
   return Object.assign(Tran, thiz, ext);
 
 
+  // 这个函数有问题
   function setAnim(flag, type, idx) {
     const reverse_dir = flag & 0x80;
     const part = flag & 0x10;
@@ -475,9 +477,11 @@ function Base(gameState, mod, win, order, ext) {
 
   
   function draw(u, t) {
-    let task = frame_tast.pop();
-    if (task) {
-      task(u, t);
+    if (++frame % 10 == 0) {
+      let task = frame_tast.pop();
+      if (task) {
+        task(u, t);
+      }
     }
     ext.draw && ext.draw(u, t);
     if (_state == 1) _move();
@@ -486,12 +490,13 @@ function Base(gameState, mod, win, order, ext) {
   }
 
 
+  // TODO: AI也应该以坦克方式操纵
   function _move() {
-    const STEP = 10;
+    const STEP = moveSpeed;
     let x = Math.abs(model_trans[12] - moving_destination[0]);
     let y = Math.abs(model_trans[13] - moving_destination[1]);
     let z = Math.abs(model_trans[14] - moving_destination[2]);
-    let need = 0
+    let need = 0;
 
     if (x > STEP) {
       model_trans[12] += model_trans[12] > moving_destination[0] ? -STEP : STEP;
@@ -526,11 +531,15 @@ function Base(gameState, mod, win, order, ext) {
     model_trans[14] = z;
   }
 
+
+  function setMoveSpeed(s) {
+    moveSpeed = s;
+  }
+
   
+  // abs - 绝对位置
   function moveTo(x, y, z, abs = 1) {
     _state = 1;
-    mod.setDir(-1);
-    mod.setAnim(0);
     if (abs) {
       moving_destination[0] = x;
       moving_destination[1] = y;
@@ -542,6 +551,11 @@ function Base(gameState, mod, win, order, ext) {
     }
     // mat4.fromTranslation(model_trans, wrap0(x, y, z));
     // Tool.debug("Move TO", x, y, z, '====================================');
+  }
+
+
+  function stopMove() {
+    _state = 0;
   }
 
 
@@ -612,9 +626,10 @@ function Base(gameState, mod, win, order, ext) {
   // 寻路算法, 优化了性能消耗, 多于10个任务请去被抛弃
   //
   function findRoad(x1, y1, x2, y2, cb) {
-    // console.log("Find >>>>", x1, y1, x2, y2);
     if (frame_tast.length > 10) return cb(null);
     frame_tast.push(()=> {
+      // console.log("Find >>>>", x1, y1, x2, y2);
+
       let n = gameState.map_path.find(
         parseInt(x1/mm + mp),
         parseInt(y1/mm + mp),
@@ -622,15 +637,31 @@ function Base(gameState, mod, win, order, ext) {
         parseInt(y2/mm + mp),
       );
       if (!n) {
+        console.log("NO ROAD !!!");
         return cb(null);
       }
       let thepath = [];
+
       while (n) {
         thepath.push(n);
         n = n.from;
       }
+      thepath.pop();
       cb(thepath);
     });
+  }
+
+
+  function changePose(id, dir) {
+    if (id != anim_pose) {
+      anim_pose = id;
+      mod.setAnim(id, 0);
+      mod.setDir(anim_dir);
+    }
+    if (anim_dir != dir) {
+      mod.setDir(dir);
+      anim_dir = dir;
+    }
   }
 }
 
@@ -643,5 +674,5 @@ function dist(a, b) {
 
 // mod[x, y, z], 计算两个二维点的距离
 function dist2(mod1, mod2) {
-  return dist(mod1[0], mod2[0]) - dist(mod1[2], mod2[2]);
+  return dist(mod1[0], mod2[0]) + dist(mod1[2], mod2[2]);
 }
