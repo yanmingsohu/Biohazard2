@@ -742,11 +742,13 @@ function compile(arrbuf) {
         var room = mem.byte();
         var x = mem.short();
         var z = mem.short();
-        debug(flag, room, "xz:", x, z);
-        if ((flag & 0x10) || (flag & 0x08)) { // 相对位置 0x09
-          // game.pos_set(x, 0, z);
-        } else {
+        debug('flag:', flag, 'room:', room, "xz:", x, z);
+        // flag == 9 很奇怪
+        if (flag == 7) {
+          game.work.setPos(x, 0, z);
+        } else if (flag == 4) {
           game.work.moveTo(x, 0, z);
+          game.work.changePose(0, -1);
         }
         break;
 

@@ -65,6 +65,7 @@ const cut_stack = [];
 const map_mblock = 512;
 const map_pblock = 0x20000 / map_mblock;
 const map_path = new PFind.AStarFindPath(map_pblock, map_pblock);
+const frame_task = Tool.FrameTaskMana(map_path, map_mblock, map_pblock);
 
 // 当前房间脚本上下文
 let script_context;
@@ -98,6 +99,7 @@ const gameState = {
   setDoor,
   bind_ex_anim,
   getPlayer(num) { return p1 },
+  frame_task,
 
   // bio 脚本函数
   waittime:0,

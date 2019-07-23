@@ -26,6 +26,7 @@ export default {
   // 格式化 2进制数字
   bit,
   randomInt,
+  FrameTaskMana,
 };
 
 
@@ -516,4 +517,56 @@ export class RectangleMark {
       }
     }
   }
+}
+
+
+function FrameTaskMana(map_path, map_mblock, map_pblock) {
+  const frame_task = [];
+  const frame = 0;
+  const mm = map_mblock;
+  const mp = map_pblock /2;
+
+  return {
+    draw() {
+      if (++frame > 10) {
+        frame = 0;
+        let task = frame_task.pop();
+        if (task) {
+          task(u, t);
+        }
+      }
+    },
+
+    push(cb) {
+      if (frame_task.length > 10) return cb(null);
+      frame_task.push(cb);
+    },
+
+    //
+    // 寻路算法, 优化了性能消耗, 多于10个任务请求被抛弃
+    //
+    findRoad(x1, y1, x2, y2, cb) {
+      this.push(()=> {
+        // console.log("Find >>>>", x1, y1, x2, y2);
+        let n = map_path.find(
+          parseInt(x1/mm + mp),
+          parseInt(y1/mm + mp),
+          parseInt(x2/mm + mp),
+          parseInt(y2/mm + mp),
+        );
+        if (!n) {
+          // console.log("NO ROAD !!!");
+          return cb(null);
+        }
+  
+        let thepath = [];
+        while (n) {
+          thepath.push(n);
+          n = n.from;
+        }
+        thepath.pop();
+        cb(thepath);
+      });
+    },
+  };
 }
