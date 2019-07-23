@@ -7,6 +7,10 @@ import Tool, { Point2, Triangle2 } from './tool.js'
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec2, mat4} = matrix;
 const PI_360 = Math.PI * 2;
+const PI_180 = Math.PI;
+const PI_90  = Math.PI / 2;
+const PI_45  = 45 * Math.PI/180;
+const PI_315 = -45 * Math.PI/180;
 const ANTENNA_LEN = 800;
 const FLOOR_PER_PIXEL = 1800;
 
@@ -130,6 +134,8 @@ function player(mod, win, order, gameState, camera) {
         ((thiz.anim_speed_addition[2]+0.1)/15) 
         + thiz.anim_speed_addition[0]/800) *(u*140);
     thiz.translate(thiz.wrap0(step, 0, 0));
+    // thiz.moveForward(u);
+
     // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.
     const w = thiz.where();
     const p = new Point2(w[0], w[2]);
@@ -243,7 +249,7 @@ function player(mod, win, order, gameState, camera) {
 // 24.???啃咬时被攻击; 25.站立被射击; 26.跪在地上啃咬; 27.跪在地上啃咬2;
 // 28.跪在地上啃咬3; 29.跪在地上并站起; 30.面朝上抽动; 31.面朝下抽动;
 // 32.彻底扑倒后撕咬(应该是玩家空血后被扑倒);
-// 33.由原地站立后抬手(?); 34.原地抬手(不动); 35.向前扑空;
+// 33.由原地站立后抬手(?); 34.原地抬手(不动); 35.(向前扑空x)吐东西;
 // 36.被机枪攻击1; 37.被机枪攻击2; 38.被机枪攻击3; 39.??过渡动作,一只手抬起
 // 40.??一只手向前推(铁砂掌?); 41.用肩膀撞击, 后巷用到这个动作;
 // 42.向43的过渡动作(尝试攻击?); 43.站立啃咬动作?; 44.??站立甩头浑身扭动
@@ -262,7 +268,6 @@ function zombie(mod, win, order, gameState, se, data) {
   let state = 8;
   let thepath = null;
   let frame = 0;
-  // 
 
   const thiz = Base(gameState, mod, win, order, {
     draw,
@@ -277,23 +282,54 @@ function zombie(mod, win, order, gameState, se, data) {
 
   function draw(u) {
     switch (state) {
+    case 1000: // wait
+      break;
+
     case 8: // 原地徘徊
       thiz.changePose(8, -1);
       find_player();
       break;
 
     case 0: // 前进
-      thiz.changePose(0, -1);
+      thiz.changePose(1, 1);
       goto_player();  
+      break;
+
+    case 19: // 向前扑
+      state = 1000;
+      thiz.changePose(33, 1);
+      mod.setAnimEndAct(2, function() {
+        if (dist3(thiz, gameState.getPlayer(1)) < 1500) {
+          state = 20;
+        } else {
+          state = 35;
+        }
+      });
+      break;
+
+    case 20: // 站立啃咬
+      thiz.changePose(20, 1);
+      mod.setAnimEndAct(3, function() {
+        const d = dist3(thiz, gameState.getPlayer(1));
+        if (d > 500) {
+          state = 8;
+        }
+      });
+      break;
+    
+    case 35: // 向前扑空
+      state = 1000;
+      thiz.changePose(35, 1);
+      mod.setAnimEndAct(2, function() {
+        state = 8;
+      });
       break;
     }
   }
 
 
   function find_player() {
-    let w = thiz.where();
-    let p = gameState.getPlayer(1).where();
-    if (dist2(w, p) < 15000) {
+    if (dist3(thiz, gameState.getPlayer(1)) < 15000) {
       state = 0;
     }
   }
@@ -303,8 +339,14 @@ function zombie(mod, win, order, gameState, se, data) {
     const w = thiz.where();
     const pl = gameState.getPlayer(1).where();
     const d = dist2(w, pl);
+
+    if (d < 1500) {
+      thiz.stopMove();
+      state = 19;
+      return;
+    }
     
-    if (d < 2000) {
+    if (d < 5000) {
       thiz.moveTo(pl[0], 0, pl[2]);
       thepath = null;
       return;
@@ -402,31 +444,38 @@ function Base(gameState, mod, win, order, ext) {
     rotateY,
     getAngle,
     setAnim,
+    angleAtTran,
+    angleAtPos,
     frontPoint,
     floor,
     findRoad,
     changePose,
     setMoveSpeed,
+    moveForward,
   };
 
   order.addMod(thiz);
-  const ch_free = ext.free;
-  const Tran = Game.Transformation(thiz);
-  const model_trans = Tran.objTr;
-  const moving_destination = [];
-  const swap = new Array(3);
-  const zero = [0,0,0];
-  const mm = gameState.map_mblock;
-  const mp = gameState.map_pblock /2;
+  const ch_free             = ext.free;
+  const Tran                = Game.Transformation(thiz);
+  const model_trans         = Tran.objTr;
+  const moving_destination  = [];
+  const swap                = new Array(3);
+  const zero                = [0,0,0];
+  const mm                  = gameState.map_mblock;
+  const mp                  = gameState.map_pblock /2;
   // 任务队列中的函数在单独的帧中执行
-  const frame_tast = [];
-  let angle = 0;
+  const frame_tast          = [];
+
+  let angle         = 0;
   let ex_anim_index = -1;
-  let _state = 0;
-  let frame = 0;
-  let anim_dir = 0;
-  let anim_pose = 0;
-  let moveSpeed = 10;
+  let _state        = 0;
+  let frame         = 0;
+  let anim_dir      = 0;
+  let anim_pose     = 0;
+  let moveSpeed     = 1;
+  let rotateSpeed   = 0.022;
+  let forwardstep   = 0;
+  let forwardflag   = 0;
 
   thiz.ms = model_trans;
   thiz.swap = swap; // 使用的元素必须完全清空
@@ -436,7 +485,7 @@ function Base(gameState, mod, win, order, ext) {
   return Object.assign(Tran, thiz, ext);
 
 
-  // 这个函数有问题
+  // 这个函数只被微代码调用
   function setAnim(flag, type, idx) {
     const reverse_dir = flag & 0x80;
     const part = flag & 0x10;
@@ -461,20 +510,6 @@ function Base(gameState, mod, win, order, ext) {
     }
   }
 
-
-  function rotateY(rad) {
-    mat4.rotateY(this.objTr, this.objTr, rad);
-    angle += rad;
-    if (angle > PI_360) angle = angle - PI_360;
-    else if (angle < 0) angle = PI_360 + angle;
-  }
-
-
-  // 角度可以大于 2PI 小于 0
-  function getAngle() {
-    return angle;
-  }
-
   
   function draw(u, t) {
     if (++frame % 10 == 0) {
@@ -484,15 +519,15 @@ function Base(gameState, mod, win, order, ext) {
       }
     }
     ext.draw && ext.draw(u, t);
-    if (_state == 1) _move();
+    if (_state == 1) _move1(u);
     Shader.setModelTrans(model_trans);
     mod.draw(u, t);
   }
 
 
-  // TODO: AI也应该以坦克方式操纵
-  function _move() {
-    const STEP = moveSpeed;
+  // 直线移动
+  function _move0(u) {
+    const STEP = moveSpeed * u/140;
     let x = Math.abs(model_trans[12] - moving_destination[0]);
     let y = Math.abs(model_trans[13] - moving_destination[1]);
     let z = Math.abs(model_trans[14] - moving_destination[2]);
@@ -513,6 +548,49 @@ function Base(gameState, mod, win, order, ext) {
     if (!need) {
       _state = 0;
     }
+  }
+
+
+  // 带有转身的移动
+  function _move1(u) {
+    const an_at = angleAtPos(moving_destination[0], moving_destination[2]);
+    let r;
+    if (an_at >= 0) {
+      r = Math.min(an_at, rotateSpeed *(u*140));
+    } else {
+      r = Math.max(an_at, -rotateSpeed *(u*140));
+    }
+    rotateY(r);
+
+    if (r > PI_45 || r < PI_315) {
+      return;
+    }
+    moveForward(u);
+
+    let x = Math.abs(model_trans[12] - moving_destination[0]);
+    let y = Math.abs(model_trans[13] - moving_destination[1]);
+    let z = Math.abs(model_trans[14] - moving_destination[2]);
+    if (x < 10 && y < 10 && z < 10) {
+      _state = 0;
+    }
+  }
+
+
+  function moveForward(u) {
+    let a0 = thiz.anim_speed_addition[0];
+    // if (a0 < 0) {
+    //   forwardstep = Math.min(forwardstep, a0);
+    // }
+    // if (thiz.anim_speed_addition[3] & 0x8) {
+    //   forwardflag = thiz.anim_speed_addition[3] & 0x4;
+    // }
+    // if (forwardflag == 0) {
+    //   // a0 = Math.abs(forwardstep) + a0;
+    // }
+    let step = (Math.abs(a0)*u - thiz.anim_speed_addition[2]*u) * 1;
+    Tran.translate(wrap0(step, 0, 0));
+    // console.log(thiz.anim_speed_addition[0], 
+    //   thiz.anim_speed_addition[1], thiz.anim_speed_addition[2]);
   }
 
 
@@ -587,9 +665,9 @@ function Base(gameState, mod, win, order, ext) {
   }
 
 
-  // d 是游戏角度参数 (0-4096)
+  // 设置绝对方向, d 是游戏角度参数 (0-4096)
   function setDirection(d) {
-    angle = d/0x0FFF * Math.PI * 2;
+    angle = d/0x0FFF * PI_360;
     // mat4.rotateY(model_trans, model_trans, r);
     let s = Math.sin(angle);
     let c = Math.cos(angle);
@@ -597,6 +675,41 @@ function Base(gameState, mod, win, order, ext) {
     model_trans[2] = -s;
     model_trans[8] = s;
     model_trans[10] = c;
+  }
+
+
+  // 用弧度旋转 Y 轴 (相对于当前方向)
+  function rotateY(rad) {
+    mat4.rotateY(model_trans, model_trans, rad);
+    angle = fix_angle(angle + rad);
+  }
+
+
+  // 返回的弧度在 (0, 2PI)
+  function getAngle() {
+    return angle;
+  }
+
+
+  // 计算当前对象的观察方向与目标对象之间的夹角
+  function angleAtTran(other) {
+    const a = other.where();
+    return angleAtPos(a[0], a[2]);
+  }
+
+
+  // 返回的值在 (-PI, PI)
+  function angleAtPos(ox, oz) {
+    const b = Tran.where();
+    const x = ox - b[0];
+    const z = oz - b[2];
+    const angle0 = Math.atan(x/z);
+    const ret = angle0 - (angle > PI_180 ? -(PI_360-angle) : angle);
+    if (z < 0) {
+      return ret + PI_90;
+    }  else {
+      return ret - PI_90;
+    }
   }
 
   
@@ -629,7 +742,6 @@ function Base(gameState, mod, win, order, ext) {
     if (frame_tast.length > 10) return cb(null);
     frame_tast.push(()=> {
       // console.log("Find >>>>", x1, y1, x2, y2);
-
       let n = gameState.map_path.find(
         parseInt(x1/mm + mp),
         parseInt(y1/mm + mp),
@@ -637,11 +749,11 @@ function Base(gameState, mod, win, order, ext) {
         parseInt(y2/mm + mp),
       );
       if (!n) {
-        console.log("NO ROAD !!!");
+        // console.log("NO ROAD !!!");
         return cb(null);
       }
-      let thepath = [];
 
+      let thepath = [];
       while (n) {
         thepath.push(n);
         n = n.from;
@@ -672,7 +784,20 @@ function dist(a, b) {
 }
 
 
-// mod[x, y, z], 计算两个二维点的距离
+// mod[x, y, z], 计算两个二维点的距离, 忽略y
 function dist2(mod1, mod2) {
   return dist(mod1[0], mod2[0]) + dist(mod1[2], mod2[2]);
+}
+
+
+function dist3(tr1, tr2) {
+  return dist2(tr1.where(), tr2.where());
+}
+
+
+// 使弧度保持在 0~360 度之内
+function fix_angle(a) {
+  if (a > PI_360) return a - PI_360;
+  else if (a < 0) return PI_360 + a;
+  return a;
 }

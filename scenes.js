@@ -390,6 +390,7 @@ function begin_level() {
 
   // 玩家初始位置
   init_pos(0);
+  liv.moveImmediately();
 
   while (window.notClosed()) {
     p1.able_to_control(false);

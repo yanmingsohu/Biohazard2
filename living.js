@@ -310,6 +310,7 @@ function Living(mod, tex) {
     move_speed[0] = frame_data.spx;
     move_speed[1] = frame_data.spy;
     move_speed[2] = frame_data.spz;
+    move_speed[3] = frm.flag;
     abs_pos.x = frame_data.x;
     abs_pos.y = frame_data.y + mod.getHeight();
     abs_pos.z = frame_data.z;
