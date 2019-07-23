@@ -266,6 +266,7 @@ function zombie(mod, win, order, gameState, se, data) {
   let state = 8;
   let thepath = null;
   let frame = 0;
+  mod.setAnimSound(se);
 
   const thiz = Base(gameState, mod, win, order, {
     draw,
@@ -388,7 +389,6 @@ function zombie(mod, win, order, gameState, se, data) {
     }
   }
 
-  // mod.setAnimSound(se);
   return thiz;
 }
 
@@ -562,7 +562,6 @@ function Base(gameState, mod, win, order, ext) {
 
   function moveForward(u) {
     let a0 = thiz.anim_speed_addition[0];
-    let step;
     // if (a0 < 0) {
     //   forwardstep = Math.min(forwardstep, a0);
     // }
@@ -572,13 +571,9 @@ function Base(gameState, mod, win, order, ext) {
     // if (forwardflag == 0) {
     //   // a0 = Math.abs(forwardstep) + a0;
     // }
-    if (a0 != 0) {
-      step = (Math.abs(a0)*u - thiz.anim_speed_addition[2]*u) * 1;
-      // console.log(thiz.anim_speed_addition[0], 
+    let step = (Math.abs(a0)*u - thiz.anim_speed_addition[2]*u) *moveSpeed;
+    // console.log(thiz.anim_speed_addition[0], 
       //   thiz.anim_speed_addition[1], thiz.anim_speed_addition[2]);
-    } else {
-      step = 10 * u * 140;
-    }
     Tran.translate(wrap0(step, 0, 0));
   }
 

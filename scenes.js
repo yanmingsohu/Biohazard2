@@ -236,7 +236,7 @@ function build_collisions() {
   for (let i=0; i<map_data.collision.length; ++i) {
     let c = map_data.collision[i];
     collisions.push(c);
-    c.py.mark(map_mblock, mark_point_callback);
+    c.py && c.py.mark(map_mblock, mark_point_callback);
 
     // 显示碰撞体
     // const color2 = new Float32Array([0.1, 0.7, 0.9*Math.random()]);
@@ -477,6 +477,7 @@ function addEnemy(zb) {
   mod.moveImmediately();
   enemy[zb.id] = ai;
 
+  // TODO: 移动到 AI代码中
   switch (zb.state) {
     // 和警局中从木板中伸出的手有关
     case 0:
