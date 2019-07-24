@@ -37,24 +37,42 @@ class Rectangle {
     //   Tool.debug('Rectangle', this.msg, p);
     //   return;
     // }
-    if (this.t1.in(p)) {
+    switch (this.check(p)) {
+    case -1:
       target.objTr[X] += this.t1.p1.x - p.x;
-    }
-    else if (this.t2.in(p)) {
+      break;
+    case -2:
       // 索引 14 是 z 偏移 (2D平面上的y)
       target.objTr[Y] += this.t2.p1.y - p.y;
-    }
-    else if (this.t3.in(p)) {
+      break;
+    case -3:
       // 索引 12 是 x 偏移
       target.objTr[X] += this.t3.p1.x - p.x;
-    }
-    else if (this.t4.in(p)) {
+      break;
+    case -4:
       target.objTr[Y] += this.t4.p1.y - p.y;
+      break;
     }
   }
 
+  check(p) {
+    if (this.t1.in(p)) {
+      return -1;
+    }
+    else if (this.t2.in(p)) {
+      return -2;
+    }
+    else if (this.t3.in(p)) {
+      return -3;
+    }
+    else if (this.t4.in(p)) {
+      return -4;
+    }
+    return 0;
+  }
+
   mark(step, fn) {
-    this._mark.mark(step, fn);
+    this._mark.mark(step, fn, this);
   }
 }
 
@@ -65,23 +83,38 @@ class Circle {
     this.ct = new Point2(c.x + r, c.y + r);
     this.r2 = this.r * this.r;
     this._mark = new RectangleMark(c.x, c.y, c.w, c.w);
+    this.d = new Point2(0, 0);
+  }
+
+  resetPos(x, y) {
+    this.ct.x = x + this.r;
+    this.ct.y = y + this.r;
   }
 
   in(p, target) {
     let t = p.minus(this.ct);
-    if (t.len() <= this.r) {
-      let d = new Point2(t.x, t.y);
-      d.y = Math.sqrt(this.r2 - t.x * t.x);
+    if (this.check(p, t) != 0) {
+      this.d.x = t.x;
+      this.d.y = t.y;
+      this.d.y = Math.sqrt(this.r2 - t.x * t.x);
       if (t.y < 0) {
-        d.y = -d.y;
+        this.d.y = -this.d.y;
       }
-      target.objTr[X] = d.x + this.ct.x;
-      target.objTr[Y] = d.y + this.ct.y;
+      target.objTr[X] = this.d.x + this.ct.x;
+      target.objTr[Y] = this.d.y + this.ct.y;
     }
   }
 
+  check(p, _quick) {
+    let t = _quick || p.minus(this.ct);
+    if (t.len() <= this.r) {
+      return -1;
+    }
+    return 0;
+  }
+
   mark(step, fn) {
-    this._mark.mark(step, fn);
+    this._mark.mark(step, fn, this);
   }
 }
 
@@ -99,6 +132,7 @@ class Oval {
     this.rt = a/b;
     this.xa = isXaxis;
     this._mark = new RectangleMark(c.x, c.y, c.w, c.d);
+    this.d = new Point2(0, 0);
   }
 
   in(p, target) {
@@ -106,29 +140,46 @@ class Oval {
     let x2 = t.x * t.x;
     let y2 = t.y * t.y;
 
-    if ((x2 / this.a2 + y2 / this.b2) <= 1) {
-      const d = new Point2(t.x, t.y);
+    if (this.check(p, x2, y2) != 0) {
+      this.d.x = t.x;
+      this.d.y = t.y;
 
       if (this.xa) {
-        d.y = (this.b* Math.sqrt(this.a2 - x2))/ this.a;
+        this.d.y = (this.b* Math.sqrt(this.a2 - x2))/ this.a;
       } else {
-        d.x = (this.a* Math.sqrt(this.b2 - y2))/ this.b;
+        this.d.x = (this.a* Math.sqrt(this.b2 - y2))/ this.b;
       }
 
       if (t.y < 0 && this.xa) {
-        d.y = -d.y;
+        this.d.y = -this.d.y;
       }
       if (t.x < 0 && !this.xa) {
-        d.x = -d.x;
+        this.d.x = -this.d.x;
       }
 
-      target.objTr[X] = d.x + this.ct.x;
-      target.objTr[Y] = d.y + this.ct.y;
+      target.objTr[X] = this.d.x + this.ct.x;
+      target.objTr[Y] = this.d.y + this.ct.y;
     }
   }
 
+  check(p, _qx, _qy) {
+    let x2, y2;
+    if (_qx || _qy) {
+      x2 = _qx;
+      y2 = _qy;
+    } else {
+      const t = p.minus(this.ct);
+      x2 = t.x * t.x;
+      y2 = t.y * t.y;
+    }
+    if ((x2 / this.a2 + y2 / this.b2) <= 1) {
+      return -1;
+    }
+    return 0;
+  }
+
   mark(step, fn) {
-    this._mark.mark(step, fn);
+    this._mark.mark(step, fn, this);
   }
 }
 
@@ -178,8 +229,15 @@ class Triangle {
     }
   }
 
+  check(p) {
+    if (this.t.in(p)) {
+      return -1;
+    }
+    return 0;
+  }
+
   mark(step, fn) {
-    this._mark.mark(step, fn);
+    this._mark.mark(step, fn, this);
   }
 }
 
@@ -224,8 +282,15 @@ class Stairs {
     }
   }
 
+  check(p) {
+    if (this.rect.in(p)) {
+      return -1;
+    }
+    return 0;
+  }
+
   mark(step, fn) {
-    this._mark.mark(step, fn);
+    this._mark.mark(step, fn, this);
   }
 }
 
@@ -282,8 +347,15 @@ class ReflexAngle {
     }
   }
 
+  check(p) {
+    if (this.rect.in(p)) {
+      return -1;
+    }
+    return 0;
+  }
+
   mark(step, fn) {
-    this._mark.mark(step, fn);
+    this._mark.mark(step, fn, this);
   }
 }
 
@@ -301,13 +373,20 @@ class Climb {
   }
 
   in(p, target) {
-    if (this.floor == target.floor() && this.rect.in(p)) {
+    if (this.check(p, target.floor()) == -1) {
       target.objTr[Z] = -this.floor2;
     }
   }
 
+  check(p, floor) {
+    if (this.floor == floor && this.rect.in(p)) {
+      return -1;
+    }
+    return 0;
+  }
+
   mark(step, fn) {
-    this._mark.mark(step, fn);
+    this._mark.mark(step, fn, this);
   }
 }
 
@@ -422,4 +501,5 @@ function installCollision(c) {
 export default {
   installCollision,
   FLOOR_PER_PIXEL,
+  Circle,
 };

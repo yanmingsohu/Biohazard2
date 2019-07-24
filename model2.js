@@ -36,6 +36,8 @@ class MD {
     this.bind_bone = new Float32Array(20 * 8);
     // 使用模型的高度作为与地平线零点的偏移
     this.height = 0;
+    // 动作分组索引, 偶数是开始索引, 奇数是长度
+    this.pose_group = [];
   }
 
   //
@@ -44,6 +46,7 @@ class MD {
   //
   addAnimSet(anim_set, get_frame_data) {
     let pi = this.pose.length;
+    this.pose_group.push({ at: pi, len: anim_set.length });
     for (let i=0; i<anim_set.length; ++i) {
       this.pose[pi + i] = anim_set[i];
       this.pose[pi + i].get_frame_data = get_frame_data;
@@ -80,13 +83,27 @@ class MD {
   }
 
   // 从 beginIdx 开始覆盖, 默认在后面追加新动作
-  setPoseFromMD(md, beginIdx = -1) {
+  setPoseFromMD(md, beginIdx = -1, fromIdx = 0, copyCount = -1) {
     if (beginIdx < 0) beginIdx = this.pose.length;
-    for (let i = 0; i<md.pose.length; ++i) {
-      this.pose[beginIdx] = md.pose[i];
-      ++beginIdx;
+    if (copyCount < 0) copyCount = md.pose.length;
+    let posIdx = beginIdx;
+    for (let i = fromIdx; i<copyCount; ++i) {
+      this.pose[posIdx] = md.pose[i];
+      ++posIdx;
     }
     md.height = this.getHeight();
+    return beginIdx;
+  }
+
+  // 追加一个动作, 默认在末尾追加, 并返回 pose 索引
+  addPose(pose, index = -1) {
+    if (index < 0) index = this.pose.length;
+    this.pose[index] = pose;
+    return index;
+  }
+
+  getPose(poseid) {
+    return this.pose[poseid];
   }
 
   combinationDraw(boneIdx, drawable) {
@@ -134,6 +151,7 @@ function emd(file) {
   if (am_idx) skeleton(md, am_idx, buf, buf._offset(6));
 
   md.mesh = mesh(buf, buf._offset(7));
+  debug("Anim Group", md.pose_group);
   return md;
 }
 
@@ -206,10 +224,12 @@ function animation(buf, am_off) {
         flag   : (t & 0xFFFFF800) >>> 11,
         sk_idx : (t &      0x7FF),
       };
-      group[j].flag && debug('  -', j, '\t', Tool.h4(group[j].flag), '\t', group[j].sk_idx);
+      if (group[j].flag) {
+        debug('  -', j, '\tFlag', Tool.h4(group[j].flag), 
+          '\tSK', group[j].sk_idx);
+      }
     }
   }
-  // debug("Anim count", ret.length);
   return am_idx;
 }
 
@@ -326,6 +346,7 @@ function skeleton(md, am_idx, buf, sk_offset) {
       create_anim_frame_data(buf, anim_offset, size);
 
   md.addAnimSet(am_idx, get_frame_data);
+  debug(' * POSE count', md.pose.length);
 }
 
 

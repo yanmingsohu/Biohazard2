@@ -327,20 +327,21 @@ function Living(mod, tex) {
     u *= 1000;
     a += u;
     Shader.draw_living();
+    const sp = speed;
     
     // console.log(a/speed, '\t', a, '\t', speed);
-    alf.setPercentage(u/speed);
+    alf.setPercentage(u/sp);
     liner_pos_tr.line(u, abs_pos);
 
     // console.line(liner_pos.y);
     Shader.setAnimOffset(liner_pos.x, liner_pos.y, liner_pos.z);
     mod.transformRoot(alf, components, 0);
     
-    if (a >= speed) {
+    if (a >= sp) {
       a = 0;
       if (!_nextFrame(anim_frame + anim_dir)) return;
-      speed = DEF_SPEED/* - frame_data.spx/2000*/;
-      liner_pos_tr.speed(speed);
+      // speed = DEF_SPEED/* - frame_data.spx/2000*/;
+      liner_pos_tr.speed(sp);
     }
   }
 

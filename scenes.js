@@ -91,6 +91,7 @@ const gameState = {
   map_path,
   map_mblock,
   map_pblock,
+  enemy,
 
   // js 脚本函数
   switch_camera,
@@ -126,6 +127,7 @@ function init(_window, _camera, _shader_pro, order) {
   camera = _camera;
   draw_order = order;
   vec3.set(camera.up(), 0, -1, 0);
+  window.add(frame_task);
   // _test();
 }
 
@@ -389,6 +391,7 @@ function begin_level() {
   // let liv = Liv.fromPld(play_mode);
   p1 = Ai.player(liv, window, draw_order, gameState, camera);
   set_weapon(liv, 7);
+  window.add(Tool.EnemyCollision(p1, enemy));
 
   // 玩家初始位置
   init_pos(0);
@@ -474,54 +477,9 @@ function addEnemy(zb) {
   scenes_garbage.push(ai, se);
   ai.setPos(zb.x, zb.y, zb.z);
   ai.setDirection(zb.dir);
+  ai.initAiState(zb.state);
   mod.moveImmediately();
   enemy[zb.id] = ai;
-
-  // TODO: 移动到 AI代码中
-  switch (zb.state) {
-    // 和警局中从木板中伸出的手有关
-    case 0:
-    case 1:
-    case 16:
-      break;
-
-    case 70: // 普通僵尸, (血量不同?)
-    case 64:
-    case 6:
-      mod.setAnim(8, 0);
-      mod.setDir(1);
-      break;
-    
-    case 198: // 着火的僵尸
-      break;
-
-    case 194: // 着火的僵尸躺在地上
-      mod.setAnim(17, 0);
-      mod.setDir(1);
-      break;
-
-    case 72: // 趴在地上撕咬
-    case 8:
-      mod.setAnim(26 + Tool.randomInt(2), 0);
-      mod.setDir(1);
-      break;
-
-    case 2: // 已经死了, 抽搐
-    case 4:
-      mod.setAnim(30, 0);
-      mod.setDir(1);
-      break;
-
-    case 7: // 已经死了(不动)
-      mod.setAnim(31, 0);
-      mod.setDir(0);
-      break;
-
-    case 67: // 在地上爬行(不可站立)
-      mod.setAnim(13, 0);
-      mod.setDir(1);
-      break;
-  }
 }
 
 

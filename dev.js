@@ -119,7 +119,7 @@ function enemyBrowse(Liv, window, Room, camera) {
   // 46: 枪店老板, 58:警察僵尸
   // 动画不正常: 51:里昂, 94:机械臂, 91:食人花, 70:舔舐者, 71:鳄鱼
   // 模型不正常: 39:艾达, 20:暴君
-  let mindex = 70;
+  let mindex = 58;
   _dir('Pl0/emd0');
   _dir('pl1/emd1');
 

@@ -27,6 +27,7 @@ export default {
   bit,
   randomInt,
   FrameTaskMana,
+  EnemyCollision,
 };
 
 
@@ -113,15 +114,13 @@ function debug() {
     v = a[i];
     if (v === null) v = 'null';
     else if (v === undefined) v = 'undefined';
-    else if (v.constructor != Number && 
-        v.constructor != String &&
-        v.constructor != Boolean &&
-        v.constructor != Array &&
-        !ArrayBuffer.isView(v)
+    else if (v.constructor == Number ||
+        v.constructor == String ||
+        v.constructor == Boolean
     ) {
-      o[i] = JSON.stringify(v);
+      o[i] = v;
     } else {
-      o[i] = a[i];
+      o[i] = JSON.stringify(v);
     }
   }
   console.debug(o.join(' '));
@@ -508,12 +507,36 @@ export class RectangleMark {
     this.y = y;
     this.w = w + this.x;
     this.d = d + this.y;
+    this.f = /*需要和map_mblock同步修改*/ 512 / 2;
   }
 
-  mark(step, fn) {
+  mark(step, block_cb, collision) {
+    let p = new Point2(0, 0);
     for (let x = this.x; x < this.w; x += step) {
+      p.x = x;
       for (let y = this.y; y < this.d; y += step) {
-        fn(x, y);
+        p.y = y;
+        if (collision) {
+          // if (collision.check(p) < 0) {
+          //   block_cb(x, y);
+          //   continue;
+          // }
+          p.x = x - this.f;
+          p.y = y - this.f;
+          if (collision.check(p) < 0) continue;
+          p.x = x + this.f;
+          p.y = x + this.f;
+          if (collision.check(p) < 0) continue;
+          p.x = x - this.f;
+          p.y = x + this.f;
+          if (collision.check(p) < 0) continue;
+          p.x = x + this.f;
+          p.y = x - this.f;
+          if (collision.check(p) < 0) continue;
+          block_cb(x, y);
+        } else {
+          block_cb(x, y);
+        }
       }
     }
   }
@@ -522,12 +545,12 @@ export class RectangleMark {
 
 function FrameTaskMana(map_path, map_mblock, map_pblock) {
   const frame_task = [];
-  const frame = 0;
   const mm = map_mblock;
   const mp = map_pblock /2;
+  let frame = 0;
 
   return {
-    draw() {
+    draw(u, t) {
       if (++frame > 10) {
         frame = 0;
         let task = frame_task.pop();
@@ -564,9 +587,34 @@ function FrameTaskMana(map_path, map_mblock, map_pblock) {
           thepath.push(n);
           n = n.from;
         }
+        // 删除最近的路点
+        thepath.pop();
         thepath.pop();
         cb(thepath);
       });
+    },
+  };
+}
+
+
+// 玩家和敌人, 敌人和敌人的碰撞检测
+function EnemyCollision(player, enemy) {
+  return {
+    draw() {
+      this.check(player, 0);
+      for (let i=0; i<enemy.length-1; ++i) {
+        this.check(enemy[i], i+1);
+      }
+    },
+
+    check(a, begin) {
+      for (let i=begin; i<enemy.length; ++i) {
+        const e = enemy[i];
+        const c = a.getCollision();
+        if (c && (a.floor() == e.floor()) ) {
+          c.in(e.getPosPoint(), e);
+        }
+      }
     },
   };
 }

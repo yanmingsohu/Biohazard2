@@ -3,6 +3,7 @@ import Node   from '../boot/node.js'
 import Sound  from './sound.js'
 import Shader from './shader.js'
 import Tool, { Point2, Triangle2 } from './tool.js'
+import Coll   from './collision.js'
 
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec2, mat4} = matrix;
@@ -60,6 +61,8 @@ function player(mod, win, order, gameState, camera) {
     back,
     traverse,
     draw,
+    be_attacked,
+    break_free,
   });
 
   let one_step = WALK;
@@ -74,20 +77,65 @@ function player(mod, win, order, gameState, camera) {
   let current_floor;
   // 举枪
   let gun, rot = ROT_COE[0];
+  let attacked_time = 0;
+  let wait;
+  let be_attacked_pose = 3;
+  let break_free_pose = 5;
 
   mod.setSpeed(WALK_SPEED);
   bind_ctrl(input, defaultKeyBind);
   thiz.changePose(12, 1);
+  thiz.installCollision(1500);
 
   return thiz;
 
 
   function able_to_control(able) {
     input.pause(!able);
+    thiz.setAnimFrame(0);
   }
 
 
-  function draw(u) {
+  function be_attacked(time, att_pose_data, break_pose_data) {
+    attacked_time = time;
+    if (!att_pose_data) {
+      be_attacked_pose = 3;
+    } else {
+      be_attacked_pose = 27;
+      mod.getMD().addPose(att_pose_data, be_attacked_pose);
+    }
+    if (!break_pose_data) {
+      break_free_pose = 5;
+    } else {
+      break_free_pose = 28;
+      mod.getMD().addPose(break_pose_data, break_free_pose);
+    }
+  }
+
+
+  function break_free() {
+    return attacked_time <= 0;
+  }
+
+
+  function draw(u, t) {
+    if (wait) return;
+
+    if (attacked_time > 0) {
+      if (t - attacked_time > 5) {
+        wait = true;
+        attacked_time = 0;
+        thiz.changePose(break_free_pose, 1);
+        thiz.setAnimFrame(0);
+        mod.setAnimEndAct(2, function() {
+          wait = false;
+        });
+      } else {
+        thiz.changePose(be_attacked_pose, 1);
+      }
+      return;
+    }
+
     let stand;
     if (gun) {
       thiz.changePose(21, -1);
@@ -135,17 +183,17 @@ function player(mod, win, order, gameState, camera) {
     // thiz.moveForward(u);
 
     // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.
-    const w = thiz.where();
-    const p = new Point2(w[0], w[2]);
+    // const w = thiz.where();
+    let p = thiz.getPosPoint();
     const floor = thiz.floor();
   
-    if (undefined === Tool.inRanges(play_range, w[0], w[2])) {
+    if (undefined === Tool.inRanges(play_range, p.x, p.y)) {
       back();
     }
 
     for (let i=0; i<touch.length; ++i) {
       let t = touch[i];
-      if (Tool.inRange(t, w[0], w[2])) {
+      if (Tool.inRange(t, p.x, p.y)) {
         t.act(thiz);
       } else if (t.leave) {
         t.leave(thiz);
@@ -154,18 +202,16 @@ function player(mod, win, order, gameState, camera) {
     
     for (let i=0, l=collisions.length; i<l; ++i) {
       let c = collisions[i];
-      // TODO: 每个碰撞物对 flag 的处理方式不同, 这样处理错误!
+      // TODO: 每个碰撞物对 flag 的处理方式不同, 这样处理不完整!
       if (c.play_on && c.floor_block[floor] && c.py) {
         c.py.in(p, thiz);
-        thiz.where();
-        p.x = w[0];
-        p.y = w[2];
+        p = thiz.getPosPoint();
       }
     }
 
     for (let i=0; i<floors.length; ++i) {
       let f = floors[i];
-      if (f.range && Tool.inRange(f.range, w[0], w[2])) {
+      if (f.range && Tool.inRange(f.range, p.x, p.y)) {
         if (current_floor != f) {
           current_floor = f;
           mod.setAnimSound(f);
@@ -249,8 +295,10 @@ function player(mod, win, order, gameState, camera) {
 // 32.彻底扑倒后撕咬(应该是玩家空血后被扑倒);
 // 33.由原地站立后抬手(?); 34.原地抬手(不动); 35.(向前扑空x)吐东西;
 // 36.被机枪攻击1; 37.被机枪攻击2; 38.被机枪攻击3; 39.??过渡动作,一只手抬起
-// 40.??一只手向前推(铁砂掌?); 41.用肩膀撞击, 后巷用到这个动作;
-// 42.向43的过渡动作(尝试攻击?); 43.站立啃咬动作?; 44.??站立甩头浑身扭动
+// 40.??一只手向前推(铁砂掌?); 
+// * 从 41 号动作开始为玩家动作
+// 41.用肩膀撞开僵尸攻击
+// 42.向43的过渡动作(尝试攻击?); 43.从正面被僵尸咬; 44.从后面被僵尸咬
 // 45.向46的过渡动作; 46.踩蟑螂?????; 47.向48的过渡动作; 48.??射门,球进了(一点没开玩笑)
 // 49.向50的过渡动作; 50.瘸了一条腿前进; 51.瘸了一条腿转身????;
 // 52.向后倒地, 并作出死不瞑目的手部动作;
@@ -270,36 +318,112 @@ function zombie(mod, win, order, gameState, se, data) {
 
   const thiz = Base(gameState, mod, win, order, {
     draw,
-    setState,
+    initAiState,
   });
 
+  thiz.installCollision(2000);
 
-  function setState(s) {
-    state = s;
+
+  //
+  // 游戏状态转换为 ai 状态
+  //
+  function initAiState(game_state) {
+    switch (game_state) {
+    case 0: // 和警局中从木板中伸出的手有关
+    case 1:
+    case 16:
+      break;
+
+    case 70: // 普通僵尸, (血量不同?)
+    case 64:
+    case 6:
+      state = 0;
+      break;
+    
+    case 198: // 着火的僵尸
+      state = 0;
+      break;
+
+    case 194: // 着火的僵尸躺在地上
+      state = 13;
+      break;
+
+    case 72: // 趴在地上撕咬
+    case 8:
+      mod.setAnim(26 + Tool.randomInt(2), 0);
+      mod.setDir(1);
+      break;
+
+    case 2: // 已经死了, 抽搐
+    case 4:
+      state = 30;
+      break;
+
+    case 7: // 已经死了(不动)
+      state = 31;
+      break;
+
+    case 67: // 在地上爬行(不可站立)
+      mod.setAnim(13, 0);
+      mod.setDir(1);
+      break;
+    }
   }
 
 
-  function draw(u) {
+  function draw(u, t) {
     switch (state) {
     case 1000: // wait
       break;
 
-    case 8: // 原地徘徊
-      thiz.changePose(8, -1);
-      find_player();
+    case 1001: // 攻击玩家, 并等待玩家反抗
+      const pl = gameState.getPlayer(1);
+      if (pl.break_free()) {
+        state = 12;
+      }
       break;
 
-    case 0: // 前进
-      thiz.changePose(1, 1);
+    case 0: // 前进, 寻找敌人
       goto_player();  
+      break;
+
+    case 8: // 原地徘徊
+      thiz.changePose(8, -1);
+      if (dist3(thiz, gameState.getPlayer(1)) < 8000) {
+        thepath = null;
+        state = 0;
+      }
+      break;
+
+    case 12: // 向后趔趄
+      thiz.changePose(21, 1);
+      thiz.setAnimFrame(0);
+      state = 1000;
+      mod.setAnimEndAct(2, function() {
+        state = 0;
+      });
+      break;
+
+    case 13: // 向上躺在地上并站立
+      thiz.changePose(17, 1);
+      thiz.setAnimFrame(0);
+      state = 1000;
+      mod.setAnimEndAct(2, function() {
+        state = 0;
+      });
       break;
 
     case 19: // 向前扑
       state = 1000;
       thiz.changePose(33, 1);
+      thiz.setAnimFrame(0);
       mod.setAnimEndAct(2, function() {
-        if (dist3(thiz, gameState.getPlayer(1)) < 1500) {
+        const pl = gameState.getPlayer(1);
+        if (dist3(thiz, pl) < 1500) {
           state = 20;
+          const md = mod.getMD();
+          // TODO: 区分正面/背面攻击
+          pl.be_attacked(t, md.getPose(43), md.getPose(41));
         } else {
           state = 35;
         }
@@ -307,29 +431,31 @@ function zombie(mod, win, order, gameState, se, data) {
       break;
 
     case 20: // 站立啃咬
+      state = 1001;
       thiz.changePose(20, 1);
-      mod.setAnimEndAct(3, function() {
-        const d = dist3(thiz, gameState.getPlayer(1));
-        if (d > 500) {
-          state = 8;
-        }
-      });
+      thiz.setAnimFrame(0);
+      break;
+    
+    case 30:
+      mod.setAnim(30, 0);
+      mod.setDir(1);
+      state = 1000;
+      break;
+
+    case 31:
+      mod.setAnim(31, 0);
+      mod.setDir(0);
+      state = 1000;
       break;
     
     case 35: // 向前扑空
       state = 1000;
       thiz.changePose(35, 1);
+      thiz.setAnimFrame(0);
       mod.setAnimEndAct(2, function() {
         state = 8;
       });
       break;
-    }
-  }
-
-
-  function find_player() {
-    if (dist3(thiz, gameState.getPlayer(1)) < 15000) {
-      state = 0;
     }
   }
 
@@ -346,17 +472,23 @@ function zombie(mod, win, order, gameState, se, data) {
     }
     
     if (d < 5000) {
+      thiz.changePose(4, 1);
       thiz.moveTo(pl[0], 0, pl[2]);
       thepath = null;
       return;
     }
 
-    // 如果发现玩家, 就不停追踪
+    // 停止追踪
     // if (d > 25000) {
     //   state = 8;
     //   thepath = null;
     //   return;
     // }
+
+    if (thepath == 1) {
+      return;
+    }
+
     if (++frame > 300) {
       thepath = null;
       frame = 0;
@@ -364,17 +496,19 @@ function zombie(mod, win, order, gameState, se, data) {
 
     if (!thepath) {
       gameState.frame_task.findRoad(w[0], w[2], pl[0], pl[2], (_pt)=>{
-        if (_pt) {
+        if (_pt && _pt.length > 0) {
           thepath = _pt;
+          // console.log(thepath.length, 'found path !');
+          thiz.changePose(1, 1);
         } else {
-          state = 8;
           thepath = null;
+          // console.log(w[0], w[2], pl[0], pl[2], ' not found path')
         }
       });
       thepath = 1;
-    } else if (thepath === 1) {
+      thiz.changePose(8, 1);
       return;
-    }
+    } 
 
     const m = gameState.map_mblock;
     const p = gameState.map_pblock /2;
@@ -382,7 +516,7 @@ function zombie(mod, win, order, gameState, se, data) {
     if (node) {
       let x = (node.x-p) * m;
       let y = (node.y-p) * m;
-      if (dist(w[0], x) + dist(w[2], y) < m) thepath.pop();
+      if ((dist(w[0], x) + dist(w[2], y)) < m) thepath.pop();
       thiz.moveTo(x, 0, y);
     } else {
       thepath = null;
@@ -412,7 +546,10 @@ function licker(mod, win, order, gameState, se, data) {
   // }
 
   const thiz = Base(gameState, mod, win, order, {
+    initAiState,
   });
+
+  function initAiState() {}
 
   // mod.setAnimSound(se);
   return thiz;
@@ -421,7 +558,10 @@ function licker(mod, win, order, gameState, se, data) {
 
 function Npc(mod, win, order, gameState, se, data) {
   const thiz = Base(gameState, mod, win, order, {
+    initAiState,
   });
+
+  function initAiState() {}
 
   // mod.setAnimSound(se);
   return thiz;
@@ -449,6 +589,10 @@ function Base(gameState, mod, win, order, ext) {
     changePose,
     setMoveSpeed,
     moveForward,
+    setAnimFrame,
+    getPosPoint,
+    installCollision,
+    getCollision,
   };
 
   order.addMod(thiz);
@@ -459,20 +603,21 @@ function Base(gameState, mod, win, order, ext) {
   const swap                = new Array(3);
   const zero                = [0,0,0];
 
+  let collision;
   let angle         = 0;
   let ex_anim_index = -1;
   let _state        = 0;
-  let anim_dir      = 0;
   let anim_pose     = 0;
   let moveSpeed     = 1;
   let rotateSpeed   = 0.022;
+  let pos_point     = new Point2(0, 0);
 
   thiz.ms = model_trans;
   thiz.swap = swap; // 使用的元素必须完全清空
   thiz.anim_speed_addition = mod.getMoveSpeed();
   delete ext.free;
 
-  return Object.assign(Tran, thiz, ext);
+  return Object.assign(Tran, thiz, ext);;
 
 
   // 这个函数只被微代码调用
@@ -502,10 +647,42 @@ function Base(gameState, mod, win, order, ext) {
 
   
   function draw(u, t) {
+    if (collision) {
+      updateCollision();
+      // checkEnemyCollision();
+    } 
     ext.draw && ext.draw(u, t);
     if (_state == 1) _move1(u);
     Shader.setModelTrans(model_trans);
     mod.draw(u, t);
+  }
+
+
+  // 返回的对象在下一帧之前有效
+  function getPosPoint() {
+    const w = Tran.where();
+    pos_point.x = w[0];
+    pos_point.y = w[2];
+    return pos_point;
+  }
+
+
+  function installCollision(size) {
+    collision = new Coll.Circle({x:0, y:0, w: size || 300});
+  }
+
+
+  function getCollision() {
+    return collision;
+  }
+
+
+  function updateCollision() {
+    const w = Tran.where();
+    collision.resetPos(w[0]-collision.r, w[2]-collision.r);
+    // let r = Tool.xywd2range({x:w[0], y:w[2], w:100, d:100});
+    // let color = new Float32Array([1, 0, 0]);
+    // Tool.showRange(r, win, color, -110);
   }
 
 
@@ -688,12 +865,19 @@ function Base(gameState, mod, win, order, ext) {
     const x = ox - b[0];
     const z = oz - b[2];
     const angle0 = Math.atan(x/z);
-    const ret = angle0 - (angle > PI_180 ? -(PI_360-angle) : angle);
+    let ret = angle0 - (angle > PI_180 ? -(PI_360-angle) : angle);
     if (z < 0) {
-      return ret + PI_90;
+      ret += PI_90;
     }  else {
-      return ret - PI_90;
+      ret -= PI_90;
     }
+    // 原地转圈补丁
+    if (ret > 0 && ret > PI_180) {
+      ret = PI_180 - ret;
+    } else if (ret < 0 && ret < -PI_180) {
+      ret = PI_360 + ret;
+    }
+    return ret;
   }
 
   
@@ -719,12 +903,19 @@ function Base(gameState, mod, win, order, ext) {
   }
 
 
+  // 当动作改变后, 动画设置为循环模式, 回调函数被删除
   function changePose(id, dir) {
     if (id != anim_pose) {
       anim_pose = id;
-      mod.setAnim(id, 0);
+      mod.setAnim(id, -1);
+      mod.setAnimEndAct(1, null);
     }
     mod.setDir(dir);
+  }
+
+
+  function setAnimFrame(f) {
+    mod.setFrame(f);
   }
 }
 
