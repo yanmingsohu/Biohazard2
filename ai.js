@@ -621,19 +621,22 @@ function Base(gameState, mod, win, order, ext) {
 
 
   // 这个函数只被微代码调用
+  // TODO: flag 解析不正确
   function setAnim(flag, type, idx) {
     const reverse_dir = flag & 0x80;
-    const part = flag & 0x10;
+    const part        = flag & 0x10;
+    const ext_pose    = type == 0;
+    const loop        = true ? 1:0;
     
-    if (type == 1) {
-      mod.setAnim(idx, 0, 0);
-    } else if (type == 0) {
+    if (ext_pose) {
       if (ex_anim_index <= 0) {
         const md = mod.getMD();
         ex_anim_index = md.poseCount();
         gameState.bind_ex_anim(md, ex_anim_index);
       }
       mod.setAnim(idx + ex_anim_index, 0, 0);
+    } else {
+      mod.setAnim(idx, 0, 0);
     }
 
     if (reverse_dir) {
@@ -904,11 +907,11 @@ function Base(gameState, mod, win, order, ext) {
 
 
   // 当动作改变后, 动画设置为循环模式, 回调函数被删除
-  function changePose(id, dir) {
+  function changePose(id, dir, endflag = 1) {
     if (id != anim_pose) {
       anim_pose = id;
       mod.setAnim(id, -1);
-      mod.setAnimEndAct(1, null);
+      mod.setAnimEndAct(endflag, null);
     }
     mod.setDir(dir);
   }

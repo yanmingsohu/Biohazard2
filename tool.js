@@ -603,6 +603,7 @@ function EnemyCollision(player, enemy) {
     draw() {
       this.check(player, 0);
       for (let i=0; i<enemy.length-1; ++i) {
+        if (!enemy[i]) continue;
         this.check(enemy[i], i+1);
       }
     },
@@ -610,6 +611,7 @@ function EnemyCollision(player, enemy) {
     check(a, begin) {
       for (let i=begin; i<enemy.length; ++i) {
         const e = enemy[i];
+        if (!e) continue;
         const c = a.getCollision();
         if (c && (a.floor() == e.floor()) ) {
           c.in(e.getPosPoint(), e);

@@ -179,6 +179,7 @@ function Living(mod, tex) {
     // 返回的对象每帧都会更新.
     getMoveSpeed,
     moveImmediately,
+    show_info,
   };
 
 

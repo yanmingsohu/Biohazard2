@@ -411,6 +411,11 @@ function begin_level() {
     while (!goto_next_door && window.notClosed()) {
       window.nextFrame();
       for (let i=0; i<100; ++i) {
+        // 单步执行
+        // while (!window.input().isKeyPress(gl.GLFW_KEY_Z)) {
+        //   window.nextFrame();
+        //   console.line("press z to continue.");
+        // }
         if (script_context.frame(window.usedTime()) == 1) {
           break;
         }
@@ -661,7 +666,7 @@ function _test() {
   // 测试用
   window.input().pressOnce(gl.GLFW_KEY_F, function() {
     camera_nm++;
-    // if (camera_nm>7) camera_nm = 0;
+    if (camera_nm >= map_data.cameras.length) camera_nm = 0;
     try {
       switch_camera();
       console.line("cam", camera_nm);

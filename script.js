@@ -526,7 +526,7 @@ function compile(arrbuf) {
 
       case 0x29:
         debug("Cut_chg");
-        game.cut_chg(mem.byte());
+        game.cut_chg(mem.byte()); 
         // game.next_frame();
         break;
 
@@ -731,12 +731,12 @@ function compile(arrbuf) {
         var type = mem.byte();
         var idx  = mem.byte();
         var flag = mem.byte();
-        debug('f', flag, 't', type, 'i', idx);
+        debug('f', Tool.bit(flag), 't', type, 'i', idx);
         game.work.setAnim(flag, type, idx);
         break;
 
       case 0x40:
-        debug('Plc_dest ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^');
+        debug('Plc_dest', '^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^');
         mem.s(1);
         var flag = mem.byte();
         var room = mem.byte();
@@ -744,11 +744,18 @@ function compile(arrbuf) {
         var z = mem.short();
         debug('flag:', flag, 'room:', room, "xz:", x, z);
         // flag == 9 很奇怪
-        if (flag == 7) {
+        switch (flag) {
+        case 7:
           game.work.setPos(x, 0, z);
-        } else if (flag == 4) {
+          break;
+
+        case 4:
+          // game.work.changePose(0, -1);
           game.work.moveTo(x, 0, z);
-          game.work.changePose(0, -1);
+          break;
+
+        case 21: // 相对 位移
+          break;
         }
         break;
 
@@ -1281,7 +1288,7 @@ function compile(arrbuf) {
 
 
 function debug() {
-  // if (arguments[0] != 'SE') return; // 用于调试单个命令
+  // if (arguments[0] != 'Plc_dest') return; // 用于调试单个命令
   let a = [addr, '#', indentation];
   for (let i=0; i<arguments.length; ++i) a.push(arguments[i]);
   Tool.debug.apply(null, a);
