@@ -411,6 +411,17 @@ export class Point2 {
     return Math.acos(this.cross(p) / (this.len() * p.len()));
   }
 
+  // 逆时针旋转
+  rotate(center, angle) {
+    let p0 = this.x - center.x;
+    let p1 = this.y - center.y;
+    let sinc = Math.sin(angle);
+    let cosc = Math.cos(angle);
+    return new Point2(
+      p0 * cosc - p1 * sinc + center.x,
+      p0 * sinc + p1 * cosc + center.y);
+  }
+
   toString() {
     return '('+ this.x +','+ this.y +')';
   }
@@ -539,6 +550,36 @@ export class RectangleMark {
         }
       }
     }
+  }
+}
+
+
+export class Counter {
+  constructor() {
+    this.c = 0;
+    this.trigger_c = 0;
+    this.callback = null;
+  }
+
+  next(u = 1) {
+    this.c += u;
+    if (this.callback && (this.c > this.trigger_c)) {
+      try {
+        this.callback();
+      } finally {
+        this.callback = null;
+      }
+    }
+  }
+
+  set(count, fn) {
+    this.trigger_c = count;
+    this.callback = fn;
+    this.c = 0;
+  }
+
+  randomSet(max, fn) {
+    this.set(max * Math.random(), fn);
   }
 }
 

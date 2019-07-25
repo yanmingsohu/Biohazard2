@@ -2,7 +2,7 @@ import Game   from '../boot/game.js'
 import Node   from '../boot/node.js'
 import Sound  from './sound.js'
 import Shader from './shader.js'
-import Tool, { Point2, Triangle2 } from './tool.js'
+import Tool, { Point2, Triangle2, Counter } from './tool.js'
 import Coll   from './collision.js'
 
 const matrix = Node.load('boot/gl-matrix.js');
@@ -64,6 +64,7 @@ function player(mod, win, order, gameState, camera) {
     draw,
     be_attacked,
     break_free,
+    set_weapon,
   });
 
   let one_step = WALK;
@@ -82,7 +83,8 @@ function player(mod, win, order, gameState, camera) {
   let wait;
   let be_attacked_pose = 3;
   let break_free_pose = 5;
-  let bullet = 3;
+  let bullet = 0;
+  let weapon;
 
   mod.setSpeed(WALK_SPEED);
   bind_ctrl(input, defaultKeyBind);
@@ -90,6 +92,13 @@ function player(mod, win, order, gameState, camera) {
   thiz.installCollision(1500);
 
   return thiz;
+
+
+  function set_weapon(w) {
+    if (w == null) throw new Error("null weapon");
+    weapon = w;
+    bullet = weapon.clip;
+  }
 
 
   function able_to_control(able) {
@@ -121,10 +130,10 @@ function player(mod, win, order, gameState, camera) {
 
 
   function draw(u, t) {
-    mod.show_info();
+    // mod.show_info();
     if (wait) return;
 
-    if (attacked_time > 0) {
+    if (attacked_time > 0) { // TODO: 上子弹时被攻击无效
       if (t - attacked_time > 5) {
         wait = true;
         attacked_time = 0;
@@ -203,7 +212,7 @@ function player(mod, win, order, gameState, camera) {
 
         if (--bullet < 0) {
           anim_gun_shot = 26;
-          bullet = 3;
+          bullet = weapon.clip; // TODO:装弹计算
         }
         else if (forward) {
           anim_gun_shot = 22;
@@ -222,10 +231,33 @@ function player(mod, win, order, gameState, camera) {
 
         // 对敌人进行伤害计算
         if (anim_gun_shot != 26) {
+          if (weapon.mul) {
+            multiple_attacks();
+          }
         }
       }
     } else {
       check_front();
+    }
+  }
+
+
+  function multiple_attacks() {
+    const PI_SCOPE = 20 * Math.PI/180;
+    let an = -thiz.getAngle();
+    let p1 = thiz.getPosPoint();
+    let p2 = new Point2(p1.x + weapon.scope, p1.y);
+    let t = new Triangle2(p1, 
+        p2.rotate(p1, an+PI_SCOPE), p2.rotate(p1, an-PI_SCOPE));
+    // gameState._show_point(t.p2.x, t.p2.y);
+    // gameState._show_point(t.p3.x, t.p3.y);
+    // gameState._show_point(p1.x, p1.y);
+
+    for (let i=0; i<gameState.enemy.length; ++i) {
+      const e = gameState.enemy[i];
+      if (t.in(e.getPosPoint())) {
+        e.attack(weapon);
+      }
     }
   }
 
@@ -302,10 +334,7 @@ function player(mod, win, order, gameState, camera) {
     }
 
     // 可视化检测点
-    let r = Tool.xywd2range({x, y, w:100, d:100});
-    let color = new Float32Array([0.5, 0.5, 1]);
-    gameState.garbage(Tool.showRange(r, win, color, -110));
-    console.log(x, y, w[1]);
+    // gameState._show_point(x, y);
   }
 
 
@@ -370,11 +399,17 @@ function zombie(mod, win, order, gameState, se, data) {
   let state = 8;
   let thepath = null;
   let frame = 0;
+  let hp = 10;
+  let counter = new Counter();
+  let quick_run_pose = random_choose(2, 4, 6);
+  let faster_run_pose = random_choose(3, 5, 7);
+  let twitch = 1;
   mod.setAnimSound(se);
 
   const thiz = Base(gameState, mod, win, order, {
     draw,
     initAiState,
+    attack,
   });
 
   thiz.installCollision(2000);
@@ -401,52 +436,55 @@ function zombie(mod, win, order, gameState, se, data) {
       break;
 
     case 194: // 着火的僵尸躺在地上
-      state = 13;
+      state = 17;
       break;
 
     case 72: // 趴在地上撕咬
     case 8:
-      mod.setAnim(26 + Tool.randomInt(2), 0);
-      mod.setDir(1);
+      state = random_choose(26, 27, 28);
       break;
 
     case 2: // 已经死了, 抽搐
     case 4:
       state = 30;
+      hp = 0;
+      twitch = 1;
       break;
 
     case 7: // 已经死了(不动)
       state = 31;
+      hp = 0;
+      twitch = 0;
       break;
 
     case 67: // 在地上爬行(不可站立)
-      mod.setAnim(13, 0);
-      mod.setDir(1);
+      state = 13;
       break;
     }
   }
 
 
   function draw(u, t) {
+    counter.next(u);
+
     switch (state) {
     case 1000: // wait
       break;
 
-    case 1001: // 攻击玩家, 并等待玩家反抗
+    case 1001: // 站立攻击玩家(纠缠), 并等待玩家反抗
       const pl = gameState.getPlayer(1);
       if (pl.break_free()) {
         state = 12;
       }
       break;
 
-    case 1002: {// 攻击, 检测范围
+    case 1002: { // 站立攻击, 检测范围
       const pl = gameState.getPlayer(1);
-      const w = thiz.frontPoint();
-      if (dist2(w, pl.where()) < 300) {
+      const w = thiz.frontPoint(1200);
+      if (dist2(w, pl.where()) < 800) {
         state = 20;
         const md = mod.getMD();
-        const fr = fix_angle(dist(thiz.getAngle(), pl.getAngle()));
-        if (fr > PI_90 && fr < PI_270) { // 正面攻击
+        if (thiz.isRightToMe(pl)) { // 正面攻击
           pl.be_attacked(t, md.getPose(40), md.getPose(41));
           pl.setDirectionAngle(thiz.getAngle() + PI_180);
         } else {
@@ -456,16 +494,73 @@ function zombie(mod, win, order, gameState, se, data) {
       }
     } break;
 
+    case 1003: // 站立被攻击
+      _setpose_wait_when(random_choose(36, 37, 38), 1, function() {
+        if (hp <0) {
+          state = 9;
+        } else {
+          state = 0;
+        }
+      });
+      break;
+
+    case 1004: { // 爬行攻击
+      const pl = gameState.getPlayer(1);
+      if (dist2(thiz.frontPoint(2000), pl.where()) < 800) {
+        state = 23;
+        pl.be_attacked(t, md.getPose(46), md.getPose(48));
+      } else {
+        state = 13;
+      }
+    } break;
+
+    case 1005: {// 爬行攻击玩家(纠缠), 并等待玩家反抗
+      const pl = gameState.getPlayer(1);
+      if (pl.break_free()) {
+        if (hp < 0) {
+          state = 31;
+        } else {
+          state = 13;
+        }
+      }
+    } break;
+
     case 0: // 前进, 寻找敌人
-      goto_player();  
+      goto_player(0, quick_run_pose, 8, 1, 19);  
       break;
 
     case 8: // 原地徘徊
-      thiz.changePose(8, -1);
-      if (dist3(thiz, gameState.getPlayer(1)) < 8000) {
-        thepath = null;
+      _wait_find(8, 0, 1000);
+      break;
+
+    case 9: // 向前倒地
+      _setpose_wait_when(9, 1, function() {
+        counter.randomSet(10, ()=>{
+          if (hp <0) {
+            state = 31;
+          } else {
+            state = 16;
+          }
+        });
+      });
+      break;
+
+    case 10: // 向后倒地
+      _setpose_wait_when(10, 1, function() {
+        counter.randomSet(10, ()=>{
+          if (hp < 0) {
+            state = 30;
+          } else {
+            state = 17;
+          }
+        });
+      });
+      break;
+
+    case 11: // 向前趔趄
+      _setpose_wait_when(11, 1, function() {
         state = 0;
-      }
+      });
       break;
 
     case 12: // 向后趔趄
@@ -477,7 +572,34 @@ function zombie(mod, win, order, gameState, se, data) {
       });
       break;
 
-    case 13: // 向上躺在地上并站立
+    case 13: // 向前爬
+      // thiz.changePose(13, 1);
+      goto_player(13, 13, 31, 0, 22);  
+      break;
+
+    case 14: // 爬行时中枪
+      _setpose_wait_when(14, 1, ()=>{
+        if (hp < 0) {
+          state = 15;
+        } else {
+          state = 13;
+        }
+      });
+      break;
+
+    case 15: // 爬行死亡
+      _setpose_wait_when(15, 1, ()=>{
+        state = 31;
+      });
+      break;
+
+    case 16: // 面朝下爬起并站立
+      _setpose_wait_when(16, 1, function() {
+        state = 0;
+      });
+      break;
+
+    case 17: // 向上躺在地上并站立
       thiz.changePose(17, 1);
       thiz.setAnimFrame(0);
       state = 1000;
@@ -502,16 +624,49 @@ function zombie(mod, win, order, gameState, se, data) {
       thiz.changePose(20, 1);
       thiz.setAnimFrame(0);
       break;
+
+    case 22: // 爬行时尝试攻击
+      state = 1004;
+      thiz.changePose(22, 1);
+      thiz.setAnimFrame(0);
+      mod.setAnimEndAct(2, function() {
+        if (state == 1004) {
+          state = 13;
+        }
+      });
+      break;
+
+    case 23:
+      state = 1005;
+      thiz.changePose(23, 1);
+      thiz.setAnimFrame(0);
+      break;
+
+    case 26: // 跪在地上啃咬1
+      _wait_find(26, 29, 5000);
+      break;
+
+    case 27: // 跪在地上啃咬2
+      _wait_find(27, 29, 5000);
+      break;
+
+    case 28: // 跪在地上啃咬3
+      _wait_find(28, 29, 5000);
+      break;
+
+    case 29: // 跪在地上并站起
+      _setpose_wait_when(29, 1, ()=>{
+        state = 0;
+      });
+      break;
     
-    case 30:
-      mod.setAnim(30, 0);
-      mod.setDir(1);
+    case 30: // 面朝上抽动
+      thiz.changePose(30, (twitch && hp<=0)?1:0 );
       state = 1000;
       break;
 
-    case 31:
-      mod.setAnim(31, 0);
-      mod.setDir(0);
+    case 31: // 面朝下抽动
+      thiz.changePose(31, (twitch && hp<=0)?1:0 );
       state = 1000;
       break;
     
@@ -520,37 +675,70 @@ function zombie(mod, win, order, gameState, se, data) {
       thiz.changePose(35, 1);
       thiz.setAnimFrame(0);
       mod.setAnimEndAct(2, function() {
-        state = 8;
+        state = 0;
       });
       break;
     }
   }
 
 
-  function goto_player(speed) {
+  function _wait_find(pose, npose, d) {
+    thiz.changePose(pose, 1);
+    if (dist3(thiz, gameState.getPlayer(1)) < d) {
+      state = npose;
+    }
+  }
+
+
+  function _setpose_wait_when(pos, dir, fn) {
+    state = 1000;
+    thiz.changePose(pos, dir);
+    thiz.setAnimFrame(0);
+    mod.setAnimEndAct(2, fn);
+  }
+
+
+  function attack(weapon) {
+    if (hp <= 0) return;
+    const pose = thiz.getPose();
+    thiz.stopMove();
+
+    if (pose == 9 || pose == 13) {
+      hp -= weapon.hurt;
+      state = 14;
+      return;
+    }
+
+    if (state == 1000) return;
+    hp -= weapon.hurt;
+    switch (weapon.id) {
+      case 7: 
+        state = random_choose(9, 10);
+        break;
+      default: 
+        state = 1003; 
+        break;
+    }
+  }
+
+
+  function goto_player(move_pose, run_pose, wait_pose, wait_adir, attack) {
     const w = thiz.where();
     const pl = gameState.getPlayer(1).where();
     const d = dist2(w, pl);
 
     if (d < 1000) {
       thiz.stopMove();
-      state = 19;
+      state = attack; //19;
       return;
     }
     
     if (d < 5000) {
-      thiz.changePose(4, 1);
+      thiz.changePose(run_pose, 1);
       thiz.moveTo(pl[0], 0, pl[2]);
       thepath = null;
       return;
     }
-
-    // 停止追踪
-    // if (d > 25000) {
-    //   state = 8;
-    //   thepath = null;
-    //   return;
-    // }
 
     if (thepath == 1) {
       return;
@@ -566,14 +754,14 @@ function zombie(mod, win, order, gameState, se, data) {
         if (_pt && _pt.length > 0) {
           thepath = _pt;
           // console.log(thepath.length, 'found path !');
-          thiz.changePose(1, 1);
+          thiz.changePose(move_pose, 1);
         } else {
           thepath = null;
           // console.log(w[0], w[2], pl[0], pl[2], ' not found path')
         }
       });
       thepath = 1;
-      thiz.changePose(8, 1);
+      thiz.changePose(wait_pose, wait_adir);
       return;
     } 
 
@@ -626,9 +814,14 @@ function licker(mod, win, order, gameState, se, data) {
 function Npc(mod, win, order, gameState, se, data) {
   const thiz = Base(gameState, mod, win, order, {
     initAiState,
+    attack,
   });
 
   function initAiState() {}
+
+  function attack() {
+    console.log("!!! You dead !!!");
+  }
 
   // mod.setAnimSound(se);
   return thiz;
@@ -655,12 +848,15 @@ function Base(gameState, mod, win, order, ext) {
     frontPoint,
     floor,
     changePose,
+    getPose,
     setMoveSpeed,
     moveForward,
     setAnimFrame,
     getPosPoint,
     installCollision,
     getCollision,
+    isBackToMe,
+    isRightToMe,
   };
 
   order.addMod(thiz);
@@ -897,6 +1093,17 @@ function Base(gameState, mod, win, order, ext) {
   }
 
 
+  function isBackToMe(who) {
+    return !isRightToMe(who);
+  }
+
+
+  function isRightToMe(who) {
+    const fr = fix_angle(dist(thiz.getAngle(), who.getAngle()));
+    return fr > PI_90 && fr < PI_270;
+  }
+
+
   // 设置绝对方向, d 是游戏角度参数 (0-4096)
   function setDirection(d) {
     setDirectionAngle(d/0x0FFF * PI_360);
@@ -989,6 +1196,11 @@ function Base(gameState, mod, win, order, ext) {
   }
 
 
+  function getPose() {
+    return anim_pose;
+  }
+
+
   function setAnimFrame(f) {
     mod.setFrame(f);
   }
@@ -1017,4 +1229,9 @@ function fix_angle(a) {
   if (a > PI_360) return a - PI_360;
   else if (a < 0) return PI_360 + a;
   return a;
+}
+
+
+function random_choose() {
+  return arguments[parseInt(Math.random() * arguments.length)];
 }

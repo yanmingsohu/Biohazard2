@@ -8,6 +8,7 @@ import Tool,  {DrawArray, Point2, RectangleMark} from './tool.js'
 import Tbl    from './init-tbl.js'
 import Sound  from './sound.js';
 import PFind  from './astar.js';
+import Item   from './item.js';
 
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4} = matrix;
@@ -101,6 +102,7 @@ const gameState = {
   bind_ex_anim,
   getPlayer(num) { return p1 },
   frame_task,
+  _show_point,
 
   // bio 脚本函数
   waittime:0,
@@ -390,7 +392,7 @@ function begin_level() {
   let liv = Liv.fromEmd(play_mode, 0x50);
   // let liv = Liv.fromPld(play_mode);
   p1 = Ai.player(liv, window, draw_order, gameState, camera);
-  set_weapon(liv, 7);
+  set_weapon(p1, liv, 7);
   window.add(Tool.EnemyCollision(p1, enemy));
 
   // 玩家初始位置
@@ -800,13 +802,14 @@ function show_message(d0, d1, d2) {
 }
 
 
-function set_weapon(target, weaponid) {
+function set_weapon(ai, target, weaponid) {
   const weapon = Liv.fromPlw(play_mode, weaponid);
   const comp = new DrawArray();
   Liv.createSprites(weapon.mesh, weapon.tex, comp.array);
   const md = target.getMD();
   md.setPoseFromMD(weapon, 10/* 覆盖动画 */);
   md.combinationDraw(11/* 右手 */, comp);
+  ai.set_weapon(Item.getGun(weaponid));
 }
 
 
@@ -820,4 +823,12 @@ function bind_ex_anim(target, bindIdx) {
 
 function garbage(x) { 
   scenes_garbage.push(x) 
+}
+
+
+function _show_point(x, y) {
+  let r = Tool.xywd2range({x, y, w:100, d:100});
+  let color = new Float32Array([0.5, 0.5, 1]);
+  garbage(Tool.showRange(r, window, color, -110));
+  console.log('Point', x, y);
 }
