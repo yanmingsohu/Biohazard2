@@ -12,6 +12,7 @@ const PI_180 = Math.PI;
 const PI_90  = Math.PI / 2;
 const PI_45  = 45 * Math.PI/180;
 const PI_315 = -45 * Math.PI/180;
+const PI_270 = 270 * Math.PI/180;
 const ANTENNA_LEN = 800;
 const FLOOR_PER_PIXEL = 1800;
 
@@ -34,7 +35,7 @@ export default {
 
 
 //
-// 玩家模型动作说明, 0:步行, 1:恐惧后退, 2:死亡倒下, 3:从正面被攻击, 4:从背面被攻击
+// 玩家模型动作说明, 0:后退, 1:恐惧后退, 2:死亡倒下, 3:从正面被攻击, 4:从背面被攻击
 // 5:?, 6:蹲下/站起, 7:准备推动, 8:向前推动, 9:轻伤前进
 // 10:步行, 11:跑步, 12:站立, 13:轻伤步行, 14: 轻伤跑步, 15:轻伤站立
 // 16:重伤步行, 17:重伤跑步, 18:重伤站立, 
@@ -81,6 +82,7 @@ function player(mod, win, order, gameState, camera) {
   let wait;
   let be_attacked_pose = 3;
   let break_free_pose = 5;
+  let bullet = 3;
 
   mod.setSpeed(WALK_SPEED);
   bind_ctrl(input, defaultKeyBind);
@@ -119,6 +121,7 @@ function player(mod, win, order, gameState, camera) {
 
 
   function draw(u, t) {
+    mod.show_info();
     if (wait) return;
 
     if (attacked_time > 0) {
@@ -131,14 +134,30 @@ function player(mod, win, order, gameState, camera) {
           wait = false;
         });
       } else {
-        thiz.changePose(be_attacked_pose, 1);
+        thiz.changePose(be_attacked_pose, -1);
       }
       return;
     }
 
     let stand;
-    if (gun) {
-      thiz.changePose(21, -1);
+    if (gun == 1) {
+      wait = 1;
+      thiz.changePose(19, 1);
+      thiz.setAnimFrame(0);
+      mod.setAnimEndAct(2, function() {
+        gun = 2;
+        wait = 0;
+        thiz.changePose(21, -1);
+      });
+    }
+    else if (gun == 2) {
+      if (forward) {
+        thiz.changePose(23, 1);
+      } else if (goback) {
+        thiz.changePose(25, 1);
+      } else {
+        thiz.changePose(21, 1);
+      }
     }
     else if (forward) {
       one_step = WALK;
@@ -147,7 +166,7 @@ function player(mod, win, order, gameState, camera) {
         thiz.changePose(11, 1);
       } else {
         rot = ROT_COE[1];
-        thiz.changePose(0, -1);
+        thiz.changePose(10, 1);
       }
       move(u);
     } 
@@ -170,6 +189,43 @@ function player(mod, win, order, gameState, camera) {
       stand && thiz.changePose(0, -1);
     } else if (stand) {
       thiz.changePose(12, 1);
+    }
+  }
+
+
+  function action() {
+    // gun == 1.正在举枪; 2.瞄准; 3.开枪
+    if (gun) {
+      if (gun == 2) { 
+        gun = 3;
+        wait = 1;
+        let anim_gun_shot;
+
+        if (--bullet < 0) {
+          anim_gun_shot = 26;
+          bullet = 3;
+        }
+        else if (forward) {
+          anim_gun_shot = 22;
+        } else if (goback) {
+          anim_gun_shot = 24;
+        } else {
+          anim_gun_shot = 20;
+        }
+        
+        thiz.changePose(anim_gun_shot, 1);
+        thiz.setAnimFrame(0);
+        mod.setAnimEndAct(2, function() {
+          if (gun) gun = 2;
+          wait = 0;
+        });
+
+        // 对敌人进行伤害计算
+        if (anim_gun_shot != 26) {
+        }
+      }
+    } else {
+      check_front();
     }
   }
 
@@ -276,9 +332,9 @@ function player(mod, win, order, gameState, camera) {
     i.pressOnce(bind.up,    ()=>{ forward = 1   }, ()=>{ forward = 0 });
     i.pressOnce(bind.down,  ()=>{ goback = 1    }, ()=>{ goback = 0; });
     i.pressOnce(bind.run,   ()=>{ run = RUN_SP; }, ()=>{ run = 0;    });
-    i.pressOnce(bind.gun,   ()=>{ gun = 0.5; rot=ROT_COE[0]; }, 
+    i.pressOnce(bind.gun,   ()=>{ gun = 1; rot=ROT_COE[0]; }, 
                             ()=>{ gun = 0; rot=ROT_COE[0]; });
-    i.pressOnce(bind.act, check_front);
+    i.pressOnce(bind.act, action);
   }
 }
 
@@ -295,10 +351,10 @@ function player(mod, win, order, gameState, camera) {
 // 32.彻底扑倒后撕咬(应该是玩家空血后被扑倒);
 // 33.由原地站立后抬手(?); 34.原地抬手(不动); 35.(向前扑空x)吐东西;
 // 36.被机枪攻击1; 37.被机枪攻击2; 38.被机枪攻击3; 39.??过渡动作,一只手抬起
-// 40.??一只手向前推(铁砂掌?); 
-// * 从 41 号动作开始为玩家动作
-// 41.用肩膀撞开僵尸攻击
-// 42.向43的过渡动作(尝试攻击?); 43.从正面被僵尸咬; 44.从后面被僵尸咬
+
+// * 从 40 号动作开始为玩家动作
+// 40.从正面被僵尸咬, 41.用肩膀撞开正面的僵尸
+// 42.向43的过渡动作(尝试攻击?); 43.从背面被僵尸咬; 44.从后面被僵尸咬
 // 45.向46的过渡动作; 46.踩蟑螂?????; 47.向48的过渡动作; 48.??射门,球进了(一点没开玩笑)
 // 49.向50的过渡动作; 50.瘸了一条腿前进; 51.瘸了一条腿转身????;
 // 52.向后倒地, 并作出死不瞑目的手部动作;
@@ -383,6 +439,23 @@ function zombie(mod, win, order, gameState, se, data) {
       }
       break;
 
+    case 1002: {// 攻击, 检测范围
+      const pl = gameState.getPlayer(1);
+      const w = thiz.frontPoint();
+      if (dist2(w, pl.where()) < 300) {
+        state = 20;
+        const md = mod.getMD();
+        const fr = fix_angle(dist(thiz.getAngle(), pl.getAngle()));
+        if (fr > PI_90 && fr < PI_270) { // 正面攻击
+          pl.be_attacked(t, md.getPose(40), md.getPose(41));
+          pl.setDirectionAngle(thiz.getAngle() + PI_180);
+        } else {
+          pl.be_attacked(t, md.getPose(43), md.getPose(44));
+          pl.setDirectionAngle(thiz.getAngle());
+        }
+      }
+    } break;
+
     case 0: // 前进, 寻找敌人
       goto_player();  
       break;
@@ -414,17 +487,11 @@ function zombie(mod, win, order, gameState, se, data) {
       break;
 
     case 19: // 向前扑
-      state = 1000;
+      state = 1002;
       thiz.changePose(33, 1);
       thiz.setAnimFrame(0);
       mod.setAnimEndAct(2, function() {
-        const pl = gameState.getPlayer(1);
-        if (dist3(thiz, pl) < 1500) {
-          state = 20;
-          const md = mod.getMD();
-          // TODO: 区分正面/背面攻击
-          pl.be_attacked(t, md.getPose(43), md.getPose(41));
-        } else {
+        if (state == 1002) {
           state = 35;
         }
       });
@@ -465,7 +532,7 @@ function zombie(mod, win, order, gameState, se, data) {
     const pl = gameState.getPlayer(1).where();
     const d = dist2(w, pl);
 
-    if (d < 1500) {
+    if (d < 1000) {
       thiz.stopMove();
       state = 19;
       return;
@@ -571,6 +638,7 @@ function Npc(mod, win, order, gameState, se, data) {
 function Base(gameState, mod, win, order, ext) {
   const thiz = {
     setDirection,
+    setDirectionAngle,
     setPos,
     moveTo,
     stopMove,
@@ -815,12 +883,12 @@ function Base(gameState, mod, win, order, ext) {
 
 
   //
-  // 返回角色前方检测点, 返回的对象立即使用, 之后该对象将被复用.
+  // 返回角色前方检测点, 返回的对象立即使用, 因为之后该对象将被复用.
   //
-  function frontPoint() {
+  function frontPoint(antenna_len) {
     const w = Tran.where();
     // 向前方探出触角的长度(游戏单位)
-    swap[0] = ANTENNA_LEN;
+    swap[0] = antenna_len || ANTENNA_LEN;
     swap[1] = 0;
     vec2.rotate(swap, swap, zero, -angle);
     swap[0] = swap[0] + w[0];
@@ -831,8 +899,12 @@ function Base(gameState, mod, win, order, ext) {
 
   // 设置绝对方向, d 是游戏角度参数 (0-4096)
   function setDirection(d) {
-    angle = d/0x0FFF * PI_360;
-    // mat4.rotateY(model_trans, model_trans, r);
+    setDirectionAngle(d/0x0FFF * PI_360);
+  }
+
+
+  function setDirectionAngle(a) {
+    angle = a;
     let s = Math.sin(angle);
     let c = Math.cos(angle);
     model_trans[0] = c;

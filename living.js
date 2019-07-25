@@ -140,8 +140,8 @@ function Living(mod, tex) {
   const liner_pos     = {x:0, y:0, z:0};
   const abs_pos       = {x:0, y:0, z:0};
   const liner_pos_tr  = Game.Pos3Transition(liner_pos, 0);
-  const move_speed    = [0,0,0];
-  let   DEF_SPEED     = 45;
+  const move_speed    = [0,0,0,0];
+  let   DEF_SPEED     = 30;
 
   // 动画索引
   let anim_idx = 0;
@@ -270,11 +270,12 @@ function Living(mod, tex) {
 
 
   function show_info() {
-    console.line("Anim", Tool.d4(anim_idx), "Frame", Tool.d4(anim_frame), 
-        "Offset", Tool.d4(frame_data.x), 
+    console.line("Anim", Tool.d4(anim_idx), "Fr:", Tool.d4(anim_frame), 
+        "Of:", Tool.d4(frame_data.x), 
         Tool.d4(frame_data.y), Tool.d4(frame_data.z), 
-        "Speed:", Tool.d4(frame_data.spx), 
-        Tool.d4(frame_data.spy), Tool.d4(frame_data.spz), "\t");
+        "Sp:", Tool.d4(frame_data.spx), 
+        Tool.d4(frame_data.spy), Tool.d4(frame_data.spz), 
+        "FL:", Tool.bit(move_speed[3]), "\t");
   }
 
 
@@ -283,7 +284,7 @@ function Living(mod, tex) {
   //
   function moveImmediately() {
     liner_pos.x = frame_data.x;
-    liner_pos.y = frame_data.y;
+    liner_pos.y = frame_data.y + mod.getHeight();
     liner_pos.z = frame_data.z;
   }
 
