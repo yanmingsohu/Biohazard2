@@ -1,6 +1,6 @@
 # 生化危机2 - 98重生 / Resident Evil 2 / Biohazard 2 1998'PC
 
-https://github.com/yanmingsohu/PlayJS-BIO2
+https://github.com/yanmingsohu/Biohazard2
 
 ![screen](https://github.com/yanmingsohu/PlayJS/raw/master/screen/s2.jpg)
 ![screen](https://github.com/yanmingsohu/PlayJS/raw/master/screen/s3.jpg)
@@ -13,17 +13,17 @@ Resident Evil 2 PC-1998 Rebirth
 
 # 安装方法
 
-[PlayJS 主程序 / Main program](https://github.com/yanmingsohu/PlayJS-release)
+解压 Release 到游戏目录, 启动 PlayJS.
 
-创建 `bio2` 目录, 把该项目中的所有文件复制 bio2 子目录中;  
+~~创建 `bio2` 目录, 把该项目中的所有文件复制 bio2 子目录中;  
 把该项目中的 `playjs.yaml` 文件与 PlayJS 主程序放在一起;  
 把 `bio2` 目录和 PlayJS 主程序放在一起, 并复制到原始游戏目录中;  
-启动 PlayJS.  
+启动 PlayJS.  ~~
 
-Create a `bio2` directory and copy all the files in the project into the bio2 subdirectory;  
+~~Create a `bio2` directory and copy all the files in the project into the bio2 subdirectory;  
 Put the `playjs.yaml` file in the project with the PlayJS main program;  
 Put the `bio2` directory together with the PlayJS main program and copy it into the original game directory;  
-Launch PlayJS.  
+Launch PlayJS.  ~~
 
 
 # 控制 / controller
