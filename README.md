@@ -13,7 +13,10 @@ Resident Evil 2 PC-1998 Rebirth
 
 # 安装方法
 
-解压 Release 到游戏目录, 启动 PlayJS.
+解压 Release 到游戏目录, 启动 `PlayJS.exe`.
+
+Unzip and release to the game directory and launch `PlayJS.exe`.
+
 
 ~~创建 `bio2` 目录, 把该项目中的所有文件复制 bio2 子目录中;~~  
 ~~把该项目中的 `playjs.yaml` 文件与 PlayJS 主程序放在一起;~~  
@@ -23,7 +26,7 @@ Resident Evil 2 PC-1998 Rebirth
 ~~Create a `bio2` directory and copy all the files in the project into the bio2 subdirectory;~~  
 ~~Put the `playjs.yaml` file in the project with the PlayJS main program;~~  
 ~~Put the `bio2` directory together with the PlayJS main program and copy it into the original game directory;~~  
-~~Launch PlayJS.  ~~
+~~Launch PlayJS.~~  
 
 
 # 控制 / controller
