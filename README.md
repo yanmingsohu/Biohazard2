@@ -2,10 +2,10 @@
 
 https://github.com/yanmingsohu/Biohazard2
 
-![screen](https://github.com/yanmingsohu/PlayJS/raw/master/screen/s2.jpg)
-![screen](https://github.com/yanmingsohu/PlayJS/raw/master/screen/s3.jpg)
-![screen](https://github.com/yanmingsohu/PlayJS/raw/master/screen/s4.jpg)
-![screen](https://github.com/yanmingsohu/PlayJS/raw/master/screen/s5.jpg)
+![screen](https://github.com/yanmingsohu/PlayJS/blob/master/screen/s2.jpg)
+![screen](https://github.com/yanmingsohu/PlayJS/blob/master/screen/s3.jpg)
+![screen](https://github.com/yanmingsohu/PlayJS/blob/master/screen/s4.jpg)
+![screen](https://github.com/yanmingsohu/PlayJS/blob/master/screen/s5.jpg)
 
 生化危机2 PC 1998年版本重置  
 Resident Evil 2 PC-1998 Rebirth
