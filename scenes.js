@@ -93,6 +93,7 @@ const gameState = {
   map_mblock,
   map_pblock,
   enemy,
+  rand_value,
 
   // js 脚本函数
   switch_camera,

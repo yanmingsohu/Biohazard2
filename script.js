@@ -495,6 +495,7 @@ function compile(arrbuf) {
         var dst = mem.byte();
         var src = mem.byte();
         debug(dst, src);
+        game.setGameVar(dst, game.getGameVar(src));
         break;
 
       case 0x26:
@@ -522,6 +523,7 @@ function compile(arrbuf) {
 
       case 0x28:
         debug("rnd");
+        game.rand_value = (Math.random() * 0xFFFF) & 0xFFFF;
         break;
 
       case 0x29:
@@ -651,6 +653,30 @@ function compile(arrbuf) {
         debug('SE', se);
         // 见鬼了, 数据本身似乎指向未知的表.
         // mem.wsec = (Date.now()/1000) + game.play_se(0, se.edt0 & 0x1f);
+          
+        switch (se.data0) { // xyz  相对目标
+          case 0:
+            break;
+          
+          case 1: // player
+          case 2:
+          case 3: // ENEMY
+          case 4: // Object, Door
+            var obj = game.get_game_object(4, se.data1);
+            var _se_offset = obj.where();
+            se.x += _se_offset[0];
+            se.y += _se_offset[1];
+            se.z += _se_offset[2];
+            break;
+          
+          default: // not right !
+            throw "cannot support"
+            se.x += se.x;
+            se.y += se.y;
+            se.z += se.z;
+            break;
+        }
+        // TODO: play SE
         break;
 
       case 0x37:
@@ -744,6 +770,7 @@ function compile(arrbuf) {
         var z = mem.short();
         debug('flag:', flag, 'room:', room, "xz:", x, z);
         // flag == 9 很奇怪
+        /*
         switch (flag) {
         case 7:
           game.work.setPos(x, 0, z);
@@ -756,6 +783,21 @@ function compile(arrbuf) {
 
         case 21: // 相对 位移
           break;
+        }*/
+        switch (flag - 4) {
+          case 0:
+          case 14:
+            break;
+          case 1:
+            break;
+          case 3:
+            break;
+          case 4:
+            break;
+          case 5:
+            break;
+          default:
+            break;
         }
         break;
 
