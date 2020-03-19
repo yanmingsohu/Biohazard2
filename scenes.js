@@ -12,6 +12,7 @@ import Item   from './item.js';
 
 const matrix = Node.load('boot/gl-matrix.js');
 const {vec3, mat4} = matrix;
+const _DEBUG = 1;
 
 
 export default {
@@ -77,6 +78,7 @@ let room_nm = 0;
 let camera_nm = -1;
 let play_mode = LEON;
 let ab = DISK_A;
+let lock_camera = false;
 // 玩家对象
 let p1;
 
@@ -93,7 +95,7 @@ const gameState = {
   map_mblock,
   map_pblock,
   enemy,
-  rand_value,
+  rand_value : 0,
 
   // js 脚本函数
   switch_camera,
@@ -131,7 +133,7 @@ function init(_window, _camera, _shader_pro, order) {
   draw_order = order;
   vec3.set(camera.up(), 0, -1, 0);
   window.add(frame_task);
-  // _test();
+  _DEBUG && _test_switch_camera();
 }
 
 
@@ -143,6 +145,7 @@ function start_game() {
 
 
 function switch_camera() {
+  if (lock_camera) return;
   let cd = map_data.cameras[camera_nm];
   camera.setPos(cd.from_x, cd.from_y, cd.from_z);
   camera.lookAt(cd.to_x, cd.to_y, cd.to_z);
@@ -625,7 +628,7 @@ function setDoor(d) {
     goto_next_door = true;
   };
 
-  _test_bind_key_sw_room(d.id, range.act);
+  _DEBUG && _test_bind_key_sw_room(d.id, range.act);
   // scenes_garbage.push(Tool.showRange(range, window));
 }
 
@@ -665,9 +668,13 @@ function calc(op, a, b) {
 }
 
 
-function _test() {
-  // 测试用
-  window.input().pressOnce(gl.GLFW_KEY_F, function() {
+function _test_switch_camera() {
+  // ']' switch to next camera
+  window.input().pressOnce(gl.GLFW_KEY_RIGHT_BRACKET, function() {
+    if (lock_camera) {
+      console.log("Camera Locked !");
+      return;
+    }
     camera_nm++;
     if (camera_nm >= map_data.cameras.length) camera_nm = 0;
     try {
@@ -678,7 +685,14 @@ function _test() {
     }
   });
 
-  window.input().pressOnce(gl.GLFW_KEY_E, function() {
+  // 'Pause' Lock / unlock camera
+  window.input().pressOnce(gl.GLFW_KEY_PAUSE, ()=>{
+    lock_camera = !lock_camera;
+    console.log(lock_camera ? "Lock camera" : "Unlock camera");
+  });
+
+  // '[' Load next map
+  window.input().pressOnce(gl.GLFW_KEY_LEFT_BRACKET, function() {
     load_map(stage, room_nm+1);
     switch_camera(0);
   });
@@ -828,6 +842,7 @@ function garbage(x) {
 
 
 function _show_point(x, y) {
+  if (!_DEBUG) return;
   let r = Tool.xywd2range({x, y, w:100, d:100});
   let color = new Float32Array([0.5, 0.5, 1]);
   garbage(Tool.showRange(r, window, color, -110));

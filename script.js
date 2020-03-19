@@ -662,8 +662,8 @@ function compile(arrbuf) {
           case 2:
           case 3: // ENEMY
           case 4: // Object, Door
-            var obj = game.get_game_object(4, se.data1);
-            var _se_offset = obj.where();
+            let obj = game.get_game_object(se.data0, se.data1);
+            let _se_offset = obj.where();
             se.x += _se_offset[0];
             se.y += _se_offset[1];
             se.z += _se_offset[2];
@@ -769,21 +769,7 @@ function compile(arrbuf) {
         var x = mem.short();
         var z = mem.short();
         debug('flag:', flag, 'room:', room, "xz:", x, z);
-        // flag == 9 很奇怪
-        /*
-        switch (flag) {
-        case 7:
-          game.work.setPos(x, 0, z);
-          break;
-
-        case 4:
-          // game.work.changePose(0, -1);
-          game.work.moveTo(x, 0, z);
-          break;
-
-        case 21: // 相对 位移
-          break;
-        }*/
+        
         switch (flag - 4) {
           case 0:
           case 14:
@@ -799,6 +785,9 @@ function compile(arrbuf) {
           default:
             break;
         }
+        game.work.changePose(flag-4, -1);
+        game.work.setMoveSpeed(30);
+        game.work.moveTo(x, 0, z);
         break;
 
       case 0x41:

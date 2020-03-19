@@ -996,10 +996,11 @@ function Base(gameState, mod, win, order, ext) {
     moveForward(u);
 
     let x = Math.abs(model_trans[12] - moving_destination[0]);
-    let y = Math.abs(model_trans[13] - moving_destination[1]);
     let z = Math.abs(model_trans[14] - moving_destination[2]);
-    if (x < 10 && y < 10 && z < 10) {
+    // console.log('-----------------', moveSpeed, model_trans[12], model_trans[14], moving_destination[0], moving_destination[2])
+    if (x < 10 && z < 10) {
       _state = 0;
+      // console.log("eeeeeeeeeeeeeeeeeeeeeeeeeeee")
     }
   }
 
@@ -1018,7 +1019,7 @@ function Base(gameState, mod, win, order, ext) {
     let step = (Math.abs(a0)*u - thiz.anim_speed_addition[2]*u) *moveSpeed;
     // console.log(thiz.anim_speed_addition[0], 
       //   thiz.anim_speed_addition[1], thiz.anim_speed_addition[2]);
-    Tran.translate(wrap0(step, 0, 0));
+    Tran.translate(wrap0(step || 10, 0, 0));
   }
 
 
