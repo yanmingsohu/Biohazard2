@@ -119,7 +119,7 @@ function enemyBrowse(Liv, window, Room, camera) {
   // 46: 枪店老板, 58:警察僵尸
   // 动画不正常: 51:里昂, 94:机械臂, 91:食人花, 70:舔舐者, 71:鳄鱼
   // 模型不正常: 39:艾达, 20:暴君
-  let mindex = 46;
+  let mindex = 51;
   _dir('Pl0/emd0');
   _dir('pl1/emd1');
 
@@ -131,7 +131,8 @@ function enemyBrowse(Liv, window, Room, camera) {
   let weaponid = 0;
   let player;
   let curr_weapon;
-  let speed = 100;
+  let speed = 1;
+  let anim_move_info;
 
   let tmat = matrix.mat4.create(1);
   matrix.mat4.translate(tmat, tmat, [0, 0, 0]);
@@ -164,12 +165,12 @@ function enemyBrowse(Liv, window, Room, camera) {
   });
 
   window.onKey(gl.GLFW_KEY_S, gl.GLFW_PRESS, 0, function() {
-    matrix.mat4.translate(tmat, tmat, [-one_step, 0, 0]);
+    matrix.mat4.translate(tmat, tmat, [one_step, 0, 0]);
     Shader.setModelTrans(tmat);
   });
 
   window.onKey(gl.GLFW_KEY_W, gl.GLFW_PRESS, 0, function() {
-    matrix.mat4.translate(tmat, tmat, [one_step ,0, 0]);
+    matrix.mat4.translate(tmat, tmat, [-one_step ,0, 0]);
     Shader.setModelTrans(tmat);
   });
 
@@ -195,6 +196,7 @@ function enemyBrowse(Liv, window, Room, camera) {
       anim_idx = 0;
     }
     console.log("POSE", anim_idx);
+    mod.show_pose_data_info();
   });
 
   window.input().pressOnce(gl.GLFW_KEY_Z, function() {
@@ -204,6 +206,7 @@ function enemyBrowse(Liv, window, Room, camera) {
       anim_idx = 0;
     }
     console.log("POSE", anim_idx);
+    mod.show_pose_data_info();
   });
 
   window.input().pressOnce(gl.GLFW_KEY_E, function() {
@@ -226,12 +229,12 @@ function enemyBrowse(Liv, window, Room, camera) {
   });
 
   window.input().pressOnce(gl.GLFW_KEY_MINUS, function() {
-    console.log("speed", speed+=5);
+    console.log("speed", speed *= 1.2);
     if (mod) mod.setSpeed(speed);
   });
 
   window.input().pressOnce(gl.GLFW_KEY_EQUAL, function() {
-    console.log("speed", speed-=5);
+    console.log("speed", speed /= 1.2);
     if (mod) mod.setSpeed(speed);
   });
 
@@ -244,6 +247,7 @@ function enemyBrowse(Liv, window, Room, camera) {
 
   window.add({
     draw() {
+      one_step = anim_move_info[0];
       mod.show_info();
     },
   });
@@ -272,6 +276,7 @@ function enemyBrowse(Liv, window, Room, camera) {
     camera.lookAt(tmat[12], tmat[13]-1000, tmat[14]);
     mod.setSpeed(speed);
     mod.moveImmediately();
+    anim_move_info = mod.getMoveInfo();
     console.log("Mod index:", mindex, player, info.id);
   }
 

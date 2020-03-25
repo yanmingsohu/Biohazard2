@@ -49,7 +49,7 @@ function player(mod, win, order, gameState, camera) {
   const ROT_COE    = [0.022, 0.011, 0.015]
   const RUN_SP     = 25;
   const WALK       = 16;
-  const WALK_SPEED = 30;
+  const WALK_SPEED = 10;
 
   const input      = win.input();
   const play_range = gameState.play_range;
@@ -86,7 +86,7 @@ function player(mod, win, order, gameState, camera) {
   let bullet = 0;
   let weapon;
 
-  mod.setSpeed(WALK_SPEED);
+  //mod.setSpeed(WALK_SPEED);
   bind_ctrl(input, defaultKeyBind);
   thiz.changePose(12, 1);
   thiz.installCollision(1500);
@@ -132,6 +132,7 @@ function player(mod, win, order, gameState, camera) {
   function draw(u, t) {
     // mod.show_info();
     if (wait) return;
+    one_step = thiz.anim_speed_addition[0]/2 + WALK_SPEED;
 
     if (attacked_time > 0) { // TODO: 上子弹时被攻击无效
       if (t - attacked_time > 5) {
@@ -169,7 +170,7 @@ function player(mod, win, order, gameState, camera) {
       }
     }
     else if (forward) {
-      one_step = WALK;
+      // one_step = WALK;
       if (run) {
         rot = ROT_COE[2];
         thiz.changePose(11, 1);
@@ -182,7 +183,7 @@ function player(mod, win, order, gameState, camera) {
     else if (goback) {
       run = 0;
       rot = ROT_COE[1];
-      one_step = -WALK;
+      // one_step = -WALK;
       thiz.changePose(0, 1);
       move(u);
     } else {
@@ -264,9 +265,7 @@ function player(mod, win, order, gameState, camera) {
 
   function move(u) {
     // step/rot 基于 140 帧来调试的, 在其他帧率需要乘以倍数.
-    let step = ((one_step + run) + 
-        ((thiz.anim_speed_addition[2]+0.1)/15) 
-        + thiz.anim_speed_addition[0]/800) *(u*140);
+    let step = (one_step + run) *(u*140);
     thiz.translate(thiz.wrap0(step, 0, 0));
     // thiz.moveForward(u);
 
@@ -878,7 +877,7 @@ function Base(gameState, mod, win, order, ext) {
 
   thiz.ms = model_trans;
   thiz.swap = swap; // 使用的元素必须完全清空
-  thiz.anim_speed_addition = mod.getMoveSpeed();
+  thiz.anim_speed_addition = mod.getMoveInfo();
   delete ext.free;
 
   return Object.assign(Tran, thiz, ext);;
@@ -1007,19 +1006,7 @@ function Base(gameState, mod, win, order, ext) {
 
   function moveForward(u) {
     let a0 = thiz.anim_speed_addition[0];
-    // if (a0 < 0) {
-    //   forwardstep = Math.min(forwardstep, a0);
-    // }
-    // if (thiz.anim_speed_addition[3] & 0x8) {
-    //   forwardflag = thiz.anim_speed_addition[3] & 0x4;
-    // }
-    // if (forwardflag == 0) {
-    //   // a0 = Math.abs(forwardstep) + a0;
-    // }
-    let step = (Math.abs(a0)*u - thiz.anim_speed_addition[2]*u) *moveSpeed;
-    // console.log(thiz.anim_speed_addition[0], 
-      //   thiz.anim_speed_addition[1], thiz.anim_speed_addition[2]);
-    Tran.translate(wrap0(step || 10, 0, 0));
+    Tran.translate(wrap0(a0, 0, 0));
   }
 
 

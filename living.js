@@ -31,8 +31,12 @@ export default {
 // 处理线性动画
 class AngleLinearFrame {
   constructor() {
-    this.curr = [];
-    this.prev = [];
+    // time = 1 旋转值
+    this.endVal = [];
+    // 基于 time 插值得到的旋转
+    this.currVal = [];
+    // time = 0 旋转值
+    this.beginVal = [];
     this.time = 1;
     this.qa = quat.create();
     this.qb = quat.create();
@@ -41,48 +45,75 @@ class AngleLinearFrame {
 
   // percentage 从 0~1, 1表示完成
   setPercentage(percentage) {
-    if (percentage < 0) percentage = 0;
-    else if (percentage > 1) percentage = 1;
+    // if (percentage < 0) percentage = 0;
+    // else if (percentage > 1) percentage = 1;
     this.time = percentage;
   }
 
-  setCurrent(frame_data) {
-    const a = this.curr, b = frame_data.angle;
-    let c, x;
-    for (let i=0, len=b.length; i<len; ++i) {
-      c = b[i], x = a[i];
-      if (!x) x = a[i] = quat.create();
-      else quat.identity(x);
+  getQuat(arr, index) {
+    if (!arr[index]) {
+      arr[index] = quat.create();
+    }
+    return arr[index];
+  }
+
+  setDestination(frame_data) {
+    for (let i=0, len=frame_data.angle.length; i<len; ++i) {
+      if (this.endVal.length < frame_data.angle.length) {
+        this.getQuat(this.endVal, i);
+        this.getQuat(this.currVal, i);
+        this.getQuat(this.beginVal, i);
+      }
+      quat.identity(this.endVal[i]);
+      
       //!这种方法结果错误, 动画奇葩
       // quat.fromEuler(a[i], c.x, c.y, c.z);
-      quat.rotateX(x, x, c.x);
-      quat.rotateY(x, x, c.y);
-      quat.rotateZ(x, x, c.z);
+      
+      let _end = this.endVal[i];
+      let _tar = frame_data.angle[i];
+      quat.rotateX(_end, _end, _tar.x);
+      quat.rotateY(_end, _end, _tar.y);
+      quat.rotateZ(_end, _end, _tar.z);
     }
   }
 
   reset() {
-    for (let i=this.prev.length-1; i>=0; --i) {
-      this.prev[i][0] = 0;
-      this.prev[i][1] = 0;
-      this.prev[i][2] = 0;
-      this.prev[i][3] = 0;
+    this.zero(this.currVal);
+  }
+
+  // 当帧数据改变时调用
+  update() {
+    this.copy(this.currVal, this.beginVal);
+  }
+
+  zero(arr) {
+    for (let i= arr.length-1; i>=0; --i) {
+      arr[i][0] = 0;
+      arr[i][1] = 0;
+      arr[i][2] = 0;
+      arr[i][3] = 0;
+    }
+  }
+
+  copy(src, dsc) {
+    for (let i=src.length-1; i>=0; --i) {
+      dsc[i][0] = src[i][0];
+      dsc[i][1] = src[i][1];
+      dsc[i][2] = src[i][2];
+      dsc[i][3] = src[i][3];
     }
   }
 
   // 获取 x,y,z 之前先调用
   index(boneIdx) {
-    let a = this.prev[boneIdx];
-    if (!a) {
-      a = this.prev[boneIdx] = [0,0,0,0];
-    }
-    quat.slerp(a, a, this.curr[boneIdx], this.time);
+    let _curr = this.currVal[boneIdx];
+    quat.slerp(_curr, this.beginVal[boneIdx], this.endVal[boneIdx], this.time);
     
-    this.x = a[0];
-    this.y = a[1];
-    this.z = a[2];
-    this.w = a[3];
-    return a;
+    this.x = _curr[0];
+    this.y = _curr[1];
+    this.z = _curr[2];
+    this.w = _curr[3];
+    return _curr;
 
     // 欧拉角(测试用)
     // this.x = this.curr[boneIdx].x * Math.PI / 180;
@@ -139,9 +170,9 @@ function Living(mod, tex) {
   const alf           = new AngleLinearFrame();
   const liner_pos     = {x:0, y:0, z:0};
   const abs_pos       = {x:0, y:0, z:0};
-  const liner_pos_tr  = Game.Pos3Transition(liner_pos, 0);
-  const move_speed    = [0,0,0,0];
-  let   DEF_SPEED     = 30;
+  const liner_pos_tr  = Game.Pos3TransitionLine(liner_pos, 0);
+  const move_info     = [0,0,0,0];
+  const DEF_SPEED     = 1;
 
   // 动画索引
   let anim_idx = 0;
@@ -155,10 +186,13 @@ function Living(mod, tex) {
   let whenAnimEnd = 1;
   let animCallBack;
   let animSound;
+  // 当前动画帧停留时间 ms
+  let frame_time = 0;
 
   createSprites(mod.mesh, tex, components);
   setAnim(0, 0);
   _nextFrame(0);
+  liner_pos_tr.update(abs_pos);
 
   return {
     draw,
@@ -177,9 +211,10 @@ function Living(mod, tex) {
     getMD,
     // 每帧动画, 移动的距离不同, 返回的数组反映移动距离
     // 返回的对象每帧都会更新.
-    getMoveSpeed,
+    getMoveInfo,
     moveImmediately,
     show_info,
+    show_pose_data_info,
   };
 
 
@@ -188,8 +223,8 @@ function Living(mod, tex) {
   }
 
 
-  function getMoveSpeed() {
-    return move_speed;
+  function getMoveInfo() {
+    return move_info;
   }
 
 
@@ -198,9 +233,9 @@ function Living(mod, tex) {
   }
 
 
-  // 值越大, 播放速度越慢
+  // 速度百分比, 最终速度 = 当前速度 * s
   function setSpeed(s) {
-    DEF_SPEED = s;
+    speed = s;
   }
 
 
@@ -270,12 +305,30 @@ function Living(mod, tex) {
 
 
   function show_info() {
-    console.line("Anim", Tool.d4(anim_idx), "Fr:", Tool.d4(anim_frame), 
-        "Of:", Tool.d4(frame_data.x), 
-        Tool.d4(frame_data.y), Tool.d4(frame_data.z), 
-        "Sp:", Tool.d4(frame_data.spx), 
-        Tool.d4(frame_data.spy), Tool.d4(frame_data.spz), 
-        "FL:", Tool.bit(move_speed[3]), "\t");
+    console.line("Anim", Tool.d4(anim_idx), 
+      format_info(frame_data, move_info[3]));
+  }
+
+
+  function show_pose_data_info() {
+    if (!pose) return console.log("No set pose");
+    console.log("Anim", Tool.d4(anim_idx), pose.length);
+    
+    for (let i=0; i<pose.length; ++i) {
+      let frm = pose[i];
+      let fd = pose.get_frame_data(frm.sk_idx);
+      
+      console.log("  ", format_info(fd, frm.flag));
+    }
+  }
+
+
+  function format_info(fd, flag) {
+    return ["Fr", Tool.d4(anim_frame), 
+      "Of", Tool.d4(fd.x), Tool.d4(fd.y), Tool.d4(fd.z), 
+      "T", Tool.d4(fd.frameTime), "M", Tool.d4(fd.moveStep),
+      Tool.d4(fd.spy), Tool.d4(fd.spz), 
+      "FL", Tool.bit(flag)].join(' ');
   }
 
 
@@ -306,17 +359,25 @@ function Living(mod, tex) {
       return false;
     }
 
+    // 用当前位置作为起始位置
+    liner_pos_tr.update(abs_pos);
+  
     frame_data = pose.get_frame_data(frm.sk_idx);
-    alf.setPercentage(0);
-    alf.setCurrent(frame_data);
-    move_speed[0] = frame_data.spx;
-    move_speed[1] = frame_data.spy;
-    move_speed[2] = frame_data.spz;
-    move_speed[3] = frm.flag;
+    alf.update();
+    // alf.setPercentage(0);
+    alf.setDestination(frame_data);
+
+    move_info[0] = frame_data.moveStep;
+    move_info[1] = frame_data.spy;
+    move_info[2] = frame_data.spz;
+    move_info[3] = frm.flag;
     abs_pos.x = frame_data.x;
     abs_pos.y = frame_data.y + mod.getHeight();
     abs_pos.z = frame_data.z;
+    frame_time = frame_data.frameTime ? frame_data.frameTime * speed : 25;
+    liner_pos_tr.speed(frame_time);
 
+    // flag: 不同的bit播放不同的音效通道
     if (frm.flag && animSound) {
       animSound.play(frm.flag);
     }
@@ -329,22 +390,22 @@ function Living(mod, tex) {
     u *= 1000;
     a += u;
     Shader.draw_living();
-    const sp = speed;
     
+    if (a >= frame_time) {
+      a = 0;
+      u = 0;
+      _nextFrame(anim_frame + anim_dir);
+    }
+  
     // console.log(a/speed, '\t', a, '\t', speed);
-    alf.setPercentage(u/sp);
-    liner_pos_tr.line(u, abs_pos);
+    let perc = a / frame_time;
+    move_info[0] = frame_data.moveStep * perc;
+    alf.setPercentage(perc);
+    liner_pos_tr.line(a, abs_pos);
 
-    // console.line(liner_pos.y);
+    // console.line(liner_pos.y); //TODO: liner_pos
     Shader.setAnimOffset(liner_pos.x, liner_pos.y, liner_pos.z);
     mod.transformRoot(alf, components, 0);
-    
-    if (a >= sp) {
-      a = 0;
-      if (!_nextFrame(anim_frame + anim_dir)) return;
-      // speed = DEF_SPEED/* - frame_data.spx/2000*/;
-      liner_pos_tr.speed(sp);
-    }
   }
 
 

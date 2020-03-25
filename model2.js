@@ -445,6 +445,10 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     sk.spx = buf.short();
     sk.spy = buf.short();
     sk.spz = buf.short();
+    // 动画帧停留时间
+    sk.frameTime = (sk.spx < 0 ? -sk.spx : sk.spx) & 0x3F;
+    // 应该是某种索引, 总是有规律的递增/递减
+    sk.moveStep  = sk.spx >> 6;
 
     sk.angle = new Array(RLEN);
     compute_angle(sk);
