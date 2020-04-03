@@ -3,6 +3,7 @@ import Shader from './shader.js'
 import Tim    from './tim.js'
 import Tool   from './tool.js'
 import node   from '../boot/node.js'
+import BoneNm from './module-bone.js'
 
 const matrix = node.load('boot/gl-matrix.js');
 const {vec3, mat4} = matrix;
@@ -130,7 +131,7 @@ function _open(file) {
       throw new Error("Dir Exceeded the maximum", h_dir_count);
     }
     let r = buf.ulong(h_dir_offset + (typeIdx << 2));
-    // debug("] OFFSET", h4(r), 'AT', h4(h_dir_offset + (typeIdx << 2)));
+    debug("] OFFSET", typeIdx, h4(r), 'AT', h4(h_dir_offset + (typeIdx << 2)));
     return r;
   }
 }
@@ -151,6 +152,7 @@ function emd(file) {
   if (am_idx) skeleton(md, am_idx, buf, buf._offset(6));
 
   md.mesh = mesh(buf, buf._offset(7));
+  BoneNm.bind(file, md);
   debug("Anim Group", md.pose_group);
   return md;
 }
@@ -225,7 +227,7 @@ function animation(buf, am_off) {
         sk_idx : (t &      0x7FF),
       };
       if (group[j].flag) {
-        debug('  -', j, '\tFlag', Tool.h4(group[j].flag), 
+        debug('  - Frame', j, '\tFlag', Tool.h4(group[j].flag), 
           '\tSK', group[j].sk_idx);
       }
     }
@@ -243,6 +245,8 @@ class SkeletonBone {
     this._pos = [dat.x, dat.y, dat.z];
     // 骨头可以组合一个绘制对象
     this._combination = null;
+    // 最后一次骨骼状态变换矩阵的值
+    this.lastTrans = mat4.create();
   }
 
 
@@ -267,7 +271,6 @@ class SkeletonBone {
   //
   transform2(bind_bone, alf, sprites, count) {
     // 骨骼索引和3d面组索引对应
-    // TODO: 这个索引的错误导致动画怪异?
     alf.index(this.idx);
     
     const boffset = count << 3;
@@ -306,6 +309,7 @@ class SkeletonBone {
 
     Shader.setBoneConvert(modmat);
     sprites[this.idx].draw();
+    mat4.copy(this.lastTrans, modmat);
     if (this._combination) {
       this._combination.draw();
     }
@@ -437,6 +441,7 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     // if (curr_sk_idx === sk_index) return skdata;
     // 整体位置偏移量
     let xy_off = anim_offset + data_size * sk_index;
+    // buf.print(xy_off, 0x20);
     sk.x = buf.short(xy_off);
     sk.y = buf.short();
     sk.z = buf.short();
@@ -446,6 +451,11 @@ function create_anim_frame_data(buf, anim_offset, data_size) {
     sk.spy = buf.short();
     sk.spz = buf.short();
     // 动画帧停留时间
+    // if (sk_index == 0) {
+    //   sk.frameTime = Math.abs(sk.spx);
+    // } else {
+    //   sk.frameTime = Math.abs(sk.spx - get_frame_data(sk_index-1).spx);
+    // }
     sk.frameTime = (sk.spx < 0 ? -sk.spx : sk.spx) & 0x3F;
     // 应该是某种索引, 总是有规律的递增/递减
     sk.moveStep  = sk.spx >> 6;
@@ -600,5 +610,5 @@ function mesh(buf, offset) {
 
 
 function debug() {
-  // Tool.debug.apply(null, arguments);
+  Tool.debug.apply(null, arguments);
 }

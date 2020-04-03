@@ -132,7 +132,7 @@ function player(mod, win, order, gameState, camera) {
   function draw(u, t) {
     // mod.show_info();
     if (wait) return;
-    one_step = thiz.anim_speed_addition[0]/2 + WALK_SPEED;
+    one_step = thiz.anim_speed_addition[0];
 
     if (attacked_time > 0) { // TODO: 上子弹时被攻击无效
       if (t - attacked_time > 5) {
@@ -265,8 +265,8 @@ function player(mod, win, order, gameState, camera) {
 
   function move(u) {
     // step/rot 基于 140 帧来调试的, 在其他帧率需要乘以倍数.
-    let step = (one_step + run) *(u*140);
-    thiz.translate(thiz.wrap0(step, 0, 0));
+    if (goback) one_step = -one_step;
+    thiz.translate(thiz.wrap0(one_step, 0, 0));
     // thiz.moveForward(u);
 
     // w 是对 where 返回对象的引用, 调用 where 会影响 w 的值.
@@ -312,12 +312,12 @@ function player(mod, win, order, gameState, camera) {
 
   // 横向移动, rate(0,1)
   function traverse(rate) {
-    thiz.translate(thiz.wrap0(0, 0, (one_step + run) * rate));
+    thiz.translate(thiz.wrap0(0, 0, (one_step) * rate));
   }
 
 
   function back() {
-    thiz.translate(thiz.wrap0(-one_step - run, 0, 0));
+    thiz.translate(thiz.wrap0(-one_step, 0, 0));
   }
 
 
@@ -412,6 +412,7 @@ function zombie(mod, win, order, gameState, se, data) {
   });
 
   thiz.installCollision(2000);
+  thiz.setRotateSpeed(0.001);
 
 
   //
@@ -856,6 +857,7 @@ function Base(gameState, mod, win, order, ext) {
     getCollision,
     isBackToMe,
     isRightToMe,
+    setRotateSpeed,
   };
 
   order.addMod(thiz);
@@ -978,6 +980,11 @@ function Base(gameState, mod, win, order, ext) {
   }
 
 
+  function setRotateSpeed(r) {
+    rotateSpeed = r;
+  }
+
+
   // 带有转身的移动
   function _move1(u) {
     const an_at = angleAtPos(moving_destination[0], moving_destination[2]);
@@ -1005,8 +1012,7 @@ function Base(gameState, mod, win, order, ext) {
 
 
   function moveForward(u) {
-    let a0 = thiz.anim_speed_addition[0];
-    Tran.translate(wrap0(a0, 0, 0));
+    Tran.translate(wrap0(thiz.anim_speed_addition[0], 0, 0));
   }
 
 

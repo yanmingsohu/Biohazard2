@@ -42,7 +42,7 @@ Scenes.start_game();
 // Dev.roomBrowse(Room, window, camera);
 // Dev.smallMapBrowse(Room, window);
 // Dev.dataDirBrowse(Room, window);
-// Dev.enemyBrowse(Liv, window, Room, camera);
+Dev.enemyBrowse(Liv, window, Room, camera);
 
 // 备用游戏循环, 有戏主循环在别处
 // window.add(Draw.showRate());

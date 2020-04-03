@@ -249,6 +249,7 @@ function readSound(filebuf, off, ret) {
 
   let vab = Bgm.parse_vab_header(v, off.vab, off.offset2);
   debug('RAW count', vab.raw.length);
+  //hex.printHex(new Uint8Array(filebuf, off.offset0, 100));
   ret.vab = vab;
 }
 

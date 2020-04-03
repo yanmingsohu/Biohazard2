@@ -171,8 +171,10 @@ function Living(mod, tex) {
   const liner_pos     = {x:0, y:0, z:0};
   const abs_pos       = {x:0, y:0, z:0};
   const liner_pos_tr  = Game.Pos3TransitionLine(liner_pos, 0);
+  // [movestep, ?, ?, flag]
   const move_info     = [0,0,0,0];
   const DEF_SPEED     = 1;
+  const FIRST_FRM_TIM = 3;
 
   // 动画索引
   let anim_idx = 0;
@@ -188,6 +190,8 @@ function Living(mod, tex) {
   let animSound;
   // 当前动画帧停留时间 ms
   let frame_time = 0;
+  let prevStep = 0;
+  let prevFrameTime = 0;
 
   createSprites(mod.mesh, tex, components);
   setAnim(0, 0);
@@ -271,6 +275,7 @@ function Living(mod, tex) {
     pose = tmp;
     if (frame >= 0) anim_frame = frame;
     a = 0;
+    frame_time = FIRST_FRM_TIM;
     return true;
   }
 
@@ -326,9 +331,9 @@ function Living(mod, tex) {
   function format_info(fd, flag) {
     return ["Fr", Tool.d4(anim_frame), 
       "Of", Tool.d4(fd.x), Tool.d4(fd.y), Tool.d4(fd.z), 
-      "T", Tool.d4(fd.frameTime), "M", Tool.d4(fd.moveStep),
+      "T", Tool.d4(frame_time), "M", Tool.d4(fd.spx),
       Tool.d4(fd.spy), Tool.d4(fd.spz), 
-      "FL", Tool.bit(flag)].join(' ');
+      "FL", Tool.bit(flag), parseInt(move_info[0]) ].join(' ');
   }
 
 
@@ -346,9 +351,11 @@ function Living(mod, tex) {
     if (frame < 0) {
       if (!_end()) return false;
       anim_frame = pose.length -1;
+      prevFrameTime = FIRST_FRM_TIM;
     } else if (frame >= pose.length) {
       if (!_end()) return false;
       anim_frame = 0;
+      prevFrameTime = FIRST_FRM_TIM;
     } else {
       anim_frame = parseInt(frame);
     }
@@ -367,15 +374,19 @@ function Living(mod, tex) {
     // alf.setPercentage(0);
     alf.setDestination(frame_data);
 
-    move_info[0] = frame_data.moveStep;
     move_info[1] = frame_data.spy;
     move_info[2] = frame_data.spz;
     move_info[3] = frm.flag;
+    prevStep = mod.boneIdx.stepLength(mod.bone);
+
     abs_pos.x = frame_data.x;
     abs_pos.y = frame_data.y + mod.getHeight();
     abs_pos.z = frame_data.z;
+    // Fucking distance
     frame_time = frame_data.frameTime ? frame_data.frameTime * speed : 25;
+    // frame_time = (Math.abs(frame_data.spx - prevFrameTime) * speed) || FIRST_FRM_TIM;
     liner_pos_tr.speed(frame_time);
+    prevFrameTime = frame_data.spx;
 
     // flag: 不同的bit播放不同的音效通道
     if (frm.flag && animSound) {
@@ -399,13 +410,17 @@ function Living(mod, tex) {
   
     // console.log(a/speed, '\t', a, '\t', speed);
     let perc = a / frame_time;
-    move_info[0] = frame_data.moveStep * perc;
+    // move_info[0] = frame_data.moveStep * perc;
     alf.setPercentage(perc);
     liner_pos_tr.line(a, abs_pos);
 
     // console.line(liner_pos.y); //TODO: liner_pos
     Shader.setAnimOffset(liner_pos.x, liner_pos.y, liner_pos.z);
     mod.transformRoot(alf, components, 0);
+
+    let sl = mod.boneIdx.stepLength(mod.bone);
+    move_info[0] = Math.abs(sl - prevStep) /2;
+    prevStep = sl;
   }
 
 

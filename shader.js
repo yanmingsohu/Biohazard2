@@ -18,7 +18,7 @@ export default {
   // 设置骨骼旋转矩阵
   // boneRotate,
   bindBoneOffset,
-  // 使用投影矩阵变换顶点
+  // 使用投影矩阵变换顶点, 使对象坐标转换为屏幕坐标
   transformProjection,
   // 设置骨骼动画偏移
   setAnimOffset,
@@ -36,7 +36,7 @@ export default {
 import Draw from '../boot/draw.js'
 import Node from '../boot/node.js'
 const matrix = Node.load('boot/gl-matrix.js');
-const {vec4, mat4} = matrix;
+const {vec4, mat4, vec3} = matrix;
 
 const MASK_DEPTH_X = 0x1E0;
 const FOVY = 60;
@@ -241,11 +241,20 @@ function setLights(camera, def, l1, l2) {
 }
 
 
-function maskDepth(d) {
-  // TODO: 深度值需要进一步精确
-  // return (1/d - 1/NEAR) / (1/FAR - 1/NEAR);
-  return (1- (1023 - d - NEAR) / (FAR - NEAR)) * 1.0136;
-  // return 1 - ((NEAR+d)/FAR) - (1023 - d - NEAR) / (FAR - NEAR);
-  // let z = f - (1023 - d);
-  // return (z - n) / (f - n);
+// TODO: 深度值需要进一步精确
+function maskDepth(d, camera) {
+  let cameraDir = camera.lookWhere();
+  // [x, y, z, w]
+  let pos = [cameraDir[0], cameraDir[1], cameraDir[2], 1];
+  vec3.normalize(pos, pos);
+  vec3.scale(pos, pos, d<<5);
+  vec3.add(pos, pos, camera.pos());
+
+  camera.transform(pos, pos);
+  pos[3] = 1;
+  transformProjection(pos, pos);
+  vec4.scale(pos, pos, 1/pos[3]);
+  // console.log(d, '=>', pos);
+
+  return pos[2];
 }

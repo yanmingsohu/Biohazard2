@@ -160,7 +160,7 @@ function setMask(m, maskbuf, bgbuf, ow, oh, mw, mh) {
     sy = m[i].src_y;
     ww = m[i].w;
     hh = m[i].h;
-    z = Shader.maskDepth(m[i].depth);
+    z = Shader.maskDepth(m[i].depth, camera);
     // console.log(i, m[i].depth, z, 1-z, z-1);
 
     bi = i * BUFLEN * 4;
