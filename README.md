@@ -1,6 +1,7 @@
 # 生化危机2 - 98重生 / Resident Evil 2 / Biohazard 2 1998'PC
 
-https://github.com/yanmingsohu/Biohazard2
+https://github.com/yanmingsohu/Biohazard2  
+https://github.com/yanmingsohu/PlayJS  
 
 ![screen](https://github.com/yanmingsohu/PlayJS/blob/master/screen/s2.jpg)
 ![screen](https://github.com/yanmingsohu/PlayJS/blob/master/screen/s3.jpg)
