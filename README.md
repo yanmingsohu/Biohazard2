@@ -3,6 +3,8 @@
 https://github.com/yanmingsohu/Biohazard2  
 https://github.com/yanmingsohu/PlayJS  
 
+In this project, I reverse engineered the exe file to obtain the permissible assembly code: https://github.com/yanmingsohu/re2re
+
 ![screen](https://github.com/yanmingsohu/PlayJS/blob/master/screen/s2.jpg)
 ![screen](https://github.com/yanmingsohu/PlayJS/blob/master/screen/s3.jpg)
 ![screen](https://github.com/yanmingsohu/PlayJS/blob/master/screen/s4.jpg)
