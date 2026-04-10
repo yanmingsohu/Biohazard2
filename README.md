@@ -79,12 +79,13 @@ Unzip and release to the game directory and launch `PlayJS.exe`.
   * [ ] 死之城, 所有敌人以死亡呈现(只有一个暴君在警署大厅?)
 
 
-# Thanks
+# Thanks / These reconstruction projects are underway.
 
 * https://github.com/MeganGrass/BioScript
 * https://github.com/mortician
 * https://github.com/pmandin
 * https://github.com/XProger/OpenResident
 * https://github.com/OpenBiohazard2/OpenBiohazard2
+* https://github.com/IntelOrca/openre
 
 
