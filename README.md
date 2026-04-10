@@ -84,8 +84,7 @@ Unzip and release to the game directory and launch `PlayJS.exe`.
 * https://github.com/MeganGrass/BioScript
 * https://github.com/mortician
 * https://github.com/pmandin
+* https://github.com/XProger/OpenResident
+* https://github.com/OpenBiohazard2/OpenBiohazard2
 
 
-# Discuss
-
-[Temporary](https://tieba.baidu.com/p/6067739411)
